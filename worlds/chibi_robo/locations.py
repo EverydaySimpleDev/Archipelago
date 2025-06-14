@@ -1,4 +1,5 @@
 from BaseClasses import Location
+from Utils import visualize_regions
 from .game_id import game_name
 from typing import Dict, List
 
@@ -780,14 +781,14 @@ def split_location_name_by_zone(location_name: str) -> tuple[str, str]:
     return zone_name, specific_location_name
 
 
-location_groups = {
-    "Living Room": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Living Room"],
-    "Kitchen": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Kitchen"],
-    "Foyer": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Foyer"],
-    "Sink Drain": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Sink Drain"],
-    "Basement": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Basement"],
-    "Backyard": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Backyard"],
-    "Jenny's Room": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Jenny's Room"],
-    "Bedroom": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Bedroom"],
-    "Chibi House": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Chibi House"],
-}
+# location_groups = {
+#     "Living Room": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Living Room"],
+#     "Kitchen": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Kitchen"],
+#     "Foyer": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Foyer"],
+#     "Sink Drain": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Sink Drain"],
+#     "Basement": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Basement"],
+#     "Backyard": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Backyard"],
+#     "Jenny's Room": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Jenny's Room"],
+#     "Bedroom": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Bedroom"],
+#     "Chibi House": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Chibi House"],
+# }

@@ -1,4 +1,5 @@
 # Python standard libraries
+import logging
 import os
 import zipfile
 from base64 import b64encode
@@ -18,13 +19,14 @@ import settings
 from worlds.AutoWorld import World, WebWorld
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths
 from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tutorial, CollectionState, MultiWorld
-from .Regions import create_regions
+from .regions import create_regions
 from .game_id import game_name
-from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups
-from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups
+from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData
+from .locations import ChibiRoboLocation, LOCATION_TABLE
 from .options import ChibiRobobGameOptions
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer, AutoPatchRegister
+from .rules import set_rules
 
 VERSION: tuple[int, int, int] = (1, 0, 0)
 
@@ -87,8 +89,8 @@ class ChibiRoboWorld(World):
 
     game = game_name
     web = ChibiRoboWebWorld()
-    # options_dataclass = ChibiRobobGameOptions
-    # options: ChibiRobobGameOptions
+    options_dataclass = ChibiRobobGameOptions
+    options: ChibiRobobGameOptions
     topology_present = True
 
     item_name_to_id: ClassVar[dict[str, int]] = {
@@ -100,7 +102,7 @@ class ChibiRoboWorld(World):
     }
 
     item_name_groups: ClassVar[dict[str, set[str]]] = item_name_groups
-    location_name_groups: ClassVar[dict[str, set[str]]] = location_groups
+    # location_name_groups: ClassVar[dict[str, set[str]]] = location_groups
 
     @staticmethod
     def _get_classification_name(classification: IC) -> str:
@@ -122,6 +124,9 @@ class ChibiRoboWorld(World):
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
 
+    def set_rules(self) -> None:
+        set_rules(self)
+
     def generate_output(self, output_directory: str) -> None:
         """
         Create the output aptcr file that is used to randomize the ISO.
@@ -141,9 +146,9 @@ class ChibiRoboWorld(World):
 
         # Output which item has been placed at each location.
         output_locations = output_data["Locations"]
-        locations = multiworld.get_locations(player)
-        for location in locations:
-            if location.name != "Defeat Queen":
+        locations_array = multiworld.get_locations(player)
+        for location in locations_array:
+            if location.name != "Staff Credit":
                 if location.item:
                     item_info = {
                         "player": location.item.player,
@@ -169,9 +174,6 @@ class ChibiRoboWorld(World):
     # def extend_hint_information(self, hint_data: dict[int, dict[int, str]]) -> None:
     #     """
     #     Fill in additional information text into locations, displayed when hinted.
-    #
-    #     :param hint_data: A dictionary of mapping a player ID to a dictionary mapping location IDs to the extra hint
-    #     information text. This dictionary should be modified as a side-effect of this method.
     #     """
     #
     #     hint_data[self.player] = {}
@@ -184,6 +186,9 @@ class ChibiRoboWorld(World):
     #                 assert outermost_entrance is not None and outermost_entrance.island_name is not None
     #                 hint_data[self.player][location.address] = outermost_entrance.island_name
 
+    def stage_assert_generate(self, _multiworld: MultiWorld) -> None:
+        pass
+
     def create_item(self, name: str) -> ChibiRoboItem:
         """
         Create an item for this world type and player.
@@ -191,6 +196,9 @@ class ChibiRoboWorld(World):
         :param name: The name of the item to create.
         :raises KeyError: If an invalid item name is provided.
         """
+        victory_loc = ChibiRoboLocation(self.player, "Victory", None)
+        victory_loc.place_locked_item(ChibiRoboItem("Victory", self.player, ChibiRoboItemData("Item", IC.useful, 100, 1, 0x10), ItemClassification.progression))
+
         if name in ITEM_TABLE:
             # return ChibiRoboItem(name, self.player, ITEM_TABLE[name], self.item_classification_overrides.get(name))
             return ChibiRoboItem(name, self.player, ITEM_TABLE[name])

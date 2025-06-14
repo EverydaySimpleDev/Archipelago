@@ -1,5 +1,5 @@
 from BaseClasses import Region, Entrance, ItemClassification, Location, LocationProgressType
-from .locations import ChibiRoboLocation, LOCATION_TABLE, split_location_name_by_zone
+from .locations import ChibiRoboLocation, LOCATION_TABLE, split_location_name_by_zone, ChibiRobobLocationData
 from typing import Dict, List, NamedTuple, Optional
 
 from BaseClasses import MultiWorld, Region, Entrance
@@ -23,6 +23,8 @@ def create_regions(multiworld: MultiWorld, player: int, options):
         "Bedroom": ChibiRoboRegionData([], ["Foyer"]),
         "UFO": ChibiRoboRegionData([], ["Backyard", "Bedroom - Past"]),
         "Bedroom - Past": ChibiRoboRegionData([], ["UFO"]),
+        "Mother Spider": ChibiRoboRegionData([], ["Living Room", "Staff Credit"]),
+        "Staff Credit": ChibiRoboRegionData([], ["Mother Spider"]),
     }
 
     # Living Room 67 Locations
@@ -82,7 +84,6 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     regions["Living Room"].locations.append("Living Room 10M Coin behind Grandfather Clock Shelving C")
     regions["Living Room"].locations.append("Living Room Wastepaper above Trashbin A")
     regions["Living Room"].locations.append("Living Room Wastepaper above Trashbin B")
-    regions["Living Room"].locations.append("Living Room Candy Wrapper above Trashbin")
     regions["Living Room"].locations.append("Living Room Candy Wrapper by Jenny A")
     regions["Living Room"].locations.append("Living Room Candy Wrapper by Jenny B")
     regions["Living Room"].locations.append("Living Room Couch Candy Wrapper")
@@ -98,7 +99,6 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     regions["Chibi House"].locations.append("Shop Pink Flower Seed")
     regions["Chibi House"].locations.append("Shop Blue Flower Seed")
     regions["Chibi House"].locations.append("Shop White Flower Seed")
-    regions["Chibi House"].locations.append("Shop Nectar Flower Seed")
     regions["Chibi House"].locations.append("Shop Nectar Flower Seed")
     regions["Chibi House"].locations.append("Shop Charge Chip")
     regions["Chibi House"].locations.append("Shop Chibi-Battery")
@@ -278,5 +278,22 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     regions["Bedroom"].locations.append("Bedroom 10M Coin on Nightstand")
     regions["Bedroom"].locations.append("Bedroom 10M Coin on Shelf")
 
+    # Set up the regions correctly.
+    for name, data in regions.items():
+        multiworld.regions.append(create_region(multiworld, player, name, data))
 
+def create_region(multiworld: MultiWorld, player: int, name: str, data: ChibiRoboRegionData):
+    region = Region(name, player, multiworld)
+    if data.locations:
+        for loc_name in data.locations:
+            loc_data = LOCATION_TABLE.get(loc_name)
+            location = ChibiRoboLocation(player, loc_name, region, loc_data.code if loc_data else ChibiRobobLocationData(37, "Unknown", 0x7, 0x80000000) )
+            region.locations.append(location)
+
+    if data.region_exits:
+        for exit in data.region_exits:
+            entrance = Entrance(player, exit, region)
+            region.exits.append(entrance)
+
+    return region
 
