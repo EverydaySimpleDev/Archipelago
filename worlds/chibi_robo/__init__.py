@@ -19,10 +19,10 @@ import settings
 from worlds.AutoWorld import World, WebWorld
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths
 from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tutorial, CollectionState, MultiWorld
-from .regions import create_regions
+from .regions import create_regions, connect_entrances
 from .game_id import game_name
 from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData
-from .locations import ChibiRoboLocation, LOCATION_TABLE
+from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups
 from .options import ChibiRobobGameOptions
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer, AutoPatchRegister
@@ -102,7 +102,7 @@ class ChibiRoboWorld(World):
     }
 
     item_name_groups: ClassVar[dict[str, set[str]]] = item_name_groups
-    # location_name_groups: ClassVar[dict[str, set[str]]] = location_groups
+    location_name_groups: ClassVar[dict[str, set[str]]] = location_groups
 
     @staticmethod
     def _get_classification_name(classification: IC) -> str:
@@ -124,8 +124,12 @@ class ChibiRoboWorld(World):
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
 
-    def set_rules(self) -> None:
-        set_rules(self)
+    def connect_entrances(self):
+        connect_entrances(self.multiworld, self.player)
+
+    # def set_rules(self) -> None:
+    #     set_rules(self)
+
 
     def generate_output(self, output_directory: str) -> None:
         """
@@ -196,12 +200,9 @@ class ChibiRoboWorld(World):
         :param name: The name of the item to create.
         :raises KeyError: If an invalid item name is provided.
         """
-        victory_loc = ChibiRoboLocation(self.player, "Victory", None)
-        victory_loc.place_locked_item(ChibiRoboItem("Victory", self.player, ChibiRoboItemData("Item", IC.useful, 100, 1, 0x10), ItemClassification.progression))
 
         if name in ITEM_TABLE:
-            # return ChibiRoboItem(name, self.player, ITEM_TABLE[name], self.item_classification_overrides.get(name))
-            return ChibiRoboItem(name, self.player, ITEM_TABLE[name])
+            return ChibiRoboItem(name, self.player, ITEM_TABLE[name], self.item_classification_overrides.get(name))
         raise KeyError(f"Invalid item name: {name}")
 
 

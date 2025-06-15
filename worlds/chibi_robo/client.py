@@ -57,6 +57,13 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
         """
         super().__init__(ctx)
 
+    def _cmd_debug(self) -> None:
+        """
+        Debug Messages
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            logger.info(f"{self.ctx.game}")
+
     def _cmd_dolphin(self) -> None:
         """
         Display the current Dolphin emulator connection status.
