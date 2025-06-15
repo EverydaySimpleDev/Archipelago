@@ -22,7 +22,7 @@ from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tu
 from .regions import create_regions, connect_entrances
 from .game_id import game_name
 from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData
-from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups
+from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRobobLocationData
 from .options import ChibiRobobGameOptions
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer, AutoPatchRegister
@@ -124,11 +124,14 @@ class ChibiRoboWorld(World):
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
 
+        # from Utils import visualize_regions
+        # visualize_regions(self.multiworld.get_region("Menu", self.player), "chibirobo.puml")
+
     def connect_entrances(self):
         connect_entrances(self.multiworld, self.player)
 
-    # def set_rules(self) -> None:
-    #     set_rules(self)
+    def set_rules(self) -> None:
+        set_rules(self)
 
 
     def generate_output(self, output_directory: str) -> None:
@@ -175,21 +178,6 @@ class ChibiRoboWorld(World):
         )
         aptcr.write()
 
-    # def extend_hint_information(self, hint_data: dict[int, dict[int, str]]) -> None:
-    #     """
-    #     Fill in additional information text into locations, displayed when hinted.
-    #     """
-    #
-    #     hint_data[self.player] = {}
-    #     for location in self.multiworld.get_locations(self.player):
-    #         if location.address is not None and location.item is not None:
-    #             # Regardless of ER settings, always hint at the outermost entrance for every "interior" location.
-    #             zone_exit = self.entrances.get_zone_exit_for_item_location(location.name)
-    #             if zone_exit is not None:
-    #                 outermost_entrance = self.entrances.get_outermost_entrance_for_exit(zone_exit)
-    #                 assert outermost_entrance is not None and outermost_entrance.island_name is not None
-    #                 hint_data[self.player][location.address] = outermost_entrance.island_name
-
     def stage_assert_generate(self, _multiworld: MultiWorld) -> None:
         pass
 
@@ -202,7 +190,7 @@ class ChibiRoboWorld(World):
         """
 
         if name in ITEM_TABLE:
-            return ChibiRoboItem(name, self.player, ITEM_TABLE[name], self.item_classification_overrides.get(name))
+            return ChibiRoboItem(name, self.player, ITEM_TABLE[name])
         raise KeyError(f"Invalid item name: {name}")
 
 

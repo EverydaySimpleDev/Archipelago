@@ -40,7 +40,7 @@ class ChibiRoboLocation(Location):
 
     game: str = game_name
 
-    def __init__(self, player: int, name: str, parent: Region, data: ChibiRobobLocationData):
+    def __init__(self, player: int, name: str, parent: Region, data: ChibiRobobLocationData | None = None):
         address = None if data.code is None else ChibiRoboLocation.get_apid(data.code)
         super().__init__(player, name, address=address, parent=parent)
 
@@ -307,5 +307,5 @@ location_groups = {
     "Backyard": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Backyard"],
     "Jenny's Room": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Jenny's Room"],
     "Bedroom": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Bedroom"],
-    "Chibi House": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Chibi House"],
+    "Chibi House": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Chibi House"]
 }

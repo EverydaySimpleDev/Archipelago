@@ -260,7 +260,6 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Happy Block 9": ChibiRoboItemData("Item", IC.filler, 208, 0x6b),
     "Happy Block 10": ChibiRoboItemData("Item", IC.filler, 209, 0x6b),
     "Happy Block 11": ChibiRoboItemData("Item", IC.filler, 210, 0x6b),
-
     "Coin G 6": ChibiRoboItemData("Item", IC.filler, 211, 0x6b),
     "Coin G 7": ChibiRoboItemData("Item", IC.filler, 212, 0x6b),
     "Coin G 8": ChibiRoboItemData("Item", IC.filler, 213, 0x6b),
