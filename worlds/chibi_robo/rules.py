@@ -8,6 +8,7 @@ def set_rules(self) -> None:
     set_rule(self.multiworld.get_entrance("Living Room - Backyard", self.player),
              lambda state: state.has("Chibi-Blaster Chibi-Gear", self.player))
 
+    # TODO: Replace with real event / item
     self.multiworld.completion_condition[self.player] = lambda state: state.has("Chibi-Blaster Chibi-Gear", self.player)
 
 

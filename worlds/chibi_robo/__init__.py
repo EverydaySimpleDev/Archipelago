@@ -178,9 +178,6 @@ class ChibiRoboWorld(World):
         )
         aptcr.write()
 
-    def stage_assert_generate(self, _multiworld: MultiWorld) -> None:
-        pass
-
     def create_item(self, name: str) -> ChibiRoboItem:
         """
         Create an item for this world type and player.
