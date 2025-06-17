@@ -1,3 +1,5 @@
+import logging
+
 from BaseClasses import Region, Entrance, ItemClassification, Location, LocationProgressType
 from .locations import ChibiRoboLocation, LOCATION_TABLE, ChibiRobobLocationData
 from typing import Dict, List, NamedTuple, Optional
@@ -10,9 +12,9 @@ class ChibiRoboRegionData(NamedTuple):
     region_exits: Optional[List[str]]
 
 def create_regions(multiworld: MultiWorld, player: int, options):
-    Chibi_Robo_Regions: Dict[str, ChibiRoboRegionData] = {
+    chibi_robo_regions: Dict[str, ChibiRoboRegionData] = {
         "Menu": ChibiRoboRegionData([], ["Menu - Living Room" ]),
-        "Living Room": ChibiRoboRegionData([], ["Living Room - Kitchen", "Living Room - Foyer", "Living Room - Backyard", "Living Room - Chibi House"]),
+        "Living Room": ChibiRoboRegionData([], ["Living Room - Kitchen", "Living Room - Foyer", "Living Room - Backyard", "Living Room - Chibi House", "Living Room - Mother Spider"]),
         "Chibi House": ChibiRoboRegionData([], ["Chibi House - Living Room" ]),
         "Kitchen": ChibiRoboRegionData([], ["Kitchen - Living Room", "Kitchen - Sink Drain", "Kitchen - Foyer" ]),
         "Sink Drain": ChibiRoboRegionData([], ["Sink Drain - Kitchen"]),
@@ -21,15 +23,17 @@ def create_regions(multiworld: MultiWorld, player: int, options):
         "Basement": ChibiRoboRegionData([], ["Basement - Foyer" ]),
         "Jenny's Room": ChibiRoboRegionData([], ["Jenny's Room - Foyer"]),
         "Bedroom": ChibiRoboRegionData([], ["Bedroom - Foyer"]),
-        "UFO": ChibiRoboRegionData([], ["UFO - Backyard", "UFO - Bedroom - Past"]),
-        "Bedroom - Past": ChibiRoboRegionData([], ["Bedroom - Past - UFO"]),
+        "UFO": ChibiRoboRegionData([], ["UFO - Backyard", "UFO - Bedroom Past"]),
+        "Bedroom Past": ChibiRoboRegionData([], ["Bedroom Past - UFO"]),
         "Mother Spider": ChibiRoboRegionData([], ["Mother Spider - Living Room", "Mother Spider - Credits"]),
-        "Staff Credits": ChibiRoboRegionData([], [])
+        "Staff Credits": ChibiRoboRegionData([], ["Staff Credits - Living Room"])
     }
 
     # Set up the regions correctly.
-    for name, data in Chibi_Robo_Regions.items():
+    for name, data in chibi_robo_regions.items():
         multiworld.regions.append(create_region(multiworld, player, name, data))
+
+    connect_entrances(multiworld, player)
 
 def connect_entrances(multiworld: MultiWorld, player: int):
 
@@ -48,7 +52,8 @@ def connect_entrances(multiworld: MultiWorld, player: int):
     multiworld.get_entrance("Kitchen - Foyer", player).connect(multiworld.get_region("Foyer", player))
 
     multiworld.get_entrance("Living Room - Backyard", player).connect(multiworld.get_region("Backyard", player))
-    multiworld.get_entrance("Backyard - UFO", player).connect(multiworld.get_region("Backyard", player))
+
+    multiworld.get_entrance("Backyard - UFO", player).connect(multiworld.get_region("UFO", player))
 
     multiworld.get_entrance("Kitchen - Sink Drain", player).connect(multiworld.get_region("Sink Drain", player))
 
@@ -60,17 +65,25 @@ def connect_entrances(multiworld: MultiWorld, player: int):
     multiworld.get_entrance("Jenny's Room - Foyer", player).connect(multiworld.get_region("Foyer", player))
     multiworld.get_entrance("Bedroom - Foyer", player).connect(multiworld.get_region("Foyer", player))
     multiworld.get_entrance("UFO - Backyard", player).connect(multiworld.get_region("Backyard", player))
-    multiworld.get_entrance("UFO - Bedroom - Past", player).connect(multiworld.get_region("Bedroom - Past", player))
-    multiworld.get_entrance("Bedroom - Past - UFO", player).connect(multiworld.get_region("UFO", player))
+
+    multiworld.get_entrance("UFO - Bedroom Past", player).connect(multiworld.get_region("Bedroom Past", player))
+
+    multiworld.get_entrance("Bedroom Past - UFO", player).connect(multiworld.get_region("UFO", player))
     multiworld.get_entrance("Mother Spider - Living Room", player).connect(multiworld.get_region("Living Room", player))
+
+    multiworld.get_entrance("Living Room - Mother Spider", player).connect(multiworld.get_region("Mother Spider", player))
+
     multiworld.get_entrance("Mother Spider - Credits", player).connect(multiworld.get_region("Staff Credits", player))
+
+    multiworld.get_entrance("Staff Credits - Living Room", player).connect(multiworld.get_region("Living Room", player))
+
 
 def create_region(multiworld: MultiWorld, player: int, name: str, data: ChibiRoboRegionData):
     region = Region(name, player, multiworld)
     if data.locations:
         for loc_name in data.locations:
             loc_data = LOCATION_TABLE.get(loc_name)
-            location = ChibiRoboLocation(player, loc_name, region, ChibiRobobLocationData( 999, "Unknown", 0x7, 0x80000000))
+            location = ChibiRoboLocation(player, loc_name, region, loc_data)
             region.locations.append(location)
 
     if data.region_exits:

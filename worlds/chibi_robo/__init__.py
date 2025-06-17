@@ -1,4 +1,5 @@
 # Python standard libraries
+import json
 import logging
 import os
 import zipfile
@@ -13,6 +14,7 @@ from logging import Logger
 import dolphin_memory_engine
 import Utils
 import yaml
+import json
 
 # Archipelago imports
 import settings
@@ -57,6 +59,7 @@ class ChibiRoboWebWorld(WebWorld):
     )
 
     tutorials = [setup_en]
+
 
 class ChibiRoboContainer(APPlayerContainer, metaclass=AutoPatchRegister):
     """
@@ -124,21 +127,13 @@ class ChibiRoboWorld(World):
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
 
-        # from Utils import visualize_regions
-        # visualize_regions(self.multiworld.get_region("Menu", self.player), "chibirobo.puml")
-
-    def connect_entrances(self):
-        connect_entrances(self.multiworld, self.player)
-
     def set_rules(self) -> None:
         set_rules(self)
 
 
     def generate_output(self, output_directory: str) -> None:
         """
-        Create the output aptcr file that is used to randomize the ISO.
-
-        :param output_directory: The output directory for the aptcr file.
+        Create the output file that is used to randomize the ISO.
         """
         multiworld = self.multiworld
         player = self.player
@@ -148,35 +143,31 @@ class ChibiRoboWorld(World):
             "Seed": multiworld.seed_name,
             "Slot": player,
             "Name": self.player_name,
-            "Locations": {},
+            "Locations": {}
         }
 
         # Output which item has been placed at each location.
         output_locations = output_data["Locations"]
-        locations_array = multiworld.get_locations(player)
-        for location in locations_array:
-            if location.name != "Staff Credit":
-                if location.item:
-                    item_info = {
-                        "player": location.item.player,
-                        "name": location.item.name,
-                        "game": location.item.game,
-                        "classification": self._get_classification_name(location.item.classification),
-                    }
-                else:
-                    item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
-                output_locations[location.name] = item_info
 
-        # Output the plando details to file.
-        aptcr = ChibiRoboContainer(
-            path=os.path.join(
-                output_directory, f"{multiworld.get_out_file_name_base(player)}{ChibiRoboContainer.patch_file_ending}"
-            ),
-            player=player,
-            player_name=self.player_name,
-            data=output_data,
-        )
-        aptcr.write()
+        for location in multiworld.get_locations(player):
+            if location.item:
+                item_info = {
+                    "player": location.item.player,
+                    "name": location.item.name,
+                    "game": location.item.game,
+                    "classification": self._get_classification_name(location.item.classification),
+                }
+            else:
+                item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
+            output_locations[location.name] = item_info
+
+        output_data.update(self.options.as_dict("debug_menu", "free_pjs", "open_upstairs"))
+
+        mod_name = self.multiworld.get_out_file_name_base(self.player)
+        out_file = os.path.join(output_directory, mod_name + ".json")
+
+        with open(out_file, 'w', encoding='utf-8') as f:
+            json.dump(output_data, f, ensure_ascii=False, indent=4)
 
     def create_item(self, name: str) -> ChibiRoboItem:
         """

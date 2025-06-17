@@ -62,7 +62,9 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
         Debug Messages
         """
         if isinstance(self.ctx, ChibiRoboContext):
-            logger.info(f"{self.ctx.game}")
+            # logger.info(f"{self.ctx.item_names["Chibi Robo"]}")
+            # logger.info(f"{self.ctx.location_names["Chibi Robo"]}")
+            return
 
     def _cmd_dolphin(self) -> None:
         """
@@ -102,12 +104,12 @@ class ChibiRoboContext(CommonContext):
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
             await super().server_auth(password_requested)
-        if not self.auth:
-            if self.awaiting_rom:
-                return
-            self.awaiting_rom = True
-            logger.info("Awaiting connection to Dolphin to get player information.")
-            return
+        # if not self.auth:
+        #     if self.awaiting_rom:
+        #         return
+        #     self.awaiting_rom = True
+        #     logger.info("Awaiting connection to Dolphin to get player information.")
+        #     return
         await self.send_connect()
 
     def get_ChibiRobo_status(self) -> str:

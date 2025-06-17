@@ -1,5 +1,3 @@
-from BaseClasses import Location
-from Utils import visualize_regions
 from .game_id import game_name
 from typing import Dict, List
 
@@ -7,9 +5,6 @@ from enum import Enum, Flag, auto
 from typing import TYPE_CHECKING, NamedTuple, Optional
 
 from BaseClasses import Location, Region
-
-# class ChibiRoboLocation(Location):
-#     game: str = game_name
 
 class ChibiRobobLocationData(NamedTuple):
     """
