@@ -124,6 +124,17 @@ class ChibiRoboWorld(World):
         else:
             return "filler"
 
+    @staticmethod
+    def _get_object_name(name: str, self) -> str:
+        """
+        Return the items object name
+
+        """
+
+        if name in ITEM_TABLE:
+            return ITEM_TABLE[name].object_name
+        raise KeyError(f"Invalid item name: {name}")
+
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
 
@@ -155,6 +166,7 @@ class ChibiRoboWorld(World):
                     "name": location.item.name,
                     "game": location.item.game,
                     "classification": self._get_classification_name(location.item.classification),
+                    "object": self._get_object_name(location.item.name, self.player),
                 }
             else:
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
