@@ -5,7 +5,7 @@ import os
 import zipfile
 from base64 import b64encode
 from collections.abc import Mapping
-from typing import Any, ClassVar
+from typing import Any, ClassVar, List
 from collections import defaultdict
 from math import ceil
 
@@ -146,9 +146,8 @@ class ChibiRoboWorld(World):
             "Locations": {}
         }
 
-        # Output which item has been placed at each location.
+         # Output which item has been placed at each location.
         output_locations = output_data["Locations"]
-
         for location in multiworld.get_locations(player):
             if location.item:
                 item_info = {
@@ -161,7 +160,7 @@ class ChibiRoboWorld(World):
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
             output_locations[location.name] = item_info
 
-        output_data.update(self.options.as_dict("debug_menu", "free_pjs", "open_upstairs"))
+        output_data.update(self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs", "chibi_vision_off"))
 
         mod_name = self.multiworld.get_out_file_name_base(self.player)
         out_file = os.path.join(output_directory, mod_name + ".json")
@@ -181,6 +180,8 @@ class ChibiRoboWorld(World):
             return ChibiRoboItem(name, self.player, ITEM_TABLE[name])
         raise KeyError(f"Invalid item name: {name}")
 
+    def create_items(self):
+      self.multiworld.itempool += create_itempool(self)
 
     def collect(self, state: CollectionState, item: ChibiRoboItem) -> bool:
         change = super().collect(state, item)
@@ -189,3 +190,23 @@ class ChibiRoboWorld(World):
     def remove(self, state: CollectionState, item: ChibiRoboItem) -> bool:
         change = super().remove(state, item)
         return change
+
+def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
+    itempool: List[Item] = []
+
+    for name in ITEM_TABLE.keys():
+        item_type: ItemClassification = ITEM_TABLE.get(name).classification
+        itempool += create_multiple_items(world, name, 1, item_type)
+
+    return itempool
+
+def create_multiple_items(world: "ChibiRoboWorld", name: str, count: int = 1,
+                              item_type: ItemClassification = ItemClassification.progression) -> List[Item]:
+
+    data = ITEM_TABLE[name]
+    itemlist: List[Item] = []
+
+    for i in range(count):
+            itemlist += [ChibiRoboItem(name, world.player, data, item_type)]
+
+    return itemlist
