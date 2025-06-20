@@ -2,6 +2,7 @@ import asyncio
 import traceback
 import dolphin_memory_engine
 
+import NetUtils
 import Utils
 import websockets
 import functools
@@ -39,9 +40,6 @@ CURR_STAGE_ID_ADDR = 0x8026644C
 CURR_BATTERY_ADDR = 0x8396558
 
 GC_GAME_ID_ADDRESS = 0x80000000
-
-AP_VISITED_STAGE_NAMES_KEY_FORMAT = "Chibi_Robob_visited_stages_%i"
-
 
 class ChibiRoboJSONToTextParser(JSONtoTextParser):
     def _handle_color(self, node: JSONMessagePart):
@@ -101,7 +99,7 @@ class ChibiRoboContext(CommonContext):
         self.current_stage_name: str = ""
 
 
-    async def server_auth(self, password_requested: bool = False) -> None:
+    async def server_auth(self, password_requested: bool = True) -> None:
         if password_requested and not self.password:
             await super().server_auth(password_requested)
         # if not self.auth:
@@ -110,6 +108,7 @@ class ChibiRoboContext(CommonContext):
         #     self.awaiting_rom = True
         #     logger.info("Awaiting connection to Dolphin to get player information.")
         #     return
+        await self.get_username()
         await self.send_connect()
 
     def get_ChibiRobo_status(self) -> str:
@@ -166,8 +165,8 @@ class ChibiRoboContext(CommonContext):
 
     def on_package(self, cmd: str, args: dict):
         if cmd == "Connected":
+
             json = args
-            # This data is not needed and causes the game to freeze for long periods of time in large asyncs.
             if "slot_info" in json.keys():
                 json["slot_info"] = {}
             if "players" in json.keys():

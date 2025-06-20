@@ -136,6 +136,8 @@ def set_rules(kh1world):
             )
             and has_x_worlds(state, player, 2, options.keyblades_unlock_chests)
         ))
+
+
     add_rule(kh1world.get_location("Traverse Town Item Workshop Right Chest"),
         lambda state: (
             state.has("Green Trinity", player)
