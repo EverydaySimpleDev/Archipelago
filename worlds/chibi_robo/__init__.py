@@ -24,7 +24,7 @@ from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tu
 from .regions import create_regions, connect_entrances
 from .game_id import game_name
 from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData
-from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRobobLocationData
+from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
 from .options import ChibiRobobGameOptions
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer, AutoPatchRegister

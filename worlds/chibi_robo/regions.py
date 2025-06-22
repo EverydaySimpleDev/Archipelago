@@ -1,7 +1,7 @@
 import logging
 
 from BaseClasses import Region, Entrance, ItemClassification, Location, LocationProgressType
-from .locations import ChibiRoboLocation, LOCATION_TABLE, ChibiRobobLocationData
+from .locations import ChibiRoboLocation, LOCATION_TABLE, ChibiRoboLocationData
 from typing import Dict, List, NamedTuple, Optional
 
 from BaseClasses import MultiWorld, Region, Entrance

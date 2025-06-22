@@ -1,6 +1,7 @@
 import asyncio
 import traceback
 import dolphin_memory_engine
+import numpy as np
 
 import NetUtils
 import Utils
@@ -12,7 +13,7 @@ from NetUtils import decode, encode, JSONtoTextParser, JSONMessagePart, NetworkI
 from MultiServer import Endpoint
 from CommonClient import CommonContext, gui_enabled, ClientCommandProcessor, logger, get_base_parser
 from .items import LOOKUP_ID_TO_NAME, ITEM_TABLE
-from .locations import LOCATION_TABLE, ChibiRoboLocation, ChibiRobobLocationData
+from .locations import LOCATION_TABLE, ChibiRoboLocation, ChibiRoboLocationData
 
 DEBUG = True
 
@@ -40,6 +41,12 @@ CURR_STAGE_ID_ADDR = 0x8026644C
 CURR_BATTERY_ADDR = 0x8396558
 
 GC_GAME_ID_ADDRESS = 0x80000000
+
+MOOLAH_ADDR = 0x80396550
+
+SCRAP_ADDR = 0X80396554
+
+HAPPY_POINTS_ADDR = 0x8039653C
 
 class ChibiRoboJSONToTextParser(JSONtoTextParser):
     def _handle_color(self, node: JSONMessagePart):
@@ -82,6 +89,7 @@ class ChibiRoboContext(CommonContext):
         self.dolphin_status: str = CONNECTION_INITIAL_STATUS
         self.awaiting_rom: bool = False
         self.has_send_death: bool = False
+        self.send_index: int = 0
 
         self.proxy = None
         self.proxy_task = None
@@ -97,6 +105,7 @@ class ChibiRoboContext(CommonContext):
         self.server_msgs: List[Any] = []
 
         self.current_stage_name: str = ""
+        self.curr_stage_pickup: int
 
 
     async def server_auth(self, password_requested: bool = True) -> None:
@@ -111,7 +120,7 @@ class ChibiRoboContext(CommonContext):
         await self.get_username()
         await self.send_connect()
 
-    def get_ChibiRobo_status(self) -> str:
+    def get_chibi_robo_status(self) -> str:
         if not self.is_proxy_connected():
             return "Not connected to Chibi Robo"
 
@@ -157,13 +166,13 @@ class ChibiRoboContext(CommonContext):
             logger.info(text)
 
     def update_items(self):
-        # just to be safe - we might still have an inventory from a different room
         if not self.is_connected():
             return
 
         self.server_msgs.append(encode([{"cmd": "ReceivedItems", "index": 0, "items": self.full_inventory}]))
 
     def on_package(self, cmd: str, args: dict):
+        ctx = ChibiRoboContext
         if cmd == "Connected":
 
             json = args
@@ -193,15 +202,6 @@ class ChibiRoboContext(CommonContext):
                 json["players"] = []
 
             self.server_msgs.append(encode(json))
-
-        elif cmd == "ReceivedItems":
-            if args["index"] == 0:
-                self.full_inventory.clear()
-
-            for item in args["items"]:
-                self.full_inventory.append(NetworkItem(*item))
-
-            self.server_msgs.append(encode([args]))
 
         elif cmd == "RoomInfo":
             self.seed_name = args["seed_name"]
@@ -259,6 +259,15 @@ def write_4byte_short(console_address: int, value: int) -> None:
     """
     dolphin_memory_engine.write_bytes(console_address, value.to_bytes(4, byteorder="big"))
 
+def write_8byte_short(console_address: int, value: int) -> None:
+    """
+    Write a 4-byte short to Dolphin memory.
+
+    :param console_address: Address to write to.
+    :param value: Value to write.
+    """
+    dolphin_memory_engine.write_bytes(console_address, value.to_bytes(8, byteorder="big"))
+
 def read_string(console_address: int, strlen: int) -> str:
     """
     Read a string from Dolphin memory.
@@ -278,15 +287,71 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
     :param item_name: Name of the item to give.
     :return: Whether the item was successfully given.
     """
+    global CURR_STAGE_ID_ADDR
+    global EXPECTED_INDEX_ADDR
+
     if not check_ingame() or dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
         return False
 
     item_id = ITEM_TABLE[item_name].item_id
 
-    slot = dolphin_memory_engine.read_byte(EXPECTED_INDEX_ADDR)
-    if slot == 0xFF:
-        dolphin_memory_engine.write_byte(EXPECTED_INDEX_ADDR, item_id)
+    if dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) == b"\x00\x00\x00\x00" or dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) == b"\x00\x00\xff\xff" or dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) == b"\x00\x01\xff\xff":
+
+        item_id = int(hex(item_id + 65536), 16)
+
+        # If item is a coin increase coin count
+        if "Coin" in item_name:
+            moolah = dolphin_memory_engine.read_bytes(MOOLAH_ADDR, 4)
+
+            money_value = hex( int.from_bytes(moolah, byteorder="big"))
+
+            if "Coin C" in item_name:
+                money_value = hex( int.from_bytes(moolah, byteorder="big") + 10)
+
+            if "Coin S" in item_name:
+                money_value = hex( int.from_bytes(moolah, byteorder="big") + 50)
+
+            if "Coin G" in item_name:
+                money_value = hex( int.from_bytes(moolah, byteorder="big") + 100)
+
+            dolphin_memory_engine.write_bytes(MOOLAH_ADDR, int(money_value, 16).to_bytes(4, byteorder="big"))
+            return True
+
+        # If item is scrape increase scrape count
+        if "Junk" in item_name:
+
+            logger.info(item_name)
+
+            junk = dolphin_memory_engine.read_bytes(SCRAP_ADDR, 4)
+
+            junk_value = hex(int.from_bytes(junk, byteorder="big"))
+
+            if "Junk A" in item_name:
+                junk_value = hex(int.from_bytes(junk, byteorder="big") + 10)
+
+            if "Junk B" in item_name:
+                junk_value = hex(int.from_bytes(junk, byteorder="big") + 50)
+
+            if "Junk C" in item_name:
+                junk_value = hex(int.from_bytes(junk, byteorder="big") + 100)
+            dolphin_memory_engine.write_bytes(SCRAP_ADDR, int(junk_value, 16).to_bytes(4, byteorder="big"))
+            return True
+
+        # Check if we already have the item in memory (item id plus required offset)
+        if dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) != hex(item_id + 65536):
+            dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, item_id.to_bytes(4, byteorder="big"))
+
+            update_item_flag()
+            # Update the next address correctly to what the game expects 0001ffff
+            item_id = 131071
+            dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, item_id.to_bytes(4, byteorder="big"))
+        else :
+            update_item_flag()
+
+        # logger.info(f"Item {item_name} was successfully added.")
         return True
+    else:
+        update_item_flag()
 
     # If unable to place the item in the array, return `False`.
     return False
@@ -312,31 +377,18 @@ async def give_items(ctx: ChibiRoboContext) -> None:
     if check_ingame() and dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) != b"\x00\x00\x00\x0e":
         # Read the expected index of the player, which is the index of the next item they're expecting to receive.
 
-        expected_idx = read_4byte_short(EXPECTED_INDEX_ADDR)
-
         # Check if there are new items.
         received_items = ctx.items_received
+        unique_received_items = set(received_items)
 
-        if len(received_items) <= expected_idx:
-            # There are no new items.
-            return
-
-        logger.info(f'{len(ctx.items_received)} received items. ')
-
-        # Loop through items to give.
-        # Give the player all items at an index greater than or equal to the expected index.
-        for idx, item in enumerate(received_items[expected_idx:], start=expected_idx):
-            # Attempt to give the item and increment the expected index.
-            while not _give_item(ctx, LOOKUP_ID_TO_NAME[item.item]):
-                await asyncio.sleep(0.01)
-
-            # Increment the expected index.
-            write_short(EXPECTED_INDEX_ADDR, idx + 1)
-
-        if expected_idx != 65535 and expected_idx != 131071:
-            update_item_flag()
+        for item in unique_received_items:
+            _give_item(ctx, LOOKUP_ID_TO_NAME[item.item])
+            # logger.info(item)
+            ctx.items_received.remove(item)
 
             return
+
+
 
 def update_item_flag() -> None:
 
@@ -362,21 +414,59 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
     """
 
     # We check which locations are currently checked on the current stage.
-    curr_stage_id = dolphin_memory_engine.read_byte(CURR_STAGE_ID_ADDR)
+    curr_stage_id = stage_hex_to_id()
+    ctx.curr_stage_pickup = read_4byte_short(EXPECTED_INDEX_ADDR)
 
-    # Loop through all locations to see if each has been checked.
-    for location, data in LOCATION_TABLE.items():
+    if ctx.curr_stage_pickup != 65535:
 
-        # ctx, curr_stage_id, data
-        ctx.locations_checked.add(ChibiRoboLocation.get_apid(data.code))
+        # Loop through all locations to see if each has been checked.
+        for location, data in LOCATION_TABLE.items():
+            checked = False
 
-    # Send the list of newly-checked locations to the server.
-    locations_checked = ctx.locations_checked.difference(ctx.checked_locations)
+            # logger.info(f'{location} Checked:  {checked}')
+            checked = check_location(ctx, curr_stage_id, location, data)
+            # logger.info(f'{location} Checked:  {checked}')
+            # logger.info(ChibiRoboLocation.get_apid(data.code))
 
-    if locations_checked:
-        await ctx.send_msgs([{"cmd": "LocationChecks", "locations": locations_checked}])
+            if checked:
+                if data.code is None:
+                    if not ctx.finished_game:
+                        await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+                        ctx.finished_game = True
+                else:
+                    ctx.locations_checked.add(ChibiRoboLocation.get_apid(data.code))
 
-def stage_id_to_name() -> str:
+        # Send the list of newly-checked locations to the server.
+        locations_checked = ctx.locations_checked.difference(ctx.checked_locations)
+        if locations_checked:
+            logger.info(f'{len(locations_checked)} checked locations found.')
+            await ctx.send_msgs([{"cmd": "LocationChecks", "locations": locations_checked}])
+
+        # update_item_flag()
+
+def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str ,data: ChibiRoboLocationData) -> bool:
+    """
+    Check that the player has checked a given location.
+    This function handles locations that only require checking that a particular bit is set.
+
+    The check looks at the saved data for the stage at which the location is located and the data for the current stage.
+    In the latter case, this data includes data that has not yet been written to the saved data.
+
+    :param ctx: The client context.
+    :param curr_stage_id: The current stage at which the player is.
+    :param data: The data associated with the location.
+    :raises NotImplementedError: If a location with an unknown type is provided.
+    """
+    checked = False
+
+    # If the location is in the current stage, check the bitfields for the current stage as well.
+    if not checked and curr_stage_id == data.stage_id:
+        # logger.info(name)
+        checked = bool((ctx.curr_stage_pickup >> data.bit) & 1)
+
+    return checked
+
+def stage_hex_to_name() -> str:
     global CURR_STAGE_ID_ADDR
 
     if dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
@@ -410,8 +500,43 @@ def stage_id_to_name() -> str:
     elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x16":
         return "Mother Spider Boss"
 
-    return "Could Not Find Room"
+    return "Could Not Find Room / Stage Name"
 
+def stage_hex_to_id() -> int:
+    global CURR_STAGE_ID_ADDR
+
+    if dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
+        return 0 # 'Menu'
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x01":
+        return 1 # "Kitchen"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x02":
+        return 2 #"Foyer"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x03":
+        return 3 #"Basement"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x04":
+        return 4 #"Jenny's Room"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x05":
+        return 5 #"Chibi House"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x06":
+        return 6 #"Bedroom"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x07":
+        return 7 #"Living Room"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x09":
+        return 8 #"Backyard"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0a":
+        return 9 #"Staff Credits"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0b":
+        return 10 #"Drain"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
+        return 11 #"Living Room (Birthday)"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x10":
+        return 12 #"UFO"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x12":
+        return 13 #"Bedroom (Past)"
+    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x16":
+        return 14 #"Mother Spider Boss"
+
+    return -1 #"Could Not Find Room / Stage Name"
 
 async def check_current_stage_changed(ctx: ChibiRoboContext) -> None:
     """
@@ -422,7 +547,7 @@ async def check_current_stage_changed(ctx: ChibiRoboContext) -> None:
     :param ctx: client context.
     """
 
-    new_stage_name = stage_id_to_name()
+    new_stage_name = stage_hex_to_name()
 
     current_stage_name = ctx.current_stage_name
 
@@ -472,11 +597,13 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
             if dolphin_memory_engine.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
 
                 if not check_ingame():
+                    # Reset the give item array while not in the game.
+                    dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, bytes([0x80396576]))
                     sleep_time = 0.1
                     continue
                 if ctx.slot is not None:
                     await give_items(ctx)
-                    # await check_locations(ctx)
+                    await check_locations(ctx)
                     await check_current_stage_changed(ctx)
                 else:
                     if ctx.awaiting_rom:
@@ -500,7 +627,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                         ctx.locations_checked = set()
 
                 else:
-                    logger.info(ctx.dolphin_status);
+                    logger.info(ctx.dolphin_status)
                     logger.info("Connection to Dolphin failed, attempting again in 5 seconds...")
                     ctx.dolphin_status = CONNECTION_LOST_STATUS
                     await ctx.disconnect()

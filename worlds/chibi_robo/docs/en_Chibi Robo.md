@@ -6,6 +6,9 @@
  battery-powered robot that does housework for humans. The objective of the game 
  is to become the top-ranked "Super Chibi-Robo" in the world by accumulating Happy Points
 
-Ported to Archipelago in a week(ish), this World provides the following as unlockable items:
-- items
+Ported to Archipelago, this World provides the following:
+- Items
+- Locations (Tracker doesn't track these)
+- Dolphin automatic integration (No Support For Bizhawk)
+- Options that auto connect to the Chibi Robo Rando Application
 
