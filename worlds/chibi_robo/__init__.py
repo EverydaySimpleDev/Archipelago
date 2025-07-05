@@ -5,7 +5,7 @@ import os
 import zipfile
 from base64 import b64encode
 from collections.abc import Mapping
-from typing import Any, ClassVar, List
+from typing import Any, ClassVar, List, Dict
 from collections import defaultdict
 from math import ceil
 
@@ -96,6 +96,8 @@ class ChibiRoboWorld(World):
     options: ChibiRobobGameOptions
     topology_present = True
 
+    plando_locations: Dict[str, str]
+
     item_name_to_id: ClassVar[dict[str, int]] = {
         name: ChibiRoboItem.get_apid(data.code) for name, data in ITEM_TABLE.items() if data.code is not None
     }
@@ -133,7 +135,9 @@ class ChibiRoboWorld(World):
 
         if name in ITEM_TABLE:
             return ITEM_TABLE[name].object_name
-        raise KeyError(f"Invalid item name: {name}")
+        else:
+            return "archipelago_item"
+        # raise KeyError(f"Invalid item name: {name}")
 
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
@@ -179,6 +183,17 @@ class ChibiRoboWorld(World):
 
         with open(out_file, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, ensure_ascii=False, indent=4)
+
+    def generate_early(self) -> None:
+        self.plando_locations = dict()
+
+    def get_pre_fill_items(self) -> List[Item]:
+        return [self.create_item(item)
+                for item in [*self.plando_locations.keys()]]
+
+    def pre_fill(self):
+        for location, item in self.plando_locations.items():
+            self.multiworld.get_location(location, self.player).place_locked_item(self.create_item(item))
 
     def create_item(self, name: str) -> ChibiRoboItem:
         """

@@ -458,7 +458,6 @@ def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str ,data: C
     :raises NotImplementedError: If a location with an unknown type is provided.
     """
     checked = False
-
     # If the location is in the current stage, check the bitfields for the current stage as well.
     if not checked and curr_stage_id == data.stage_id:
         # logger.info(name)

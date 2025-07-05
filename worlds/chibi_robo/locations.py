@@ -81,7 +81,7 @@ LOCATION_TABLE: dict[str, ChibiRoboLocationData] = {
     "Living Room - Cupholder Wastepaper": ChibiRoboLocationData(20, "Living Room", 7, 0x80000000),
     "Living Room - Cookie Crumbs under Table": ChibiRoboLocationData(21, "Living Room", 7, 0x80000000),
     "Living Room - Cookie Crumbs by Record Player": ChibiRoboLocationData(22, "Living Room", 7, 0x80000000),
-    "Living Room - Toothbrush": ChibiRoboLocationData(23, "Living Room", 7, 0x80000000),
+    "Living Room - Toothbrush": ChibiRoboLocationData(23, "Living Room", 7, 0x8036e569),
     "Living Room - Armchair Happy Block": ChibiRoboLocationData(24, "Living Room", 7, 0x80000000),
     "Living Room - Bookshelf Happy Block (Lower)": ChibiRoboLocationData(25, "Living Room", 7, 0x80000000),
     "Living Room - Top of Record Player Shelving Happy Block": ChibiRoboLocationData(26, "Living Room", 7, 0x80000000),
@@ -280,18 +280,21 @@ LOCATION_TABLE: dict[str, ChibiRoboLocationData] = {
     "Bedroom - 10M Coin under Bed": ChibiRoboLocationData(219, "Bedroom", 6, 0x80000000),
     "Bedroom - 10M Coin on Nightstand": ChibiRoboLocationData(220, "Bedroom", 6, 0x80000000),
     "Bedroom - 10M Coin on Shelf": ChibiRoboLocationData(221, "Bedroom", 6, 0x80000000),
-    "Chibi House - Pink Flower Seed": ChibiRoboLocationData(222, "Chibi House", 5, 0x80000000),
-    "Chibi House - Blue Flower Seed": ChibiRoboLocationData(223, "Chibi House", 5, 0x80000000),
-    "Chibi House - White Flower Seed": ChibiRoboLocationData(224, "Chibi House", 5, 0x80000000),
-    "Chibi House - Nectar Flower Seed": ChibiRoboLocationData(225, "Chibi House", 5, 0x80000000),
-    "Chibi House - Charge Chip": ChibiRoboLocationData(226, "Chibi House", 5, 0x80000000),
-    "Chibi House - Chibi Battery": ChibiRoboLocationData(227, "Chibi House", 5, 0x80000000),
-    "Chibi House - Chibi Blaster": ChibiRoboLocationData(228, "Chibi House", 5, 0x80000000),
-    "Chibi House - Range Chip": ChibiRoboLocationData(229, "Chibi House", 5, 0x80000000),
-    "Chibi House - Chibi Radar": ChibiRoboLocationData(230, "Chibi House", 5, 0x80000000),
-    "Chibi House - Alien Ear Chip": ChibiRoboLocationData(231, "Chibi House", 5, 0x80000000),
-    "Chibi House - Hot Rod": ChibiRoboLocationData(232, "Chibi House", 5, 0x80000000),
-    "Chibi House - Space Scrambler": ChibiRoboLocationData(233, "Chibi House", 5, 0x80000000)
+
+    # Shop can't have duplicate items inside of it so disabling until I find a work around
+    # Mutliworld items are all the same item in game currently
+    # "Chibi House - Pink Flower Seed": ChibiRoboLocationData(222, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Blue Flower Seed": ChibiRoboLocationData(223, "Chibi House", 5, 0x80000000),
+    # "Chibi House - White Flower Seed": ChibiRoboLocationData(224, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Nectar Flower Seed": ChibiRoboLocationData(225, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Charge Chip": ChibiRoboLocationData(226, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Chibi Battery": ChibiRoboLocationData(227, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Chibi Blaster": ChibiRoboLocationData(228, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Range Chip": ChibiRoboLocationData(229, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Chibi Radar": ChibiRoboLocationData(230, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Alien Ear Chip": ChibiRoboLocationData(231, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Hot Rod": ChibiRoboLocationData(232, "Chibi House", 5, 0x80000000),
+    # "Chibi House - Space Scrambler": ChibiRoboLocationData(233, "Chibi House", 5, 0x80000000)
 }
 
 location_groups = {
@@ -303,5 +306,5 @@ location_groups = {
     "Backyard": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Backyard"],
     "Jenny's Room": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Jenny's Room"],
     "Bedroom": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Bedroom"],
-    "Chibi House": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Chibi House"]
+    # "Chibi House": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Chibi House"]
 }
