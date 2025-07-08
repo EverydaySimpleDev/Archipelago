@@ -23,12 +23,12 @@ from worlds.LauncherComponents import components, Component, launch_subprocess, 
 from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tutorial, CollectionState, MultiWorld
 from .regions import create_regions, connect_entrances
 from .game_id import game_name
-from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData
+from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, filler_item_names
 from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
 from .options import ChibiRobobGameOptions
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer, AutoPatchRegister
-from .rules import set_rules
+from .rules import set_rules, set_location_rules
 
 VERSION: tuple[int, int, int] = (1, 0, 0)
 
@@ -144,7 +144,13 @@ class ChibiRoboWorld(World):
 
     def set_rules(self) -> None:
         set_rules(self)
+        set_location_rules(self)
 
+    def get_filler_item_name(self) -> str:
+        return self.random.choice(filler_item_names)
+
+    def fill_slot_data(self) -> Dict[str, Any]:
+        return self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off")
 
     def generate_output(self, output_directory: str) -> None:
         """
@@ -224,6 +230,14 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     for name in ITEM_TABLE.keys():
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
+
+    # Force ToothBrush at this location so players are not in BK mode right away
+    world.get_location("Living Room - Candy Wrapper on Book Stack").place_locked_item(itempool[0])
+    itempool.remove(itempool[0])
+
+    # Force Left in suitcase?
+    # world.get_location("Bedroom - Left Leg in Suitcase").place_locked_item(itempool[10])
+    # itempool.remove(itempool[10])
 
     return itempool
 

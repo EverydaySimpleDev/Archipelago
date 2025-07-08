@@ -320,7 +320,7 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
         # If item is scrape increase scrape count
         if "Junk" in item_name:
 
-            logger.info(item_name)
+            # logger.info(item_name)
 
             junk = dolphin_memory_engine.read_bytes(SCRAP_ADDR, 4)
 
@@ -339,6 +339,9 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
 
         # Check if we already have the item in memory (item id plus required offset)
         if dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) != hex(item_id + 65536):
+
+            # logger.info(item_name)
+
             dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, item_id.to_bytes(4, byteorder="big"))
 
             update_item_flag()

@@ -55,7 +55,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Spoon Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 1, 0x15, "item_spoon"),
     "Mug Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 2, 0x16, "item_mag_cup"),
     "Chibi-Blaster Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 3, 0x83, "cb_cannon_lv_2"),
-    "Squirter Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 4, 0x08, "item_tyuusyaki"),
+    "Squirter Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 4, 0x38, "item_tyuusyaki"),
     "Range Chip": ChibiRoboItemData("Item", IC.progression, 5, 0x06, "item_chip_54"),
     "Alien Ear Chip": ChibiRoboItemData("Item", IC.progression, 6, 0x3e, "item_hocyouki"),
     "Charge Chip": ChibiRoboItemData("Item", IC.progression, 7, 0x35, "item_chip_53"),
@@ -251,17 +251,6 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Empty Can 1": ChibiRoboItemData("Item", IC.filler, 197, 0x6b, "item_okasi_gomi_2"),
     "Empty Can 2": ChibiRoboItemData("Item", IC.filler, 198, 0x6b, "item_okasi_gomi_2"),
     "Empty Can 3": ChibiRoboItemData("Item", IC.filler, 199, 0x6b, "item_okasi_gomi_2"),
-    "Happy Block 1": ChibiRoboItemData("Item", IC.filler, 200, 0x6b, "living_happy_box"),
-    "Happy Block 2": ChibiRoboItemData("Item", IC.filler, 201, 0x6b, "living_happy_box"),
-    "Happy Block 3": ChibiRoboItemData("Item", IC.filler, 202, 0x6b, "living_happy_box"),
-    "Happy Block 4": ChibiRoboItemData("Item", IC.filler, 203, 0x6b, "living_happy_box"),
-    "Happy Block 5": ChibiRoboItemData("Item", IC.filler, 204, 0x6b, "living_happy_box"),
-    "Happy Block 6": ChibiRoboItemData("Item", IC.filler, 205, 0x6b, "living_happy_box"),
-    "Happy Block 7": ChibiRoboItemData("Item", IC.filler, 206, 0x6b, "living_happy_box"),
-    "Happy Block 8": ChibiRoboItemData("Item", IC.filler, 207, 0x6b, "living_happy_box"),
-    "Happy Block 9": ChibiRoboItemData("Item", IC.filler, 208, 0x6b, "living_happy_box"),
-    "Happy Block 10": ChibiRoboItemData("Item", IC.filler, 209, 0x6b, "living_happy_box"),
-    "Happy Block 11": ChibiRoboItemData("Item", IC.filler, 210, 0x6b, "living_happy_box"),
     "Coin G 6": ChibiRoboItemData("Item", IC.filler, 211, 0x6b, "coin_g"),
     "Coin G 7": ChibiRoboItemData("Item", IC.filler, 212, 0x6b, "coin_g"),
     "Coin G 8": ChibiRoboItemData("Item", IC.filler, 213, 0x6b, "coin_g"),
@@ -286,7 +275,27 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Coin G 27": ChibiRoboItemData("Item", IC.filler, 232, 0x6b, "coin_g"),
     "Blue Brick": ChibiRoboItemData("Item", IC.useful, 233, 0x7a, "item_t_block_1"),
     "Space Scrambler": ChibiRoboItemData("Item", IC.useful, 234, 0x6b, "item_nwing_item"),
+    "Coin G 28": ChibiRoboItemData("Item", IC.filler, 235, 0x6b, "coin_g"),
+    "Coin G 29": ChibiRoboItemData("Item", IC.filler, 236, 0x6b, "coin_g"),
+    "Coin G 30": ChibiRoboItemData("Item", IC.filler, 237, 0x6b, "coin_g"),
+    "Coin G 31": ChibiRoboItemData("Item", IC.filler, 238, 0x6b, "coin_g"),
+    "Coin G 32": ChibiRoboItemData("Item", IC.filler, 239, 0x6b, "coin_g"),
+    "Coin G 33": ChibiRoboItemData("Item", IC.filler, 240, 0x6b, "coin_g"),
+    "Coin G 34": ChibiRoboItemData("Item", IC.filler, 241, 0x6b, "coin_g"),
+    "Coin G 35": ChibiRoboItemData("Item", IC.filler, 242, 0x6b, "coin_g"),
+    "Coin G 36": ChibiRoboItemData("Item", IC.filler, 243, 0x6b, "coin_g"),
+    "Coin G 37": ChibiRoboItemData("Item", IC.filler, 244, 0x6b, "coin_g"),
+    "Coin G 38": ChibiRoboItemData("Item", IC.filler, 245, 0x6b, "coin_g"),
+
+    #     "Drake Redcrest Suit": ChibiRoboItemData("Item", IC.progression, 235, 0x18, "drake_redcrest_suit"),
+    #     "Toa Suit": ChibiRoboItemData("Item", IC.useful, 236, 0x19, "tao_suit"),
+    #     "Frog Suit": ChibiRoboItemData("Item", IC.progression, 237, 0x1a, "frog_suit"),
+    #     "Trauma Suit": ChibiRoboItemData("Item", IC.useful, 238, 0x1a, "trauma_suit"),
+    #     "Ghost Suit": ChibiRoboItemData("Item", IC.useful, 239, 0x22, "ghost_suit"),
+    #     "Pajamas Suit": ChibiRoboItemData("Item", IC.useful, 240, 0x1e, "pajamas"),
 }
+
+filler_item_names = ["Coin S 1", "Coin C 1", "Coin G 1" ]
 
 LOOKUP_ID_TO_NAME: dict[int, str] = {
     ChibiRoboItem.get_apid(data.code): item for item, data in ITEM_TABLE.items() if data.code is not None
@@ -352,8 +361,7 @@ _simple_groups = {
     ("Battery's", "Battery"),
     ("Bricks", "Brick"),
     ("Coins", "Coin"),
-    ("Junk", "Junk"),
-    ("Happy Blocks", "Happy Block"),
+    ("Junk", "Junk")
 }
 
 for basename, substring in _simple_groups:

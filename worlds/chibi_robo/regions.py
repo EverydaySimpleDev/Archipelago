@@ -293,6 +293,8 @@ def connect_entrances(multiworld: MultiWorld, player: int):
     # multiworld.get_entrance("Chibi House - Living Room", player).connect(multiworld.get_region("Living Room", player))
     multiworld.get_entrance("Kitchen - Living Room", player).connect(multiworld.get_region("Living Room", player))
     multiworld.get_entrance("Backyard - Living Room", player).connect(multiworld.get_region("Living Room", player))
+    multiworld.get_entrance("Foyer - Living Room", player).connect(multiworld.get_region("Living Room", player))
+    multiworld.get_entrance("Mother Spider - Living Room", player).connect(multiworld.get_region("Living Room", player))
 
     # multiworld.get_entrance("Living Room - Chibi House", player).connect(multiworld.get_region("Chibi House", player))
 
@@ -304,24 +306,22 @@ def connect_entrances(multiworld: MultiWorld, player: int):
     multiworld.get_entrance("Kitchen - Foyer", player).connect(multiworld.get_region("Foyer", player))
 
     multiworld.get_entrance("Living Room - Backyard", player).connect(multiworld.get_region("Backyard", player))
+    multiworld.get_entrance("UFO - Backyard", player).connect(multiworld.get_region("Backyard", player))
 
     multiworld.get_entrance("Backyard - UFO", player).connect(multiworld.get_region("UFO", player))
+    multiworld.get_entrance("Bedroom - Past - UFO", player).connect(multiworld.get_region("UFO", player))
 
     multiworld.get_entrance("Kitchen - Sink Drain", player).connect(multiworld.get_region("Sink Drain", player))
 
-    multiworld.get_entrance("Foyer - Living Room", player).connect(multiworld.get_region("Living Room", player))
     multiworld.get_entrance("Foyer - Basement", player).connect(multiworld.get_region("Basement", player))
     multiworld.get_entrance("Foyer - Jenny's Room", player).connect(multiworld.get_region("Jenny's Room", player))
     multiworld.get_entrance("Foyer - Bedroom", player).connect(multiworld.get_region("Bedroom", player))
+
     multiworld.get_entrance("Basement - Foyer", player).connect(multiworld.get_region("Foyer", player))
     multiworld.get_entrance("Jenny's Room - Foyer", player).connect(multiworld.get_region("Foyer", player))
     multiworld.get_entrance("Bedroom - Foyer", player).connect(multiworld.get_region("Foyer", player))
-    multiworld.get_entrance("UFO - Backyard", player).connect(multiworld.get_region("Backyard", player))
 
     multiworld.get_entrance("UFO - Bedroom - Past", player).connect(multiworld.get_region("Bedroom - Past", player))
-
-    multiworld.get_entrance("Bedroom - Past - UFO", player).connect(multiworld.get_region("UFO", player))
-    multiworld.get_entrance("Mother Spider - Living Room", player).connect(multiworld.get_region("Living Room", player))
 
     multiworld.get_entrance("Living Room - Mother Spider", player).connect(multiworld.get_region("Mother Spider", player))
 

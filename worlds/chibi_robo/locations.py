@@ -281,6 +281,8 @@ LOCATION_TABLE: dict[str, ChibiRoboLocationData] = {
     "Bedroom - 10M Coin on Nightstand": ChibiRoboLocationData(220, "Bedroom", 6, 0x80000000),
     "Bedroom - 10M Coin on Shelf": ChibiRoboLocationData(221, "Bedroom", 6, 0x80000000),
 
+    # "Victory": ChibiRoboLocationData(222, "Living Room", 6, 0x80000000),
+
     # Shop can't have duplicate items inside of it so disabling until I find a work around
     # Mutliworld items are all the same item in game currently
     # "Chibi House - Pink Flower Seed": ChibiRoboLocationData(222, "Chibi House", 5, 0x80000000),
