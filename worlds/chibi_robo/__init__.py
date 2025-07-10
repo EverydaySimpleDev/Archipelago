@@ -23,7 +23,7 @@ from worlds.LauncherComponents import components, Component, launch_subprocess, 
 from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tutorial, CollectionState, MultiWorld
 from .regions import create_regions, connect_entrances
 from .game_id import game_name
-from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, filler_item_names
+from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, filler_item_names, ITEM_TABLE_DESC
 from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
 from .options import ChibiRobobGameOptions
 from BaseClasses import ItemClassification as IC
@@ -46,6 +46,8 @@ icon_paths["chibi_body_icon"] = f"ap:{__name__}/icons/chibi_body_icon.png"
 
 class ChibiRoboWebWorld(WebWorld):
     theme = "dirt"
+
+    item_descriptions = ITEM_TABLE_DESC
 
     bug_report_page = "https://github.com/EverydaySimpleDev/Archipelago",
 
@@ -234,6 +236,9 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     # Force ToothBrush at this location so players are not in BK mode right away
     world.get_location("Living Room - Candy Wrapper on Book Stack").place_locked_item(itempool[0])
     itempool.remove(itempool[0])
+
+    world.get_location("Jenny's Room - Red Shoe").place_locked_item(itempool[16])
+    itempool.remove(itempool[16])
 
     # Force Left in suitcase?
     # world.get_location("Bedroom - Left Leg in Suitcase").place_locked_item(itempool[10])
