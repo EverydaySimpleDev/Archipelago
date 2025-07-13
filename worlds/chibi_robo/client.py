@@ -140,6 +140,7 @@ class ChibiRoboContext(CommonContext):
     async def disconnect(self, allow_autoreconnect: bool = False) -> None:
         self.auth = None
         self.current_stage_name = ""
+        reset_item_flag()
         await super().disconnect(allow_autoreconnect)
 
     async def disconnect_proxy(self):
@@ -405,6 +406,14 @@ def update_item_flag() -> None:
         EXPECTED_INDEX_ADDR += 4  # increment by 4 to get next flag / memory to set
 
         return
+def reset_item_flag() -> None:
+
+    global EXPECTED_INDEX_ADDR
+    global CURRENT_INDEX_ADDR
+
+    EXPECTED_INDEX_ADDR = 0x80396576  # increment by 4 to get next flag / memory to set
+
+    return
 
 async def check_locations(ctx: ChibiRoboContext) -> None:
     """
@@ -600,7 +609,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
 
                 if not check_ingame():
                     # Reset the give item array while not in the game.
-                    dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, bytes([0x80396576]))
+                    reset_item_flag()
                     sleep_time = 0.1
                     continue
                 if ctx.slot is not None:
@@ -632,6 +641,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                     logger.info(ctx.dolphin_status)
                     logger.info("Connection to Dolphin failed, attempting again in 5 seconds...")
                     ctx.dolphin_status = CONNECTION_LOST_STATUS
+                    reset_item_flag()
                     await ctx.disconnect()
                     sleep_time = 5
                     continue
@@ -640,6 +650,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
             logger.info("Connection to Dolphin failed, attempting again in 5 seconds...")
             logger.error(traceback.format_exc())
             ctx.dolphin_status = CONNECTION_LOST_STATUS
+            reset_item_flag()
             await ctx.disconnect()
             sleep_time = 5
             continue

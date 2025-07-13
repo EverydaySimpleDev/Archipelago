@@ -172,6 +172,7 @@ class ChibiRoboWorld(World):
          # Output which item has been placed at each location.
         output_locations = output_data["Locations"]
         for location in multiworld.get_locations(player):
+
             if location.item:
                 item_info = {
                     "player": location.item.player,
@@ -233,12 +234,9 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
 
-    # Force ToothBrush at this location so players are not in BK mode right away
-    world.get_location("Living Room - Candy Wrapper on Book Stack").place_locked_item(itempool[0])
+    # Game needs toothbrush in living
+    world.get_location("Living Room - Candy Wrapper by Jenny B").place_locked_item(itempool[0])
     itempool.remove(itempool[0])
-
-    world.get_location("Jenny's Room - Red Shoe").place_locked_item(itempool[16])
-    itempool.remove(itempool[16])
 
     # Force Left in suitcase?
     # world.get_location("Bedroom - Left Leg in Suitcase").place_locked_item(itempool[10])

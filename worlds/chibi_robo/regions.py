@@ -49,6 +49,7 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Living Room"].locations.append("Living Room - Plant Leaf 50M Coin")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Wastepaper by Trashbin B")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Candy Wrapper above Trashbin A")
+    chibi_robo_regions["Living Room"].locations.append("Living Room - Candy Wrapper above Trashbin B")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Wastepaper by Trashbin A")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Cupholder Wastepaper")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Cookie Crumbs under Table")
@@ -279,6 +280,8 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - 10M Coin under Bed")
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - 10M Coin on Nightstand")
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - 10M Coin on Shelf")
+
+    # chibi_robo_regions["Staff Credits"].locations.append("Victory")
 
     # Set up the regions correctly.
     for name, data in chibi_robo_regions.items():

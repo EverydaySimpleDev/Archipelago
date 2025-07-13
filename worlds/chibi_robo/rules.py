@@ -17,7 +17,7 @@ def set_rules(self) -> None:
     player = self.player
 
 
-    set_rule(multiworld.get_entrance('Living Room - Kitchen', player),
+    set_rule(multiworld.get_entrance('Foyer - Kitchen', player),
              lambda state: state.has(mug, player))
 
     set_rule(multiworld.get_entrance('Living Room - Foyer', player),
@@ -25,6 +25,9 @@ def set_rules(self) -> None:
 
     set_rule(multiworld.get_entrance('Living Room - Backyard', player),
              lambda state: state.has(mug, player))
+
+    set_rule(multiworld.get_entrance('Backyard - Living Room', player),
+             lambda state: state.has(blaster, player))
 
     set_rule(multiworld.get_entrance("Jenny's Room - Foyer", player),
              lambda state: state.has(mug, player))
@@ -41,13 +44,26 @@ def set_rules(self) -> None:
     set_rule(multiworld.get_entrance('Backyard - Living Room', player),
              lambda state: state.has(tooth_brush, player))
 
-    # TODO: Replace with real event / item
-    # multiworld.get_location("Victory", player).place_locked_item(self.create_event("Victory"))
+    set_rule(multiworld.get_entrance('Living Room - Mother Spider', player),
+             lambda state: state.has(spoon, self.player) and
+                           state.has(blaster, self.player) and
+                           state.has(tooth_brush, self.player) and
+                           state.has(charge_chip, self.player) and
+                           state.has(squirter, self.player) and
+                           state.has(mug, self.player) and
+                           state.has("Alien Ear Chip", self.player) and
+                           state.has("Giga-Battery", self.player) and
+                           state.has("Giga-Charger", self.player) and
+                           state.has("Left Leg", self.player) and
+                           state.has("Toy Receipt", self.player) and
+                           state.has("Wedding Band", self.player) and
+                           state.has("Chibi-Radar Chibi-Gear", self.player))
 
-    multiworld.completion_condition[player] = lambda state: state.has("Chibi-Blaster Chibi-Gear", player)
+    # TODO: Replace with real event / item
+    multiworld.completion_condition[player] = lambda state: state.can_reach_region("Staff Credits", player)
 
     # from Utils import visualize_regions
-    # visualize_regions(world.get_region("Menu", self.player), "chibi_robo.puml")
+    visualize_regions(multiworld.get_region("Menu", self.player), "chibi_robo.puml")
 
 def set_location_rules(self) -> None:
 
@@ -189,5 +205,20 @@ def set_location_rules(self) -> None:
     add_rule(multiworld.get_location("Jenny's Room - C Battery", player),
              lambda state: state.has(mug, self.player) and
                            state.has(blaster, self.player))
+
+    # add_rule(multiworld.get_location("Victory", player),
+    #          lambda state: state.has(spoon, self.player) and
+    #                        state.has(blaster, self.player) and
+    #                        state.has(tooth_brush, self.player) and
+    #                        state.has(charge_chip, self.player) and
+    #                        state.has(squirter, self.player) and
+    #                        state.has(mug, self.player) and
+    #                        state.has("Alien Ear Chip", self.player) and
+    #                        state.has("Giga-Battery", self.player) and
+    #                        state.has("Giga-Charger", self.player) and
+    #                        state.has("Left Leg", self.player) and
+    #                        state.has("Toy Receipt", self.player) and
+    #                        state.has("Wedding Band", self.player) and
+    #                        state.has("Chibi-Radar Chibi-Gear", self.player))
 
 
