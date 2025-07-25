@@ -234,7 +234,7 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
 
-    # Game needs toothbrush in living
+
     world.get_location("Living Room - Candy Wrapper by Jenny B").place_locked_item(itempool[0])
     itempool.remove(itempool[0])
 

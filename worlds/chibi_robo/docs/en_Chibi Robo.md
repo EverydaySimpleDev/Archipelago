@@ -12,3 +12,6 @@ Ported to Archipelago, this World provides the following:
 - Dolphin automatic integration (No Support For Bizhawk)
 - Options that auto connect to the Chibi Robo Rando Application
 
+
+You will need an NTSC-U (GGTE01) Chibi-Robo! Plug Into Adventure! ISO. Other versions of the game are not supported.
+
