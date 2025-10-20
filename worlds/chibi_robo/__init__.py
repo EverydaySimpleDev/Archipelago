@@ -10,7 +10,7 @@ from collections import defaultdict
 from math import ceil
 
 from typing import Any, ClassVar, Callable, Union, cast
-from logging import Logger
+from logging import Logger, debug
 import dolphin_memory_engine
 import Utils
 import yaml
@@ -23,7 +23,8 @@ from worlds.LauncherComponents import components, Component, launch_subprocess, 
 from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tutorial, CollectionState, MultiWorld
 from .regions import create_regions, connect_entrances
 from .game_id import game_name
-from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, filler_item_names, ITEM_TABLE_DESC
+from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, filler_item_names, ITEM_TABLE_DESC, \
+    FILLER_ITEM_TABLE
 from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
 from .options import ChibiRobobGameOptions
 from BaseClasses import ItemClassification as IC
@@ -117,8 +118,7 @@ class ChibiRoboWorld(World):
         Return a string representation of the item's highest-order classification.
 
         :param classification: The item's classification.
-        :return: A string representation of the item's highest classification. The order of classification is
-        progression > trap > useful > filler.
+        :return: A string representation of the item's highest classification.
         """
 
         if IC.progression in classification:
@@ -149,7 +149,7 @@ class ChibiRoboWorld(World):
         set_location_rules(self)
 
     def get_filler_item_name(self) -> str:
-        return self.random.choice(filler_item_names)
+        return self.random.choice(list(FILLER_ITEM_TABLE.keys()))
 
     def fill_slot_data(self) -> Dict[str, Any]:
         return self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off")
@@ -214,10 +214,15 @@ class ChibiRoboWorld(World):
 
         if name in ITEM_TABLE:
             return ChibiRoboItem(name, self.player, ITEM_TABLE[name])
+
+        if name in FILLER_ITEM_TABLE:
+            return ChibiRoboItem(name, self.player, FILLER_ITEM_TABLE[name])
+
         raise KeyError(f"Invalid item name: {name}")
 
     def create_items(self):
       self.multiworld.itempool += create_itempool(self)
+
 
     def collect(self, state: CollectionState, item: ChibiRoboItem) -> bool:
         change = super().collect(state, item)
@@ -230,13 +235,21 @@ class ChibiRoboWorld(World):
 def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     itempool: List[Item] = []
 
+    # total_locations = len(world.multiworld.get_unfilled_locations(world.player))
+
     for name in ITEM_TABLE.keys():
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
 
+    unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
 
-    world.get_location("Living Room - Candy Wrapper by Jenny B").place_locked_item(itempool[0])
-    itempool.remove(itempool[0])
+    while len(itempool) < unfilled_locations:
+        rand_item = world.random.choice(list(FILLER_ITEM_TABLE.keys()))
+        itempool += create_multiple_items(world, rand_item, 1, ItemClassification.filler)
+
+
+    # world.get_location("Living Room - Candy Wrapper by Jenny B").place_locked_item(itempool[0])
+    # itempool.remove(itempool[0])
 
     # Force Left in suitcase?
     # world.get_location("Bedroom - Left Leg in Suitcase").place_locked_item(itempool[10])
