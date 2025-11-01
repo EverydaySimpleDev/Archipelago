@@ -23,8 +23,7 @@ from worlds.LauncherComponents import components, Component, launch_subprocess, 
 from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tutorial, CollectionState, MultiWorld
 from .regions import create_regions, connect_entrances
 from .game_id import game_name
-from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, filler_item_names, ITEM_TABLE_DESC, \
-    FILLER_ITEM_TABLE
+from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE
 from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
 from .options import ChibiRobobGameOptions
 from BaseClasses import ItemClassification as IC
@@ -246,14 +245,6 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     while len(itempool) < unfilled_locations:
         rand_item = world.random.choice(list(FILLER_ITEM_TABLE.keys()))
         itempool += create_multiple_items(world, rand_item, 1, ItemClassification.filler)
-
-
-    # world.get_location("Living Room - Candy Wrapper by Jenny B").place_locked_item(itempool[0])
-    # itempool.remove(itempool[0])
-
-    # Force Left in suitcase?
-    # world.get_location("Bedroom - Left Leg in Suitcase").place_locked_item(itempool[10])
-    # itempool.remove(itempool[10])
 
     return itempool
 

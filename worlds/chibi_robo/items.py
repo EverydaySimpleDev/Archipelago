@@ -197,20 +197,6 @@ ITEM_TABLE_DESC: dict[str, str] = {
     #     "Pajamas Suit": "You'll lie down to sleep and will automatically go to the next half-day.",
 }
 
-filler_item_names = [
-    "Coin S",
-    "Coin C",
-    "Coin G",
-    "Junk A",
-    "Junk B",
-    "Junk C",
-    "Wastepaper",
-    "Candy Wrapper",
-    "Candy Bag",
-    "Cookie Box",
-    "Empty Can"
-]
-
 LOOKUP_ID_TO_NAME: dict[int, str] = {
     ChibiRoboItem.get_apid(data.code): item for item, data in ITEM_TABLE.items() if data.code is not None
 }

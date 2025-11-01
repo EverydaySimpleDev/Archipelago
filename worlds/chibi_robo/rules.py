@@ -16,7 +16,6 @@ def set_rules(self) -> None:
     multiworld = self.multiworld
     player = self.player
 
-
     set_rule(multiworld.get_entrance('Foyer - Kitchen', player),
              lambda state: state.has(mug, player))
 
@@ -63,7 +62,7 @@ def set_rules(self) -> None:
     multiworld.completion_condition[player] = lambda state: state.can_reach_region("Staff Credits", player)
 
     # from Utils import visualize_regions
-    visualize_regions(multiworld.get_region("Menu", self.player), "chibi_robo.puml")
+    # visualize_regions(multiworld.get_region("Menu", self.player), "chibi_robo.puml")
 
 def set_location_rules(self) -> None:
 
