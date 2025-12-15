@@ -63,7 +63,7 @@ class ChibiRoboWebWorld(WebWorld):
     tutorials = [setup_en]
 
 
-class ChibiRoboContainer(APPlayerContainer, metaclass=AutoPatchRegister):
+class ChibiRoboContainer(APPlayerContainer):
     """
     This class defines the container file
     """
