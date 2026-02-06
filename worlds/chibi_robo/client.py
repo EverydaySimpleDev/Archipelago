@@ -35,10 +35,12 @@ EXPECTED_INDEX_ADDR = 0x80396576
 CURRENT_INDEX_ADDR = 0
 
 # This address contains the current stage / room ID.
-CURR_STAGE_ID_ADDR = 0x8026644C
+CURR_STAGE_ID_ADDR = 0x8025f847
+
+CURR_GAME_STATE = 0x8025df17
 
 # This address is used to check/set the player's battery
-CURR_BATTERY_ADDR = 0x8396558
+CURR_BATTERY_ADDR = 0x8038f748
 
 GC_GAME_ID_ADDRESS = 0x80000000
 
@@ -47,6 +49,8 @@ MOOLAH_ADDR = 0x80396550
 SCRAP_ADDR = 0X80396554
 
 HAPPY_POINTS_ADDR = 0x8039653C
+
+BASE_ITEM_ADDR = 0x80370000
 
 class ChibiRoboJSONToTextParser(JSONtoTextParser):
     def _handle_color(self, node: JSONMessagePart):
@@ -69,6 +73,16 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
         if isinstance(self.ctx, ChibiRoboContext):
             # logger.info(f"{self.ctx.item_names["Chibi Robo"]}")
             # logger.info(f"{self.ctx.location_names["Chibi Robo"]}")
+            return
+
+    def _cmd_equip_blaster(self) -> None:
+        """
+        Equip Blaster
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            dolphin_memory_engine.write_bytes(0x8038f6c2, bytes(2))
+            dolphin_memory_engine.write_bytes(0x8038f6c4, bytes(0))
+            dolphin_memory_engine.write_bytes(0x8038f6c6, bytes(2))
             return
 
     def _cmd_dolphin(self) -> None:
@@ -288,8 +302,6 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
     :param item_name: Name of the item to give.
     :return: Whether the item was successfully given.
     """
-    global CURR_STAGE_ID_ADDR
-    global EXPECTED_INDEX_ADDR
 
     if not check_ingame() or dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
         return False
@@ -368,7 +380,9 @@ def check_ingame() -> bool:
     :return: `True` if the player is in-game, otherwise `False`.
     """
 
-    return dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) not in ["" , '\x00\x00\x00\x0e', '\x00\x00\x00\x01', '\x00\x00\x00\x02', '\x00\x00\x00\x03', '\x00\x00\x00\x04', '\x00\x00\x00\x05', '\x00\x00\x00\x06','\x00\x00\x00\x07','\x00\x00\x00\x09','\x00\x00\x00\x0a','\x00\x00\x00\x0b','\x00\x00\x00\x10','\x00\x00\x00\x12','\x00\x00\x00\x16']
+    # logger.info(dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1))
+
+    return dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1) not in ["" , '\x00', '\x40', '\x07']
 
 async def give_items(ctx: ChibiRoboContext) -> None:
     """
@@ -429,6 +443,13 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
     curr_stage_id = stage_hex_to_id()
     ctx.curr_stage_pickup = read_4byte_short(EXPECTED_INDEX_ADDR)
 
+    for location, data in LOCATION_TABLE.items():
+        checked = False
+
+        # logger.info(data.bit)
+
+        checked = check_location(ctx, curr_stage_id, location, data)
+
     if ctx.curr_stage_pickup != 65535:
 
         # Loop through all locations to see if each has been checked.
@@ -472,79 +493,88 @@ def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str ,data: C
     checked = False
     # If the location is in the current stage, check the bitfields for the current stage as well.
     if not checked and curr_stage_id == data.stage_id:
-        # logger.info(name)
-        checked = bool((ctx.curr_stage_pickup >> data.bit) & 1)
+
+        if data.address:
+
+            logger.info(name)
+
+            location_addr = hex(BASE_ITEM_ADDR + data.address)
+
+            logger.info( dolphin_memory_engine.read_bytes(int( location_addr, 16), 4) )
+
+            # checked = bool((ctx.curr_stage_pickup >> data.bit) & 1)
 
     return checked
 
 def stage_hex_to_name() -> str:
-    global CURR_STAGE_ID_ADDR
+    stage_value = dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 1)
 
-    if dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
+    if stage_value == b"\x0e":
         return "Menu"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x01":
+    elif stage_value == b"\x01":
         return "Kitchen"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x02":
+    elif stage_value == b"\x02":
         return "Foyer"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x03":
+    elif stage_value == b"\x03":
         return "Basement"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x04":
+    elif stage_value == b"\x04":
         return "Jenny's Room"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x05":
+    elif stage_value == b"\x05":
         return "Chibi House"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x06":
+    elif stage_value == b"\x06":
         return "Bedroom"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x07":
+    elif stage_value == b"\x07":
         return "Living Room"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x09":
+    elif stage_value == b"\x09":
         return "Backyard"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0a":
+    elif stage_value == b"\x0a":
         return "Staff Credits"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0b":
+    elif stage_value == b"\x0b":
         return "Drain"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
+    elif stage_value == b"\x0e":
         return "Living Room (Birthday)"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x10":
+    elif stage_value == b"\x10":
         return "UFO"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x12":
+    elif stage_value == b"\x12":
         return "Bedroom (Past)"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x16":
+    elif stage_value == b"\x16":
         return "Mother Spider Boss"
 
     return "Could Not Find Room / Stage Name"
 
 def stage_hex_to_id() -> int:
-    global CURR_STAGE_ID_ADDR
 
-    if dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
+    stage_value = dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 1)
+
+    if  stage_value == b"\x0e":
         return 0 # 'Menu'
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x01":
+    elif stage_value == b"\x01":
         return 1 # "Kitchen"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x02":
+    elif stage_value == b"\x02":
         return 2 #"Foyer"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x03":
+    elif stage_value == b"\x03":
         return 3 #"Basement"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x04":
+    elif stage_value == b"\x04":
         return 4 #"Jenny's Room"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x05":
+    elif stage_value == b"\x05":
         return 5 #"Chibi House"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x06":
+    elif stage_value == b"\x06":
         return 6 #"Bedroom"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x07":
+    elif stage_value == b"\x07":
         return 7 #"Living Room"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x09":
+    elif stage_value == b"\x09":
         return 8 #"Backyard"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0a":
+    elif stage_value == b"\x0a":
         return 9 #"Staff Credits"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0b":
+    elif stage_value == b"\x0b":
         return 10 #"Drain"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
+    elif stage_value == b"\x0e":
         return 11 #"Living Room (Birthday)"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x10":
+    elif stage_value == b"\x10":
         return 12 #"UFO"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x12":
+    elif stage_value == b"\x12":
         return 13 #"Bedroom (Past)"
-    elif dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x16":
+    elif stage_value == b"\x16":
         return 14 #"Mother Spider Boss"
 
     return -1 #"Could Not Find Room / Stage Name"
@@ -581,6 +611,9 @@ async def check_alive() -> bool:
     :return: `True` if the player is alive, otherwise `False`.
     """
     cur_health = read_short(CURR_BATTERY_ADDR)
+
+    logger.info(cur_health)
+
     return cur_health > 0
 
 
@@ -628,7 +661,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                 dolphin_memory_engine.hook()
                 if dolphin_memory_engine.is_hooked():
 
-                    if dolphin_memory_engine.read_bytes(0x80000000, 6) != b"GGTP01":
+                    if dolphin_memory_engine.read_bytes(0x80000000, 6) != b"GGTE01":
                         ctx.dolphin_status = CONNECTION_REFUSED_GAME_STATUS
                         dolphin_memory_engine.un_hook()
                         sleep_time = 5

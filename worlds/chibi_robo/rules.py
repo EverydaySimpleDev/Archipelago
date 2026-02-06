@@ -19,29 +19,35 @@ def set_rules(self) -> None:
     set_rule(multiworld.get_entrance('Foyer - Kitchen', player),
              lambda state: state.has(mug, player))
 
-    set_rule(multiworld.get_entrance('Living Room - Foyer', player),
-             lambda state: state.has(mug, player))
-
-    set_rule(multiworld.get_entrance('Living Room - Backyard', player),
-             lambda state: state.has(mug, player))
-
-    set_rule(multiworld.get_entrance('Backyard - Living Room', player),
-             lambda state: state.has(blaster, player))
-
-    set_rule(multiworld.get_entrance("Jenny's Room - Foyer", player),
-             lambda state: state.has(mug, player))
-
-    set_rule(multiworld.get_entrance('Living Room - Kitchen', player),
-             lambda state: state.has(tooth_brush, player))
+    set_rule(multiworld.get_entrance('Bedroom - Foyer', player),
+             lambda state: state.has(mug, player) and
+                           state.has(tooth_brush, player))
 
     set_rule(multiworld.get_entrance('Living Room - Foyer', player),
-             lambda state: state.has(tooth_brush, player))
+             lambda state: state.has(mug, player) and
+             state.has(tooth_brush, player))
 
     set_rule(multiworld.get_entrance('Living Room - Backyard', player),
-             lambda state: state.has(tooth_brush, player))
+             lambda state: state.has(mug, player) and
+                           state.has(blaster, player ) and
+                            state.has(tooth_brush, player))
 
     set_rule(multiworld.get_entrance('Backyard - Living Room', player),
-             lambda state: state.has(tooth_brush, player))
+             lambda state: state.has(blaster, player) and
+                    state.has("coin_c", self.player, 24) and
+                    state.has("item_okasi_gomi_2", self.player, 6) and
+                    state.has(tooth_brush, player))
+
+    set_rule(multiworld.get_entrance("Foyer - Jenny's Room", player),
+             lambda state: state.has(mug, player))
+
+    set_rule(multiworld.get_entrance('Kitchen - Living Room', player),
+             lambda state: state.has("coin_c", self.player, 24) and
+                           state.has("item_okasi_gomi_2", self.player, 6))
+
+    set_rule(multiworld.get_entrance('Foyer - Living Room', player),
+             lambda state: state.has("coin_c", self.player, 24) and
+                           state.has("item_okasi_gomi_2", self.player, 6))
 
     set_rule(multiworld.get_entrance('Living Room - Mother Spider', player),
              lambda state: state.has(spoon, self.player) and
@@ -57,6 +63,7 @@ def set_rules(self) -> None:
                            state.has("Toy Receipt", self.player) and
                            state.has("Wedding Band", self.player) and
                            state.has("Chibi-Radar Chibi-Gear", self.player))
+
 
     # TODO: Replace with real event / item
     multiworld.completion_condition[player] = lambda state: state.can_reach_region("Staff Credits", player)

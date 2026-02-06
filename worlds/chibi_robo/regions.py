@@ -29,7 +29,7 @@ def create_regions(multiworld: MultiWorld, player: int, options):
         "Staff Credits": ChibiRoboRegionData([], ["Staff Credits - Living Room"])
     }
 
-    # Living Room - 67 LocationsAdd commentMore actions
+    # Living Room - 67 Locations
     chibi_robo_regions["Living Room"].locations.append("Living Room - Frog Ring (Behind Window)")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Frog Ring (Corkboard)")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Frog Ring (Shelf)")

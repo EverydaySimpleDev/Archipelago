@@ -240,6 +240,13 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
 
+    world.get_location("Living Room - Candy Wrapper by Jenny B").place_locked_item(itempool[0])
+    itempool.remove(itempool[0])
+
+    # Force coin so users can climb the drain
+    world.get_location("Middle Row 10M Coin C").place_locked_item(itempool[51])
+    itempool.remove(itempool[51])
+
     unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
 
     while len(itempool) < unfilled_locations:

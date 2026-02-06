@@ -126,15 +126,15 @@ FILLER_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
 
     "Coin C": ChibiRoboItemData("Item", IC.filler, 52, 0x6b, "coin_c"),
     "Coin S": ChibiRoboItemData("Item", IC.filler, 82, 0x6b, "coin_s"),
-    "Coin G": ChibiRoboItemData("Item", IC.filler, 89, 0x6b, "coin_g"),
-    "Junk A": ChibiRoboItemData("Item", IC.filler, 93, 0x12, "item_junk_a"),
-    "Junk B": ChibiRoboItemData("Item", IC.filler, 110, 0x12, "item_junk_b"),
-    "Junk C": ChibiRoboItemData("Item", IC.filler, 127, 0x12, "item_junk_c"),
+    # "Coin G": ChibiRoboItemData("Item", IC.filler, 89, 0x6b, "coin_g"),
+    # "Junk A": ChibiRoboItemData("Item", IC.filler, 93, 0x12, "item_junk_a"),
+    # "Junk B": ChibiRoboItemData("Item", IC.filler, 110, 0x12, "item_junk_b"),
+    # "Junk C": ChibiRoboItemData("Item", IC.filler, 127, 0x12, "item_junk_c"),
     "Wastepaper": ChibiRoboItemData("Item", IC.filler, 144, 0x12, "item_kami_kuzu"),
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 166, 0x88, "item_candy_gomi"),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 174, 0x89, "item_okasi_gomi_1"),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 179, 0x8a, "item_okasi_gomi_2"),
-    "Empty Can": ChibiRoboItemData("Item", IC.filler, 186, 0x6b, "item_okasi_gomi_2"),
+    # "Empty Can": ChibiRoboItemData("Item", IC.filler, 186, 0x6b, "item_okasi_gomi_2"),
 
 }
 
