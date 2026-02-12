@@ -11,7 +11,7 @@ levels = {
     "Stage08": { "stage08", "stage08" },
     "Backyard": { "stage09", "Backyard" },
     "StaffCredit": { "stage10", "Staff Credit" },
-    "Drain": { "stage11", "Drain" },
+    "SinkDrain": { "stage11", "Sink Drain" },
     "Stage12": { "stage12", "stage12" },
     "ChibiManual": { "stage13", "Chibi-Manual" },
     "LivingRoomBirthday": { "stage14", "Living Room (Birthday)" },

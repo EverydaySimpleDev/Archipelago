@@ -66,23 +66,24 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
         """
         super().__init__(ctx)
 
-    def _cmd_debug(self) -> None:
-        """
-        Debug Messages
-        """
-        if isinstance(self.ctx, ChibiRoboContext):
-            # logger.info(f"{self.ctx.item_names["Chibi Robo"]}")
-            # logger.info(f"{self.ctx.location_names["Chibi Robo"]}")
-            return
-
     def _cmd_equip_blaster(self) -> None:
         """
-        Equip Blaster
+        Equips Blaster
         """
         if isinstance(self.ctx, ChibiRoboContext):
-            dolphin_memory_engine.write_bytes(0x8038f6c2, bytes(2))
-            dolphin_memory_engine.write_bytes(0x8038f6c4, bytes(0))
-            dolphin_memory_engine.write_bytes(0x8038f6c6, bytes(2))
+            write_short(0x8038f6c2, 2)
+            write_short(0x8038f6c4, 0)
+            write_short(0x8038f6c6, 2)
+            return
+
+    def _cmd_equip_radar(self) -> None:
+        """
+        Equips Radar
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            write_short(0x8038f6c2, 3)
+            write_short(0x8038f6c4, 0)
+            write_short(0x8038f6c6, 3)
             return
 
     def _cmd_dolphin(self) -> None:
@@ -443,41 +444,26 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
     curr_stage_id = stage_hex_to_id()
     ctx.curr_stage_pickup = read_4byte_short(EXPECTED_INDEX_ADDR)
 
+    if not ctx.finished_game:
+        if curr_stage_id == 15: # end credits = completing game
+            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+            ctx.finished_game = True
+            logger.info("Congratulations, you have completed the game!")
+
     for location, data in LOCATION_TABLE.items():
         checked = False
 
-        # logger.info(data.bit)
-
         checked = check_location(ctx, curr_stage_id, location, data)
 
-    if ctx.curr_stage_pickup != 65535:
+        if checked:
+            ctx.locations_checked.add(ChibiRoboLocation.get_apid(data.code))
 
-        # Loop through all locations to see if each has been checked.
-        for location, data in LOCATION_TABLE.items():
-            checked = False
+    locations_checked = ctx.locations_checked.difference(ctx.checked_locations)
+    if locations_checked:
+        await ctx.send_msgs([{"cmd": "LocationChecks", "locations": locations_checked}])
 
-            # logger.info(f'{location} Checked:  {checked}')
-            checked = check_location(ctx, curr_stage_id, location, data)
-            # logger.info(f'{location} Checked:  {checked}')
-            # logger.info(ChibiRoboLocation.get_apid(data.code))
 
-            if checked:
-                if data.code is None:
-                    if not ctx.finished_game:
-                        await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                        ctx.finished_game = True
-                else:
-                    ctx.locations_checked.add(ChibiRoboLocation.get_apid(data.code))
-
-        # Send the list of newly-checked locations to the server.
-        locations_checked = ctx.locations_checked.difference(ctx.checked_locations)
-        if locations_checked:
-            logger.info(f'{len(locations_checked)} checked locations found.')
-            await ctx.send_msgs([{"cmd": "LocationChecks", "locations": locations_checked}])
-
-        # update_item_flag()
-
-def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str ,data: ChibiRoboLocationData) -> bool:
+def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str, data: ChibiRoboLocationData) -> bool:
     """
     Check that the player has checked a given location.
     This function handles locations that only require checking that a particular bit is set.
@@ -491,16 +477,21 @@ def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str ,data: C
     :raises NotImplementedError: If a location with an unknown type is provided.
     """
     checked = False
+
     # If the location is in the current stage, check the bitfields for the current stage as well.
     if not checked and curr_stage_id == data.stage_id:
 
         if data.address:
 
-            logger.info(name)
-
             location_addr = hex(BASE_ITEM_ADDR + data.address)
 
-            logger.info( dolphin_memory_engine.read_bytes(int( location_addr, 16), 4) )
+            location_value = dolphin_memory_engine.read_bytes(int( location_addr, 16), 4)
+
+            logger.info( name + ': ' )
+            logger.info( location_value )
+            logger.info( int.from_bytes(location_value, byteorder='little') >> data.bit )
+            logger.info( bool( (int.from_bytes(location_value, byteorder='little') >> data.bit) & 1) )
+
 
             # checked = bool((ctx.curr_stage_pickup >> data.bit) & 1)
 
@@ -530,7 +521,7 @@ def stage_hex_to_name() -> str:
     elif stage_value == b"\x0a":
         return "Staff Credits"
     elif stage_value == b"\x0b":
-        return "Drain"
+        return "Sink Drain"
     elif stage_value == b"\x0e":
         return "Living Room (Birthday)"
     elif stage_value == b"\x10":
@@ -539,6 +530,8 @@ def stage_hex_to_name() -> str:
         return "Bedroom (Past)"
     elif stage_value == b"\x16":
         return "Mother Spider Boss"
+    elif stage_value == b"\x0a":
+        return "Ending Credits"
 
     return "Could Not Find Room / Stage Name"
 
@@ -567,7 +560,7 @@ def stage_hex_to_id() -> int:
     elif stage_value == b"\x0a":
         return 9 #"Staff Credits"
     elif stage_value == b"\x0b":
-        return 10 #"Drain"
+        return 10 #"Sink Drain"
     elif stage_value == b"\x0e":
         return 11 #"Living Room (Birthday)"
     elif stage_value == b"\x10":
@@ -576,6 +569,8 @@ def stage_hex_to_id() -> int:
         return 13 #"Bedroom (Past)"
     elif stage_value == b"\x16":
         return 14 #"Mother Spider Boss"
+    elif stage_value == b"\x0a":
+        return 15 #"Ending Credits"
 
     return -1 #"Could Not Find Room / Stage Name"
 
@@ -639,6 +634,8 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
 
         try:
             if dolphin_memory_engine.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
+
+                await check_locations(ctx)
 
                 if not check_ingame():
                     # Reset the give item array while not in the game.
