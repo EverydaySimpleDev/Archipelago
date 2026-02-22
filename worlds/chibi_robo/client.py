@@ -66,11 +66,19 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
         """
         super().__init__(ctx)
 
+    def _cmd_infinite_energy(self) -> None:
+        """
+        Enable Infinite Energy
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x8038f75a, 1)
+            return
+
     def _cmd_equip_blaster(self) -> None:
         """
         Equips Blaster
         """
-        if isinstance(self.ctx, ChibiRoboContext):
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
             write_short(0x8038f6c2, 2)
             write_short(0x8038f6c4, 0)
             write_short(0x8038f6c6, 2)
@@ -80,7 +88,7 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
         """
         Equips Radar
         """
-        if isinstance(self.ctx, ChibiRoboContext):
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
             write_short(0x8038f6c2, 3)
             write_short(0x8038f6c4, 0)
             write_short(0x8038f6c6, 3)
@@ -194,6 +202,8 @@ class ChibiRoboContext(CommonContext):
             json = args
             if "slot_info" in json.keys():
                 json["slot_info"] = {}
+            if "death_link" in args["slot_data"]:
+                Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"])))
             if "players" in json.keys():
                 me: NetworkPlayer
                 for n in json["players"]:
@@ -201,7 +211,6 @@ class ChibiRoboContext(CommonContext):
                         me = n
                         break
 
-                # Only put our player info in there as we actually need it
                 json["players"] = [me]
             if DEBUG:
                 print(json)
@@ -212,7 +221,6 @@ class ChibiRoboContext(CommonContext):
                 self.awaiting_info = False
 
         elif cmd == "RoomUpdate":
-            # Same story as above
             json = args
             if "players" in json.keys():
                 json["players"] = []
@@ -226,6 +234,15 @@ class ChibiRoboContext(CommonContext):
         else:
             if cmd != "PrintJSON":
                 self.server_msgs.append(encode([args]))
+
+    def on_deathlink(self, data: dict[str, Any]) -> None:
+        """
+        Handle a DeathLink event.
+
+        :param data: The data associated with the DeathLink event.
+        """
+        super().on_deathlink(data)
+        _give_death(self)
 
     def run_gui(self):
         from kvui import GameManager
@@ -294,6 +311,21 @@ def read_string(console_address: int, strlen: int) -> str:
     """
 
     return dolphin_memory_engine.read_bytes(console_address, strlen).split(b"\0", 1)[0].decode()
+
+def _give_death(ctx: ChibiRoboContext) -> None:
+    """
+    Trigger the player's death in-game by setting their current health to zero.
+
+    :param ctx: The client context.
+    """
+    if (
+        ctx.slot is not None
+        and dolphin_memory_engine.is_hooked()
+        and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS
+        and check_ingame()
+    ):
+        ctx.has_send_death = True
+        write_short(CURR_BATTERY_ADDR, 0)
 
 def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
     """
@@ -516,7 +548,7 @@ def stage_hex_to_name() -> str:
         return "Bedroom"
     elif stage_value == b"\x07":
         return "Living Room"
-    elif stage_value == b"\x09":
+    elif stage_value == b"\x08" or stage_value == b"\t":
         return "Backyard"
     elif stage_value == b"\x0a":
         return "Staff Credits"
@@ -555,7 +587,7 @@ def stage_hex_to_id() -> int:
         return 6 #"Bedroom"
     elif stage_value == b"\x07":
         return 7 #"Living Room"
-    elif stage_value == b"\x09":
+    elif stage_value == b"\x08" or stage_value == b"\t":
         return 8 #"Backyard"
     elif stage_value == b"\x0a":
         return 9 #"Staff Credits"

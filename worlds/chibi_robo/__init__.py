@@ -151,7 +151,7 @@ class ChibiRoboWorld(World):
         return self.random.choice(list(FILLER_ITEM_TABLE.keys()))
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off")
+        return self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off", "death_link")
 
     def generate_output(self, output_directory: str) -> None:
         """
@@ -247,7 +247,16 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     world.get_location("Sink Drain - Middle Row 10M Coin A").place_locked_item(itempool[51])
 
     world.get_location("Sink Drain - Middle Row 10M Coin B").place_locked_item(itempool[51])
+
+    world.get_location("Living Room - Couch Wastepaper B").place_locked_item(itempool[51])
+
     itempool.remove(itempool[51])
+
+    world.get_location("Basement - Giga Charger").place_locked_item(itempool[9])
+    itempool.remove(itempool[9])
+
+    world.get_location("Backyard - Scurvy Splinter").place_locked_item(itempool[23])
+    itempool.remove(itempool[23])
 
     unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
 

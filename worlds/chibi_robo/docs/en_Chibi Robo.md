@@ -13,5 +13,7 @@ Ported to Archipelago, this World provides the following:
 - Options that auto connect to the Chibi Robo Rando Application
 
 
-You will need an NTSC-U (GGTE01) Chibi-Robo! Plug Into Adventure! ISO. Other versions of the game are not supported.
+You will need an NTSC-U (GGTE01) Chibi-Robo! Plug Into Adventure! ISO. Other versions of the game are not supported. 
+
+Item flags / throwable junk are the only locations that currently get 'checked' in the AP tracker.
 

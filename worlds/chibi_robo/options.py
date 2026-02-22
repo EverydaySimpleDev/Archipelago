@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle
+from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink
 
 
 class DebugMenu(DefaultOnToggle):
@@ -55,3 +55,4 @@ class ChibiRobobGameOptions(PerGameCommonOptions):
     open_upstairs: OpenUpstairs
     open_downstairs: OpenDownStairs
     chibi_vision_off: ChibiVisionOff
+    death_link: DeathLink
