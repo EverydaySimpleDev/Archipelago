@@ -1,7 +1,8 @@
-from BaseClasses import ItemClassification as IC
+from BaseClasses import ItemClassification as IC, CollectionState
 from Utils import visualize_regions
 from worlds.chibi_robo import ChibiRoboItem, ChibiRoboItemData
 from worlds.generic.Rules import add_rule, set_rule, forbid_item, add_item_rule, allow_self_locking_items
+from rule_builder.rules import Has, HasAll, Rule, HasAllCounts, CanReachRegion
 
 blaster = "Chibi-Blaster Chibi-Gear"
 mug = "Mug Chibi-Gear"
@@ -16,57 +17,45 @@ def set_rules(self) -> None:
     multiworld = self.multiworld
     player = self.player
 
-    set_rule(multiworld.get_entrance('Foyer - Kitchen', player),
-             lambda state: state.has(mug, player))
+    backyard_to_living = multiworld.get_entrance("Backyard - Living Room", player)
 
-    set_rule(multiworld.get_entrance('Bedroom - Foyer', player),
-             lambda state: state.has(mug, player) and
-                           state.has(tooth_brush, player))
+    kitchen_to_living = multiworld.get_entrance("Kitchen - Living Room", player)
 
-    set_rule(multiworld.get_entrance('Living Room - Foyer', player),
-             lambda state: state.has(mug, player) and
-             state.has(tooth_brush, player))
+    kitchen_to_foyer = multiworld.get_entrance("Kitchen - Foyer", player)
 
-    set_rule(multiworld.get_entrance('Living Room - Backyard', player),
-             lambda state: state.has(mug, player) and
-                           state.has(blaster, player ) and
-                            state.has(tooth_brush, player))
+    living_to_kitchen = multiworld.get_entrance("Living Room - Kitchen", player)
 
-    set_rule(multiworld.get_entrance('Backyard - Living Room', player),
-             lambda state: state.has(blaster, player) and
-                    state.has("coin_c", self.player, 24) and
-                    state.has("item_okasi_gomi_2", self.player, 6) and
-                    state.has(tooth_brush, player))
+    foyer_to_kitchen = multiworld.get_entrance("Foyer - Kitchen", player)
 
-    set_rule(multiworld.get_entrance("Foyer - Jenny's Room", player),
-             lambda state: state.has(mug, player))
+    living_to_backyard = multiworld.get_entrance("Living Room - Backyard", player)
 
-    set_rule(multiworld.get_entrance('Kitchen - Living Room', player),
-             lambda state: state.has("coin_c", self.player, 24) and
-                           state.has("item_okasi_gomi_2", self.player, 6))
+    foyer_to_jenny = multiworld.get_entrance("Foyer - Jenny's Room", player)
 
-    set_rule(multiworld.get_entrance('Foyer - Living Room', player),
-             lambda state: state.has("coin_c", self.player, 24) and
-                           state.has("item_okasi_gomi_2", self.player, 6))
+    bedroom_to_foyer = multiworld.get_entrance("Bedroom - Foyer", player)
 
-    set_rule(multiworld.get_entrance('Living Room - Mother Spider', player),
-             lambda state: state.has(spoon, self.player) and
-                           state.has(blaster, self.player) and
-                           state.has(tooth_brush, self.player) and
-                           state.has(charge_chip, self.player) and
-                           state.has(squirter, self.player) and
-                           state.has(mug, self.player) and
-                           state.has("Alien Ear Chip", self.player) and
-                           state.has("Giga-Battery", self.player) and
-                           state.has("Giga-Charger", self.player) and
-                           state.has("Left Leg", self.player) and
-                           state.has("Toy Receipt", self.player) and
-                           state.has("Wedding Band", self.player) and
-                           state.has("Chibi-Radar Chibi-Gear", self.player))
+    living_to_foyer = multiworld.get_entrance("Living Room - Foyer", player)
 
+    living_to_spider = multiworld.get_entrance("Living Room - Mother Spider", player)
 
-    # TODO: Replace with real event / item
-    multiworld.completion_condition[player] = lambda state: state.can_reach_region("Staff Credits", player)
+    can_enter_basement = HasAll(tooth_brush, mug)
+
+    living_room_fill = Has("coin_c", 24) & HasAll(tooth_brush, mug) & Has("item_okasi_gomi_2", 6)
+
+    self.set_rule(living_to_foyer, living_room_fill)
+
+    self.set_rule(kitchen_to_foyer, can_enter_basement)
+
+    can_enter_backyard = Has(blaster)
+
+    self.set_rule(living_to_backyard, can_enter_backyard)
+
+    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Giga-Charger", "Left Leg", "Wedding Band", "Chibi-Radar Chibi-Gear")
+
+    self.set_rule(living_to_spider, has_all_items)
+
+    self.set_completion_rule(CanReachRegion("Staff Credits"))
+
+    # multiworld.completion_condition[player] = lambda state: state.can_reach_region("Staff Credits", player)
 
     # from Utils import visualize_regions
     # visualize_regions(multiworld.get_region("Menu", self.player), "chibi_robo.puml")
@@ -79,152 +68,113 @@ def set_location_rules(self) -> None:
     #  TODO: Look Into Copter Item
     # copter = "Chibi-Copter Chibi-Gear"
 
+    has_blaster = Has(blaster)
+
+    reach_charger = HasAll( blaster, mug)
+
+    reach_ship = HasAll(spoon, blaster)
+
+    reach_backyard_awning = HasAll(spoon, blaster, charge_chip, squirter)
+
+    reach_backyard_tree_happy_block = HasAll( blaster, charge_chip)
+
+    # reach_jenny_battery = HasAll(red_shoe, blaster)
+
     # Living Room
-    add_rule(multiworld.get_location("Living Room - Frog Ring (Behind Window)", player),
-             lambda state: state.has(blaster, player))
+    living_room_frog_ring_window = multiworld.get_location("Living Room - Frog Ring (Behind Window)", player)
+    self.set_rule(living_room_frog_ring_window, has_blaster)
 
     # Kitchen
-    add_rule(multiworld.get_location("Kitchen - Table Happy Block", player),
-             lambda state: state.has(blaster, player))
+    kitchen_table_happy_block = multiworld.get_location("Kitchen - Table Happy Block", player)
+    self.set_rule(kitchen_table_happy_block, has_blaster)
 
-    add_rule(multiworld.get_location("Kitchen - Cabinet Happy Block", player),
-             lambda state: state.has(blaster, player))
+    kitchen_cabinet_happy_block = multiworld.get_location("Kitchen - Cabinet Happy Block", player)
+    self.set_rule(kitchen_cabinet_happy_block, has_blaster)
 
-    add_rule(multiworld.get_location("Kitchen - Bandage Location", player),
-             lambda state: state.has(blaster, player))
+    kitchen_bandage = multiworld.get_location("Kitchen - Bandage Location", player)
+    self.set_rule(kitchen_bandage, has_blaster)
 
-    add_rule(multiworld.get_location("Kitchen - Frog Ring (Table)", player),
-             lambda state: state.has(blaster, player))
+    kitchen_frog_ring_table = multiworld.get_location("Kitchen - Frog Ring (Table)", player)
+    self.set_rule(kitchen_frog_ring_table, has_blaster)
 
-    add_rule(multiworld.get_location("Kitchen - High Cupboard 10M Coin", player),
-             lambda state: state.has(blaster, player))
+    kitchen_high_cupboard_10_coin = multiworld.get_location("Kitchen - High Cupboard 10M Coin", player)
+    self.set_rule(kitchen_high_cupboard_10_coin, has_blaster)
 
     #  Drain
-    add_rule(multiworld.get_location("Sink Drain - Frog Ring", player),
-             lambda state: state.has(blaster, player))
+    sink_frog_ring = multiworld.get_location("Sink Drain - Frog Ring", player)
+    self.set_rule(sink_frog_ring, has_blaster)
 
     #  Foyer
-    add_rule(multiworld.get_location("Foyer - Waterfall Frog Ring", player),
-             lambda state: state.has(blaster, player))
-
-    #  Foyer
-    add_rule(multiworld.get_location("Foyer - Waterfall Frog Ring", player),
-             lambda state: state.has(blaster, player))
+    foyer_frog_ring = multiworld.get_location("Foyer - Waterfall Frog Ring", player)
+    self.set_rule(foyer_frog_ring, has_blaster)
 
     #  Basement
-    add_rule(multiworld.get_location("Basement - Giga Charger", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_giga_charger = multiworld.get_location("Basement - Giga Charger", player)
+    self.set_rule(basement_giga_charger, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Wastepaper on Shelf", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_waste_paper_on_shelf = multiworld.get_location("Basement - Wastepaper on Shelf", player)
+    self.set_rule(basement_waste_paper_on_shelf, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Gunpowder", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_gunpowder = multiworld.get_location("Basement - Gunpowder", player)
+    self.set_rule(basement_gunpowder, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Frog Ring", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_frog_ring = multiworld.get_location("Basement - Frog Ring", player)
+    self.set_rule(basement_frog_ring, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Purple Can", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_purple_can = multiworld.get_location("Basement - Purple Can", player)
+    self.set_rule(basement_purple_can, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Cabinet Trash A", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_cabinet_trash_a = multiworld.get_location("Basement - Cabinet Trash A", player)
+    self.set_rule(basement_cabinet_trash_a, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Cabinet Trash B", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_cabinet_trash_b = multiworld.get_location("Basement - Cabinet Trash B", player)
+    self.set_rule(basement_cabinet_trash_b, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Shelf Happy Block B", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_shelf_happy_block_b= multiworld.get_location("Basement - Shelf Happy Block B", player)
+    self.set_rule(basement_shelf_happy_block_b, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Shelf Happy Block A", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_shelf_happy_block_a = multiworld.get_location("Basement - Shelf Happy Block A", player)
+    self.set_rule(basement_shelf_happy_block_a, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Rafters Happy Block B", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_rafters_happy_block_b = multiworld.get_location("Basement - Rafters Happy Block B", player)
+    self.set_rule(basement_rafters_happy_block_b, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Rafters Happy Block A", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_rafters_happy_block_a = multiworld.get_location("Basement - Rafters Happy Block A", player)
+    self.set_rule(basement_rafters_happy_block_a, reach_charger)
 
-    add_rule(multiworld.get_location("Basement - Swing 10M Coin", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
+    basement_swing_10m_coin = multiworld.get_location("Basement - Swing 10M Coin", player)
+    self.set_rule(basement_swing_10m_coin, reach_charger)
 
     # Backyard
-    add_rule(multiworld.get_location("Backyard - Scurvy Splinter", player),
-             lambda state: state.has(spoon, self.player) and
-                           state.has(blaster, self.player))
+    backyard_ship = multiworld.get_location("Backyard - Scurvy Splinter", player)
+    self.set_rule(backyard_ship, reach_ship)
 
-    add_rule(multiworld.get_location("Backyard - Right Awning Happy Block C", player),
-             lambda state: state.has(spoon, self.player) and
-                           state.has(blaster, self.player) and
-                           state.has(charge_chip, self.player)and
-                           state.has(squirter, self.player))
+    backyard_right_awning_happy_block_c = multiworld.get_location("Backyard - Right Awning Happy Block C", player)
+    self.set_rule(backyard_right_awning_happy_block_c, reach_backyard_awning)
 
-    add_rule(multiworld.get_location("Backyard - Right Awning Happy Block B", player),
-             lambda state: state.has(spoon, self.player) and
-                           state.has(blaster, self.player) and
-                           state.has(charge_chip, self.player) and
-                           state.has(squirter, self.player))
+    backyard_right_awning_happy_block_b = multiworld.get_location("Backyard - Right Awning Happy Block B", player)
+    self.set_rule(backyard_right_awning_happy_block_b, reach_backyard_awning)
 
-    add_rule(multiworld.get_location("Backyard - Left Awning Happy Block", player),
-             lambda state: state.has(spoon, self.player) and
-                           state.has(blaster, self.player) and
-                           state.has(charge_chip, self.player) and
-                           state.has(squirter, self.player))
+    backyard_left_awning_happy_block = multiworld.get_location("Backyard - Left Awning Happy Block", player)
+    self.set_rule(backyard_left_awning_happy_block, reach_backyard_awning)
 
-    add_rule(multiworld.get_location("Backyard - Tree Happy Block", player),
-             lambda state: state.has(blaster, self.player) and
-                           state.has(charge_chip, self.player))
+    backyard_tree_happy_block = multiworld.get_location("Backyard - Tree Happy Block", player)
+    self.set_rule(backyard_tree_happy_block, reach_backyard_tree_happy_block)
 
-    add_rule(multiworld.get_location("Backyard - Right Awning Happy Block A", player),
-             lambda state: state.has(spoon, self.player) and
-                           state.has(blaster, self.player) and
-                           state.has(charge_chip, self.player) and
-                           state.has(squirter, self.player))
+    backyard_right_awning_happy_block_a = multiworld.get_location("Backyard - Right Awning Happy Block A", player)
+    self.set_rule(backyard_right_awning_happy_block_a, reach_backyard_awning)
 
-    add_rule(multiworld.get_location("Backyard - White Block", player),
-             lambda state: state.has(spoon, self.player) and
-                           state.has(blaster, self.player) and
-                           state.has(charge_chip, self.player) and
-                           state.has(squirter, self.player))
+    backyard_white_block= multiworld.get_location("Backyard - White Block", player)
+    self.set_rule(backyard_white_block, reach_backyard_awning)
 
     # Jenny's Room
-    add_rule(multiworld.get_location("Jenny's Room - AA Battery", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
-
-    add_rule(multiworld.get_location("Jenny's Room - D Battery", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
-
-    add_rule(multiworld.get_location("Jenny's Room - C Battery", player),
-             lambda state: state.has(mug, self.player) and
-                           state.has(blaster, self.player))
-
-    # add_rule(multiworld.get_location("Victory", player),
-    #          lambda state: state.has(spoon, self.player) and
-    #                        state.has(blaster, self.player) and
-    #                        state.has(tooth_brush, self.player) and
-    #                        state.has(charge_chip, self.player) and
-    #                        state.has(squirter, self.player) and
-    #                        state.has(mug, self.player) and
-    #                        state.has("Alien Ear Chip", self.player) and
-    #                        state.has("Giga-Battery", self.player) and
-    #                        state.has("Giga-Charger", self.player) and
-    #                        state.has("Left Leg", self.player) and
-    #                        state.has("Toy Receipt", self.player) and
-    #                        state.has("Wedding Band", self.player) and
-    #                        state.has("Chibi-Radar Chibi-Gear", self.player))
+    # jenny_aa_battery = multiworld.get_location("Jenny's Room - AA Battery", player)
+    # self.set_rule(jenny_aa_battery, Has(red_shoe, 1))
+    #
+    # jenny_d_battery = multiworld.get_location("Jenny's Room - D Battery", player)
+    # self.set_rule(jenny_d_battery, reach_jenny_battery)
+    #
+    # jenny_c_battery = multiworld.get_location("Jenny's Room - C Battery", player)
+    # self.set_rule(jenny_c_battery, reach_jenny_battery)
 
 

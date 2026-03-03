@@ -144,8 +144,8 @@ class ChibiRoboWorld(World):
         create_regions(self.multiworld, self.player, self.options)
 
     def set_rules(self) -> None:
-        set_rules(self)
         set_location_rules(self)
+        set_rules(self)
 
     def get_filler_item_name(self) -> str:
         return self.random.choice(list(FILLER_ITEM_TABLE.keys()))
@@ -240,23 +240,17 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
 
-    world.get_location("Living Room - Candy Wrapper by Jenny B").place_locked_item(itempool[0])
-    itempool.remove(itempool[0])
-
     # Force coin so users can climb the drain
     world.get_location("Sink Drain - Middle Row 10M Coin A").place_locked_item(itempool[51])
-
     world.get_location("Sink Drain - Middle Row 10M Coin B").place_locked_item(itempool[51])
-
     world.get_location("Living Room - Couch Wastepaper B").place_locked_item(itempool[51])
-
     itempool.remove(itempool[51])
 
     world.get_location("Basement - Giga Charger").place_locked_item(itempool[9])
     itempool.remove(itempool[9])
 
-    world.get_location("Backyard - Scurvy Splinter").place_locked_item(itempool[23])
-    itempool.remove(itempool[23])
+    world.get_location("Backyard - Scurvy Splinter").place_locked_item(itempool[21])
+    itempool.remove(itempool[21])
 
     unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
 

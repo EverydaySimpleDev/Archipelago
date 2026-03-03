@@ -1,6 +1,7 @@
 import asyncio
 import traceback
 import dolphin_memory_engine
+import time
 import numpy as np
 
 import NetUtils
@@ -30,7 +31,9 @@ CONNECTION_CONNECTED_STATUS = "Dolphin connected successfully."
 CONNECTION_INITIAL_STATUS = "Dolphin connection has not been initiated."
 
 # The expected index for the following item that should be received.
-EXPECTED_INDEX_ADDR = 0x80396576
+EXPECTED_INDEX_ADDR = 0x8038f778
+
+item_index_addr = 0x8038f778
 
 CURRENT_INDEX_ADDR = 0
 
@@ -44,11 +47,11 @@ CURR_BATTERY_ADDR = 0x8038f748
 
 GC_GAME_ID_ADDRESS = 0x80000000
 
-MOOLAH_ADDR = 0x80396550
+MOOLAH_ADDR = 0x8038f752
 
-SCRAP_ADDR = 0X80396554
+SCRAP_ADDR = 0X8038f756
 
-HAPPY_POINTS_ADDR = 0x8039653C
+HAPPY_POINTS_ADDR = 0x8038f73e
 
 BASE_ITEM_ADDR = 0x80370000
 
@@ -82,6 +85,7 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
             write_short(0x8038f6c2, 2)
             write_short(0x8038f6c4, 0)
             write_short(0x8038f6c6, 2)
+            logger.info("Equiping Blaster")
             return
 
     def _cmd_equip_radar(self) -> None:
@@ -92,6 +96,34 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
             write_short(0x8038f6c2, 3)
             write_short(0x8038f6c4, 0)
             write_short(0x8038f6c6, 3)
+            logger.info("Equiping Radar")
+            return
+
+    def _cmd_enable_radar(self) -> None:
+        """
+        Enable Radar
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x80398f00, 1)
+            logger.info("Enabled Radar")
+            return
+
+    def _cmd_enable_copter(self) -> None:
+        """
+        Enable Copter
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x80398ef2, 1)
+            logger.info("Enabled Copter")
+            return
+
+    def _cmd_enable_blaster(self) -> None:
+        """
+        Enable Blaster
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x80398ef8, 1)
+            logger.info("Enabled Blaster")
             return
 
     def _cmd_dolphin(self) -> None:
@@ -327,6 +359,22 @@ def _give_death(ctx: ChibiRoboContext) -> None:
         ctx.has_send_death = True
         write_short(CURR_BATTERY_ADDR, 0)
 
+async def check_death(ctx: ChibiRoboContext) -> None:
+    """
+    Check if the player is currently dead in-game.
+    If DeathLink is on, notify the server of the player's death.
+
+    :return: `True` if the player is dead, otherwise `False`.
+    """
+    if ctx.slot is not None and check_ingame():
+        cur_battery = read_short(CURR_BATTERY_ADDR)
+        if cur_battery <= 0:
+            if not ctx.has_send_death and time.time() >= ctx.last_death_link + 3:
+                ctx.has_send_death = True
+                await ctx.send_death(ctx.player_names[ctx.slot] + " ran out of battery.")
+        else:
+            ctx.has_send_death = False
+
 def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
     """
     Give an item to the player in-game.
@@ -339,70 +387,44 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
     if not check_ingame() or dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
         return False
 
+    global item_index_addr
+    global CURRENT_INDEX_ADDR
+
     item_id = ITEM_TABLE[item_name].item_id
 
-    if dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) == b"\x00\x00\x00\x00" or dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) == b"\x00\x00\xff\xff" or dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) == b"\x00\x01\xff\xff":
-
-        item_id = int(hex(item_id + 65536), 16)
-
-        # If item is a coin increase coin count
-        if "Coin" in item_name:
-            moolah = dolphin_memory_engine.read_bytes(MOOLAH_ADDR, 4)
-
-            money_value = hex( int.from_bytes(moolah, byteorder="big"))
-
-            if "Coin C" in item_name:
-                money_value = hex( int.from_bytes(moolah, byteorder="big") + 10)
-
-            if "Coin S" in item_name:
-                money_value = hex( int.from_bytes(moolah, byteorder="big") + 50)
-
-            if "Coin G" in item_name:
-                money_value = hex( int.from_bytes(moolah, byteorder="big") + 100)
-
-            dolphin_memory_engine.write_bytes(MOOLAH_ADDR, int(money_value, 16).to_bytes(4, byteorder="big"))
-            return True
-
-        # If item is scrape increase scrape count
-        if "Junk" in item_name:
-
-            # logger.info(item_name)
-
-            junk = dolphin_memory_engine.read_bytes(SCRAP_ADDR, 4)
-
-            junk_value = hex(int.from_bytes(junk, byteorder="big"))
-
-            if "Junk A" in item_name:
-                junk_value = hex(int.from_bytes(junk, byteorder="big") + 10)
-
-            if "Junk B" in item_name:
-                junk_value = hex(int.from_bytes(junk, byteorder="big") + 50)
-
-            if "Junk C" in item_name:
-                junk_value = hex(int.from_bytes(junk, byteorder="big") + 100)
-            dolphin_memory_engine.write_bytes(SCRAP_ADDR, int(junk_value, 16).to_bytes(4, byteorder="big"))
-            return True
-
-        # Check if we already have the item in memory (item id plus required offset)
-        if dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) != hex(item_id + 65536):
-
-            # logger.info(item_name)
-
-            dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, item_id.to_bytes(4, byteorder="big"))
-
-            update_item_flag()
-            # Update the next address correctly to what the game expects 0001ffff
-            item_id = 131071
-            dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, item_id.to_bytes(4, byteorder="big"))
-        else :
-            update_item_flag()
-
-        # logger.info(f"Item {item_name} was successfully added.")
+    if "Coin " in item_name:
         return True
-    else:
-        update_item_flag()
 
-    # If unable to place the item in the array, return `False`.
+    if "Junk " in item_name:
+        return True
+
+    current_address_item = dolphin_memory_engine.read_bytes(item_index_addr + CURRENT_INDEX_ADDR, 2)
+
+    if int.from_bytes(current_address_item) == 65535: # if no item is set in inventory
+        logger.info("Gave: " + item_name)
+        # logger.info(item_id)
+        # logger.info(current_address_item)
+        if item_id != 0:
+
+            if item_id == 107:
+                # Coin C
+                return True
+            write_short( ( item_index_addr + CURRENT_INDEX_ADDR), item_id)
+            write_short( (item_index_addr + CURRENT_INDEX_ADDR) + 2, 1)
+            return True
+    else:
+        # if int.from_bytes(current_address_item) == item_id:
+        #     current_address_qty = dolphin_memory_engine.read_bytes(item_index_addr + 2, 2)
+        #
+        #     write_short(item_index_addr, int.from_bytes(current_address_qty) + 1)
+        #     return True
+        # logger.info(current_address_item)
+        # logger.info(dolphin_memory_engine.read_bytes((item_index_addr + CURRENT_INDEX_ADDR) + 2, 2))
+        CURRENT_INDEX_ADDR += 1
+        if CURRENT_INDEX_ADDR == 65:
+            CURRENT_INDEX_ADDR = 0
+        return False
+
     return False
 
 
@@ -458,7 +480,7 @@ def reset_item_flag() -> None:
     global EXPECTED_INDEX_ADDR
     global CURRENT_INDEX_ADDR
 
-    EXPECTED_INDEX_ADDR = 0x80396576  # increment by 4 to get next flag / memory to set
+    EXPECTED_INDEX_ADDR = 0x8038f77a  # increment by 4 to get next flag / memory to set
 
     return
 
@@ -477,7 +499,7 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
     ctx.curr_stage_pickup = read_4byte_short(EXPECTED_INDEX_ADDR)
 
     if not ctx.finished_game:
-        if curr_stage_id == 15: # end credits = completing game
+        if curr_stage_id == 9: # end credits = completing game
             await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
             ctx.finished_game = True
             logger.info("Congratulations, you have completed the game!")
@@ -519,13 +541,12 @@ def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str, data: C
 
             location_value = dolphin_memory_engine.read_bytes(int( location_addr, 16), 4)
 
-            logger.info( name + ': ' )
-            logger.info( location_value )
-            logger.info( int.from_bytes(location_value, byteorder='little') >> data.bit )
-            logger.info( bool( (int.from_bytes(location_value, byteorder='little') >> data.bit) & 1) )
+            # logger.info( name + ': ' )
+            # logger.info( location_value )
+            # logger.info( int.from_bytes(location_value, byteorder='little') >> data.bit )
+            # logger.info( bool( (int.from_bytes(location_value, byteorder='little') >> data.bit) & 1) )
 
-
-            # checked = bool((ctx.curr_stage_pickup >> data.bit) & 1)
+            checked = bool( (int.from_bytes(location_value, byteorder='little') >> data.bit) & 1)
 
     return checked
 
@@ -675,6 +696,8 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                     sleep_time = 0.1
                     continue
                 if ctx.slot is not None:
+                    if "DeathLink" in ctx.tags:
+                        await check_death(ctx)
                     await give_items(ctx)
                     await check_locations(ctx)
                     await check_current_stage_changed(ctx)

@@ -31,14 +31,14 @@ class OpenUpstairs(Toggle):
     Opens Upstairs
     """
     display_name = "Open Upstairs"
-    default = 0
+    default = 1
 
 class OpenDownStairs(Toggle):
     """
     Opens DownStairs
     """
     display_name = "Open Downstairs"
-    default = 0
+    default = 1
 
 class ChibiVisionOff(Toggle):
     """
