@@ -392,10 +392,22 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
 
     item_id = ITEM_TABLE[item_name].item_id
 
-    if "Coin " in item_name:
+    if "Chibi-Blaster Chibi-Gear" == item_name:
+        write_short(0x80398ef8, 1)
         return True
 
-    if "Junk " in item_name:
+    if "Chibi-Radar Chibi-Gear" == item_name:
+        write_short(0x80398f00, 1)
+        return True
+
+    if "Chibi-Copter Chibi-Gear" == item_name:
+        write_short(0x80398ef2, 1)
+        return True
+
+    if "Coin" in item_name:
+        return True
+
+    if "Junk" in item_name:
         return True
 
     current_address_item = dolphin_memory_engine.read_bytes(item_index_addr + CURRENT_INDEX_ADDR, 2)
@@ -407,19 +419,14 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
         if item_id != 0:
 
             if item_id == 107:
-                # Coin C
+                # Filler
                 return True
+
             write_short( ( item_index_addr + CURRENT_INDEX_ADDR), item_id)
             write_short( (item_index_addr + CURRENT_INDEX_ADDR) + 2, 1)
             return True
     else:
-        # if int.from_bytes(current_address_item) == item_id:
-        #     current_address_qty = dolphin_memory_engine.read_bytes(item_index_addr + 2, 2)
-        #
-        #     write_short(item_index_addr, int.from_bytes(current_address_qty) + 1)
-        #     return True
-        # logger.info(current_address_item)
-        # logger.info(dolphin_memory_engine.read_bytes((item_index_addr + CURRENT_INDEX_ADDR) + 2, 2))
+
         CURRENT_INDEX_ADDR += 1
         if CURRENT_INDEX_ADDR == 65:
             CURRENT_INDEX_ADDR = 0

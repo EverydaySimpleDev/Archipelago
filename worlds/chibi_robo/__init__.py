@@ -128,13 +128,13 @@ class ChibiRoboWorld(World):
             return "filler"
 
     @staticmethod
-    def _get_object_name(name: str, self) -> str:
+    def _get_object_name(name: str, self, item_for_player) -> str:
         """
         Return the items object name
 
         """
 
-        if name in ITEM_TABLE:
+        if name in ITEM_TABLE and self == item_for_player:
             return ITEM_TABLE[name].object_name
         else:
             return "archipelago_item"
@@ -178,7 +178,7 @@ class ChibiRoboWorld(World):
                     "name": location.item.name,
                     "game": location.item.game,
                     "classification": self._get_classification_name(location.item.classification),
-                    "object": self._get_object_name(location.item.name, self.player),
+                    "object": self._get_object_name(location.item.name, self.player, location.item.player),
                 }
             else:
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
@@ -194,6 +194,9 @@ class ChibiRoboWorld(World):
 
     def generate_early(self) -> None:
         self.plando_locations = dict()
+
+        self.multiworld.local_early_items[self.player]["Toothbrush Chibi-Gear"] = 1
+        self.multiworld.local_early_items[self.player]["Mug Chibi-Gear"] = 1
 
     def get_pre_fill_items(self) -> List[Item]:
         return [self.create_item(item)
@@ -239,18 +242,6 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     for name in ITEM_TABLE.keys():
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
-
-    # Force coin so users can climb the drain
-    world.get_location("Sink Drain - Middle Row 10M Coin A").place_locked_item(itempool[51])
-    world.get_location("Sink Drain - Middle Row 10M Coin B").place_locked_item(itempool[51])
-    world.get_location("Living Room - Couch Wastepaper B").place_locked_item(itempool[51])
-    itempool.remove(itempool[51])
-
-    world.get_location("Basement - Giga Charger").place_locked_item(itempool[9])
-    itempool.remove(itempool[9])
-
-    world.get_location("Backyard - Scurvy Splinter").place_locked_item(itempool[21])
-    itempool.remove(itempool[21])
 
     unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
 

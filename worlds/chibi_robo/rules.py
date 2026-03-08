@@ -31,17 +31,19 @@ def set_rules(self) -> None:
 
     foyer_to_jenny = multiworld.get_entrance("Foyer - Jenny's Room", player)
 
+    foyer_to_bedroom = multiworld.get_entrance("Foyer - Bedroom", player)
+
     bedroom_to_foyer = multiworld.get_entrance("Bedroom - Foyer", player)
 
     living_to_foyer = multiworld.get_entrance("Living Room - Foyer", player)
 
+    foyer_to_living = multiworld.get_entrance("Foyer - Living Room", player)
+
     living_to_spider = multiworld.get_entrance("Living Room - Mother Spider", player)
 
-    can_enter_basement = HasAll(tooth_brush, mug)
+    can_enter_basement = Has(tooth_brush) & Has(mug)
 
-    living_room_fill = Has("coin_c", 24) & HasAll(tooth_brush, mug) & Has("item_okasi_gomi_2", 6)
-
-    self.set_rule(living_to_foyer, living_room_fill)
+    self.set_rule(living_to_foyer, can_enter_basement)
 
     self.set_rule(kitchen_to_foyer, can_enter_basement)
 
@@ -49,7 +51,11 @@ def set_rules(self) -> None:
 
     self.set_rule(living_to_backyard, can_enter_backyard)
 
-    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Giga-Charger", "Left Leg", "Wedding Band", "Chibi-Radar Chibi-Gear")
+    self.set_rule(foyer_to_jenny, can_enter_backyard)
+
+    self.set_rule(foyer_to_bedroom, can_enter_backyard)
+
+    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Left Leg", "Wedding Band", "Chibi-Radar Chibi-Gear")
 
     self.set_rule(living_to_spider, has_all_items)
 
@@ -108,9 +114,12 @@ def set_location_rules(self) -> None:
     foyer_frog_ring = multiworld.get_location("Foyer - Waterfall Frog Ring", player)
     self.set_rule(foyer_frog_ring, has_blaster)
 
+    foyer_frog_ring = multiworld.get_location("Foyer - Top of Stairs 10M Coin", player)
+    self.set_rule(foyer_frog_ring, has_blaster)
+
     #  Basement
-    basement_giga_charger = multiworld.get_location("Basement - Giga Charger", player)
-    self.set_rule(basement_giga_charger, reach_charger)
+    # basement_giga_charger = multiworld.get_location("Basement - Giga Charger", player)
+    # self.set_rule(basement_giga_charger, reach_charger)
 
     basement_waste_paper_on_shelf = multiworld.get_location("Basement - Wastepaper on Shelf", player)
     self.set_rule(basement_waste_paper_on_shelf, reach_charger)
@@ -146,8 +155,8 @@ def set_location_rules(self) -> None:
     self.set_rule(basement_swing_10m_coin, reach_charger)
 
     # Backyard
-    backyard_ship = multiworld.get_location("Backyard - Scurvy Splinter", player)
-    self.set_rule(backyard_ship, reach_ship)
+    # backyard_ship = multiworld.get_location("Backyard - Scurvy Splinter", player)
+    # self.set_rule(backyard_ship, reach_ship)
 
     backyard_right_awning_happy_block_c = multiworld.get_location("Backyard - Right Awning Happy Block C", player)
     self.set_rule(backyard_right_awning_happy_block_c, reach_backyard_awning)
