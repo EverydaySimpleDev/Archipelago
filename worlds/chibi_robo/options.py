@@ -2,16 +2,6 @@ from dataclasses import dataclass
 
 from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink
 
-
-class DebugMenu(DefaultOnToggle):
-    """
-    Enable Debug Menu
-    """
-    display_name = "Turn Debug Menu On?"
-    option_yes = 1
-    option_no = 0
-    default = 0
-
 class FreePJs(DefaultOnToggle):
     """
     Makes PJs in shop free
@@ -49,7 +39,6 @@ class ChibiVisionOff(Toggle):
 
 @dataclass
 class ChibiRobobGameOptions(PerGameCommonOptions):
-    debug_menu: DebugMenu
     free_pjs: FreePJs
     charged_giga_battery: ChargedGigaBattery
     open_upstairs: OpenUpstairs
