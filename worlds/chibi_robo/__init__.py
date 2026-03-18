@@ -15,6 +15,7 @@ import dolphin_memory_engine
 import Utils
 import yaml
 import json
+import random
 
 # Archipelago imports
 import settings
@@ -151,7 +152,7 @@ class ChibiRoboWorld(World):
         return self.random.choice(list(FILLER_ITEM_TABLE.keys()))
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off", "death_link")
+        return self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off", "death_link")
 
     def generate_output(self, output_directory: str) -> None:
         """
@@ -184,7 +185,7 @@ class ChibiRoboWorld(World):
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
             output_locations[location.name] = item_info
 
-        output_data.update(self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs", "chibi_vision_off"))
+        output_data.update(self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs", "chibi_vision_off"))
 
         mod_name = self.multiworld.get_out_file_name_base(self.player)
         out_file = os.path.join(output_directory, mod_name + ".json")
@@ -203,6 +204,17 @@ class ChibiRoboWorld(World):
                 for item in [*self.plando_locations.keys()]]
 
     def pre_fill(self):
+
+        coin_count = 25
+        player_living_room_rand_loc = list(self.multiworld.get_region("Living Room", self.player).get_locations())
+        
+        self.multiworld.random.shuffle(player_living_room_rand_loc)
+
+        for loc in player_living_room_rand_loc:
+            if coin_count > 0:
+                loc.place_locked_item(self.create_item("Coin C"))
+                coin_count -= 1
+
         for location, item in self.plando_locations.items():
             self.multiworld.get_location(location, self.player).place_locked_item(self.create_item(item))
 
