@@ -15,6 +15,7 @@ import dolphin_memory_engine
 import Utils
 import yaml
 import json
+import random
 
 # Archipelago imports
 import settings
@@ -32,6 +33,7 @@ from .rules import set_rules, set_location_rules
 
 VERSION: tuple[int, int, int] = (1, 0, 0)
 
+
 def launch_client():
     from . import client
     launch_subprocess(client.launch, name="ChibiRoboClient")
@@ -43,6 +45,7 @@ components.append(Component("Chibi Robo Client",
                             icon="chibi_body_icon"))
 
 icon_paths["chibi_body_icon"] = f"ap:{__name__}/icons/chibi_body_icon.png"
+
 
 class ChibiRoboWebWorld(WebWorld):
     theme = "dirt"
@@ -151,7 +154,8 @@ class ChibiRoboWorld(World):
         return self.random.choice(list(FILLER_ITEM_TABLE.keys()))
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off", "death_link")
+        return self.options.as_dict("free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs",
+                                    "chibi_vision_off", "death_link")
 
     def generate_output(self, output_directory: str) -> None:
         """
@@ -168,7 +172,7 @@ class ChibiRoboWorld(World):
             "Locations": {}
         }
 
-         # Output which item has been placed at each location.
+        # Output which item has been placed at each location.
         output_locations = output_data["Locations"]
         for location in multiworld.get_locations(player):
 
@@ -184,7 +188,8 @@ class ChibiRoboWorld(World):
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
             output_locations[location.name] = item_info
 
-        output_data.update(self.options.as_dict("debug_menu", "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs", "chibi_vision_off"))
+        output_data.update(self.options.as_dict("free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs",
+                                                "chibi_vision_off"))
 
         mod_name = self.multiworld.get_out_file_name_base(self.player)
         out_file = os.path.join(output_directory, mod_name + ".json")
@@ -203,6 +208,17 @@ class ChibiRoboWorld(World):
                 for item in [*self.plando_locations.keys()]]
 
     def pre_fill(self):
+
+        coin_count = 25
+        player_living_room_rand_loc = list(self.multiworld.get_region("Living Room", self.player).get_locations())
+
+        self.multiworld.random.shuffle(player_living_room_rand_loc)
+
+        for loc in player_living_room_rand_loc:
+            if coin_count > 0:
+                loc.place_locked_item(self.create_item("Coin C"))
+                coin_count -= 1
+
         for location, item in self.plando_locations.items():
             self.multiworld.get_location(location, self.player).place_locked_item(self.create_item(item))
 
@@ -223,8 +239,7 @@ class ChibiRoboWorld(World):
         raise KeyError(f"Invalid item name: {name}")
 
     def create_items(self):
-      self.multiworld.itempool += create_itempool(self)
-
+        self.multiworld.itempool += create_itempool(self)
 
     def collect(self, state: CollectionState, item: ChibiRoboItem) -> bool:
         change = super().collect(state, item)
@@ -233,6 +248,7 @@ class ChibiRoboWorld(World):
     def remove(self, state: CollectionState, item: ChibiRoboItem) -> bool:
         change = super().remove(state, item)
         return change
+
 
 def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     itempool: List[Item] = []
@@ -251,13 +267,13 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
 
     return itempool
 
-def create_multiple_items(world: "ChibiRoboWorld", name: str, count: int = 1,
-                              item_type: ItemClassification = ItemClassification.progression) -> List[Item]:
 
+def create_multiple_items(world: "ChibiRoboWorld", name: str, count: int = 1,
+                          item_type: ItemClassification = ItemClassification.progression) -> List[Item]:
     data = ITEM_TABLE[name]
     itemlist: List[Item] = []
 
     for i in range(count):
-            itemlist += [ChibiRoboItem(name, world.player, data, item_type)]
+        itemlist += [ChibiRoboItem(name, world.player, data, item_type)]
 
     return itemlist
