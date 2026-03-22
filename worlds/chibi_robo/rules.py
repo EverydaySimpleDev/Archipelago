@@ -41,7 +41,7 @@ def set_rules(self) -> None:
 
     living_to_spider = multiworld.get_entrance("Living Room - Mother Spider", player)
 
-    can_enter_basement = Has(tooth_brush) & Has(mug)
+    can_enter_basement = HasAll(tooth_brush, mug)
 
     self.set_rule(living_to_foyer, can_enter_basement)
 
@@ -55,13 +55,11 @@ def set_rules(self) -> None:
 
     self.set_rule(foyer_to_bedroom, can_enter_backyard)
 
-    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Left Leg", "Wedding Band", "Chibi-Radar Chibi-Gear")
+    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Wedding Band", "Chibi-Radar Chibi-Gear")
 
     self.set_rule(living_to_spider, has_all_items)
 
     self.set_completion_rule(CanReachRegion("Staff Credits"))
-
-    # multiworld.completion_condition[player] = lambda state: state.can_reach_region("Staff Credits", player)
 
     # from Utils import visualize_regions
     # visualize_regions(multiworld.get_region("Menu", self.player), "chibi_robo.puml")
@@ -84,18 +82,30 @@ def set_location_rules(self) -> None:
 
     reach_backyard_tree_happy_block = HasAll( blaster, charge_chip)
 
-    # reach_jenny_battery = HasAll(red_shoe, blaster)
+    # reach_jenny_battery = Has(red_shoe) & Has (blaster)
 
     # Living Room
     living_room_frog_ring_window = multiworld.get_location("Living Room - Frog Ring (Behind Window)", player)
     self.set_rule(living_room_frog_ring_window, has_blaster)
 
+    # living_room_frog_ring_window = multiworld.get_location("Living Room - Plant Shelf Happy Block (Upper)", player)
+    # self.set_rule(living_room_frog_ring_window, has_blaster)
+    #
+    # living_room_frog_ring_window = multiworld.get_location("Living Room - Happy Block above Fireplace", player)
+    # self.set_rule(living_room_frog_ring_window, has_blaster)
+    #
+    # living_room_frog_ring_window = multiworld.get_location("Living Room - Happy Block above Chibi House", player)
+    # self.set_rule(living_room_frog_ring_window, has_blaster)
+
     # Kitchen
-    kitchen_table_happy_block = multiworld.get_location("Kitchen - Table Happy Block", player)
+    kitchen_table_happy_block = multiworld.get_location("Kitchen - Spoon Location", player)
     self.set_rule(kitchen_table_happy_block, has_blaster)
 
-    kitchen_cabinet_happy_block = multiworld.get_location("Kitchen - Cabinet Happy Block", player)
-    self.set_rule(kitchen_cabinet_happy_block, has_blaster)
+    # kitchen_table_happy_block = multiworld.get_location("Kitchen - Table Happy Block", player)
+    # self.set_rule(kitchen_table_happy_block, has_blaster)
+    #
+    # kitchen_cabinet_happy_block = multiworld.get_location("Kitchen - Cabinet Happy Block", player)
+    # self.set_rule(kitchen_cabinet_happy_block, has_blaster)
 
     kitchen_bandage = multiworld.get_location("Kitchen - Bandage Location", player)
     self.set_rule(kitchen_bandage, has_blaster)
@@ -103,8 +113,8 @@ def set_location_rules(self) -> None:
     kitchen_frog_ring_table = multiworld.get_location("Kitchen - Frog Ring (Table)", player)
     self.set_rule(kitchen_frog_ring_table, has_blaster)
 
-    kitchen_high_cupboard_10_coin = multiworld.get_location("Kitchen - High Cupboard 10M Coin", player)
-    self.set_rule(kitchen_high_cupboard_10_coin, has_blaster)
+    # kitchen_high_cupboard_10_coin = multiworld.get_location("Kitchen - High Cupboard 10M Coin", player)
+    # self.set_rule(kitchen_high_cupboard_10_coin, has_blaster)
 
     #  Drain
     sink_frog_ring = multiworld.get_location("Sink Drain - Frog Ring", player)
@@ -114,12 +124,12 @@ def set_location_rules(self) -> None:
     foyer_frog_ring = multiworld.get_location("Foyer - Waterfall Frog Ring", player)
     self.set_rule(foyer_frog_ring, has_blaster)
 
-    foyer_frog_ring = multiworld.get_location("Foyer - Top of Stairs 10M Coin", player)
-    self.set_rule(foyer_frog_ring, has_blaster)
+    # foyer_frog_ring = multiworld.get_location("Foyer - Top of Stairs 10M Coin", player)
+    # self.set_rule(foyer_frog_ring, has_blaster)
 
     #  Basement
-    # basement_giga_charger = multiworld.get_location("Basement - Giga Charger", player)
-    # self.set_rule(basement_giga_charger, reach_charger)
+    basement_giga_charger = multiworld.get_location("Basement - Giga Charger", player)
+    self.set_rule(basement_giga_charger, reach_charger)
 
     basement_waste_paper_on_shelf = multiworld.get_location("Basement - Wastepaper on Shelf", player)
     self.set_rule(basement_waste_paper_on_shelf, reach_charger)
@@ -139,50 +149,50 @@ def set_location_rules(self) -> None:
     basement_cabinet_trash_b = multiworld.get_location("Basement - Cabinet Trash B", player)
     self.set_rule(basement_cabinet_trash_b, reach_charger)
 
-    basement_shelf_happy_block_b= multiworld.get_location("Basement - Shelf Happy Block B", player)
-    self.set_rule(basement_shelf_happy_block_b, reach_charger)
-
-    basement_shelf_happy_block_a = multiworld.get_location("Basement - Shelf Happy Block A", player)
-    self.set_rule(basement_shelf_happy_block_a, reach_charger)
-
-    basement_rafters_happy_block_b = multiworld.get_location("Basement - Rafters Happy Block B", player)
-    self.set_rule(basement_rafters_happy_block_b, reach_charger)
-
-    basement_rafters_happy_block_a = multiworld.get_location("Basement - Rafters Happy Block A", player)
-    self.set_rule(basement_rafters_happy_block_a, reach_charger)
-
-    basement_swing_10m_coin = multiworld.get_location("Basement - Swing 10M Coin", player)
-    self.set_rule(basement_swing_10m_coin, reach_charger)
+    # basement_shelf_happy_block_b= multiworld.get_location("Basement - Shelf Happy Block B", player)
+    # self.set_rule(basement_shelf_happy_block_b, reach_charger)
+    #
+    # basement_shelf_happy_block_a = multiworld.get_location("Basement - Shelf Happy Block A", player)
+    # self.set_rule(basement_shelf_happy_block_a, reach_charger)
+    #
+    # basement_rafters_happy_block_b = multiworld.get_location("Basement - Rafters Happy Block B", player)
+    # self.set_rule(basement_rafters_happy_block_b, reach_charger)
+    #
+    # basement_rafters_happy_block_a = multiworld.get_location("Basement - Rafters Happy Block A", player)
+    # self.set_rule(basement_rafters_happy_block_a, reach_charger)
+    #
+    # basement_swing_10m_coin = multiworld.get_location("Basement - Swing 10M Coin", player)
+    # self.set_rule(basement_swing_10m_coin, reach_charger)
 
     # Backyard
-    # backyard_ship = multiworld.get_location("Backyard - Scurvy Splinter", player)
-    # self.set_rule(backyard_ship, reach_ship)
+    backyard_ship = multiworld.get_location("Backyard - Scurvy Splinter", player)
+    self.set_rule(backyard_ship, reach_ship)
 
-    backyard_right_awning_happy_block_c = multiworld.get_location("Backyard - Right Awning Happy Block C", player)
-    self.set_rule(backyard_right_awning_happy_block_c, reach_backyard_awning)
-
-    backyard_right_awning_happy_block_b = multiworld.get_location("Backyard - Right Awning Happy Block B", player)
-    self.set_rule(backyard_right_awning_happy_block_b, reach_backyard_awning)
-
-    backyard_left_awning_happy_block = multiworld.get_location("Backyard - Left Awning Happy Block", player)
-    self.set_rule(backyard_left_awning_happy_block, reach_backyard_awning)
-
-    backyard_tree_happy_block = multiworld.get_location("Backyard - Tree Happy Block", player)
-    self.set_rule(backyard_tree_happy_block, reach_backyard_tree_happy_block)
-
-    backyard_right_awning_happy_block_a = multiworld.get_location("Backyard - Right Awning Happy Block A", player)
-    self.set_rule(backyard_right_awning_happy_block_a, reach_backyard_awning)
+    # backyard_right_awning_happy_block_c = multiworld.get_location("Backyard - Right Awning Happy Block C", player)
+    # self.set_rule(backyard_right_awning_happy_block_c, reach_backyard_awning)
+    #
+    # backyard_right_awning_happy_block_b = multiworld.get_location("Backyard - Right Awning Happy Block B", player)
+    # self.set_rule(backyard_right_awning_happy_block_b, reach_backyard_awning)
+    #
+    # backyard_left_awning_happy_block = multiworld.get_location("Backyard - Left Awning Happy Block", player)
+    # self.set_rule(backyard_left_awning_happy_block, reach_backyard_awning)
+    #
+    # backyard_tree_happy_block = multiworld.get_location("Backyard - Tree Happy Block", player)
+    # self.set_rule(backyard_tree_happy_block, reach_backyard_tree_happy_block)
+    #
+    # backyard_right_awning_happy_block_a = multiworld.get_location("Backyard - Right Awning Happy Block A", player)
+    # self.set_rule(backyard_right_awning_happy_block_a, reach_backyard_awning)
 
     backyard_white_block= multiworld.get_location("Backyard - White Block", player)
     self.set_rule(backyard_white_block, reach_backyard_awning)
 
     # Jenny's Room
     # jenny_aa_battery = multiworld.get_location("Jenny's Room - AA Battery", player)
-    # self.set_rule(jenny_aa_battery, Has(red_shoe, 1))
-    #
+    # self.set_rule(jenny_aa_battery, reach_jenny_battery)
+
     # jenny_d_battery = multiworld.get_location("Jenny's Room - D Battery", player)
     # self.set_rule(jenny_d_battery, reach_jenny_battery)
-    #
+
     # jenny_c_battery = multiworld.get_location("Jenny's Room - C Battery", player)
     # self.set_rule(jenny_c_battery, reach_jenny_battery)
 

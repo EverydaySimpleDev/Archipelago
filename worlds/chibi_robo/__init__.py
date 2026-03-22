@@ -31,7 +31,7 @@ from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer, AutoPatchRegister
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 0, 0)
+VERSION: tuple[int, int, int] = (1, 0, 1)
 
 def launch_client():
     from . import client
@@ -141,26 +141,29 @@ class ChibiRoboWorld(World):
             return "archipelago_item"
         # raise KeyError(f"Invalid item name: {name}")
 
+    @staticmethod
+    def _get_location_object_id(name: str) -> int:
+        """
+        Return the items object name
+
+        """
+
+        if name in LOCATION_TABLE:
+            return LOCATION_TABLE[name].object_id
+
+        raise KeyError(f"Could not find location id")
+
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
-
-        coin_count = 20
-        player_living_room_rand_loc = list(self.multiworld.get_region("Living Room", self.player).get_locations())
-
-        self.multiworld.random.shuffle(player_living_room_rand_loc)
-
-        for loc in player_living_room_rand_loc:
-            if coin_count > 0:
-                loc.place_locked_item(self.create_item("Coin C"))
-                # self.multiworld.get_location(loc, self.player).place_locked_item(self.create_item("Coin C"))
-                coin_count -= 1
 
     def set_rules(self) -> None:
         set_location_rules(self)
         set_rules(self)
 
     def get_filler_item_name(self) -> str:
-        return self.random.choice(list(FILLER_ITEM_TABLE.keys()))
+        filler = list(FILLER_ITEM_TABLE.keys())
+        return self.multiworld.random.choice(filler)
+
 
     def fill_slot_data(self) -> Dict[str, Any]:
         return self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off", "death_link")
@@ -191,6 +194,7 @@ class ChibiRoboWorld(World):
                     "game": location.item.game,
                     "classification": self._get_classification_name(location.item.classification),
                     "object": self._get_object_name(location.item.name, self.player, location.item.player),
+                    "location_id": self._get_location_object_id(location.name),
                 }
             else:
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
@@ -215,7 +219,6 @@ class ChibiRoboWorld(World):
                 for item in [*self.plando_locations.keys()]]
 
     def pre_fill(self):
-
         for location, item in self.plando_locations.items():
             self.multiworld.get_location(location, self.player).place_locked_item(self.create_item(item))
 
@@ -255,6 +258,11 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     for name in ITEM_TABLE.keys():
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
+
+    for name in FILLER_ITEM_TABLE.keys():
+        item_type: ItemClassification = FILLER_ITEM_TABLE.get(name).classification
+        item_qty: int = ITEM_TABLE.get(name).qty
+        itempool += create_multiple_items(world, name, item_qty, item_type)
 
     unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
 
