@@ -1,37 +1,29 @@
 # Python standard libraries
-import json
-import logging
 import os
 import zipfile
 from base64 import b64encode
-from collections.abc import Mapping
-from typing import Any, ClassVar, List, Dict
-from collections import defaultdict
-from math import ceil
+from typing import List, Dict
 
-from typing import Any, ClassVar, Callable, Union, cast
-from logging import Logger, debug
+from typing import Any, ClassVar
+from logging import Logger
 import dolphin_memory_engine
-import Utils
 import yaml
 import json
-import random
 
 # Archipelago imports
-import settings
 from worlds.AutoWorld import World, WebWorld
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths
-from BaseClasses import Region, Location, Entrance, Item, ItemClassification, Tutorial, CollectionState, MultiWorld
+from BaseClasses import Item, ItemClassification, Tutorial, CollectionState, MultiWorld
 from .regions import create_regions, connect_entrances
 from .game_id import game_name
 from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE
 from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
-from .options import ChibiRobobGameOptions
+from .options import ChibiRoboGameOptions, chibi_robo_option_groups
 from BaseClasses import ItemClassification as IC
-from worlds.Files import APPlayerContainer, AutoPatchRegister
+from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 0, 1)
+VERSION: tuple[int, int, int] = (1, 0, 2)
 
 def launch_client():
     from . import client
@@ -54,7 +46,7 @@ class ChibiRoboWebWorld(WebWorld):
 
     setup_en = Tutorial(
         tutorial_name="Start Guide",
-        description="A guide to playing Chibi Robo! in Archipelago.",
+        description="A guide to playing Chibi Robo! Plug Into Adventure! in Archipelago.",
         language="English",
         file_name="guide_en.md",
         link="guide/en",
@@ -63,6 +55,7 @@ class ChibiRoboWebWorld(WebWorld):
 
     tutorials = [setup_en]
 
+    option_groups = chibi_robo_option_groups
 
 class ChibiRoboContainer(APPlayerContainer):
     """
@@ -95,8 +88,8 @@ class ChibiRoboWorld(World):
 
     game = game_name
     web = ChibiRoboWebWorld()
-    options_dataclass = ChibiRobobGameOptions
-    options: ChibiRobobGameOptions
+    options_dataclass = ChibiRoboGameOptions
+    options: ChibiRoboGameOptions
     topology_present = True
 
     plando_locations: Dict[str, str]

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink
+from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup
 
 class FreePJs(DefaultOnToggle):
     """
@@ -38,10 +38,19 @@ class ChibiVisionOff(Toggle):
     default = 0
 
 @dataclass
-class ChibiRobobGameOptions(PerGameCommonOptions):
+class ChibiRoboGameOptions(PerGameCommonOptions):
     free_pjs: FreePJs
     charged_giga_battery: ChargedGigaBattery
     open_upstairs: OpenUpstairs
     open_downstairs: OpenDownStairs
     chibi_vision_off: ChibiVisionOff
     death_link: DeathLink
+
+chibi_robo_option_groups = [
+    OptionGroup("Stage Locks", [
+        OpenUpstairs, OpenDownStairs
+    ]),
+    OptionGroup("Quality Of Life Changes", [
+        FreePJs, ChargedGigaBattery, ChibiVisionOff, DeathLink
+    ])
+]

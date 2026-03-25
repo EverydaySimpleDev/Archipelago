@@ -2,9 +2,7 @@ import asyncio
 import traceback
 import dolphin_memory_engine
 import time
-import numpy as np
 
-import NetUtils
 import Utils
 import websockets
 import functools
@@ -166,12 +164,7 @@ class ChibiRoboContext(CommonContext):
     async def server_auth(self, password_requested: bool = True) -> None:
         if password_requested and not self.password:
             await super().server_auth(password_requested)
-        # if not self.auth:
-        #     if self.awaiting_rom:
-        #         return
-        #     self.awaiting_rom = True
-        #     logger.info("Awaiting connection to Dolphin to get player information.")
-        #     return
+
         await self.get_username()
         await self.send_connect()
 
@@ -404,23 +397,13 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
         write_short(0x80398ef2, 1)
         return True
 
-    if "Coin" in item_name:
-        return True
-
-    if "Junk" in item_name:
-        return True
-
     current_address_item = dolphin_memory_engine.read_bytes(item_index_addr + CURRENT_INDEX_ADDR, 2)
 
     if int.from_bytes(current_address_item) == 65535: # if no item is set in inventory
-        logger.info("Gave: " + item_name)
+        # logger.info("Gave: " + item_name)
         # logger.info(item_id)
         # logger.info(current_address_item)
         if item_id != 0:
-
-            if item_id == 107:
-                # Filler
-                return True
 
             write_short( ( item_index_addr + CURRENT_INDEX_ADDR), item_id)
             write_short( (item_index_addr + CURRENT_INDEX_ADDR) + 2, 1)
@@ -512,7 +495,6 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
             logger.info("Congratulations, you have completed the game!")
 
     for location, data in LOCATION_TABLE.items():
-        checked = False
 
         checked = check_location(ctx, curr_stage_id, location, data)
 
@@ -547,11 +529,6 @@ def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str, data: C
             location_addr = hex(BASE_ITEM_ADDR + data.address)
 
             location_value = dolphin_memory_engine.read_bytes(int( location_addr, 16), 4)
-
-            # logger.info( name + ': ' )
-            # logger.info( location_value )
-            # logger.info( int.from_bytes(location_value, byteorder='little') >> data.bit )
-            # logger.info( bool( (int.from_bytes(location_value, byteorder='little') >> data.bit) & 1) )
 
             checked = bool( (int.from_bytes(location_value, byteorder='little') >> data.bit) & 1)
 
@@ -694,8 +671,6 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
 
         try:
             if dolphin_memory_engine.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
-
-                await check_locations(ctx)
 
                 if not check_ingame():
                     # Reset the give item array while not in the game.

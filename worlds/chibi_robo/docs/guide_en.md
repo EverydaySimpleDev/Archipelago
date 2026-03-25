@@ -1,7 +1,7 @@
 # Chibi Robo Setup Guide
 
 ## Required Software
-- Archipelago Build of Chibi Robo from: [Chibi-Robo: Unpluged Randomization App](https://github.com/EverydaySimpleDev/Chibi-Robo-Randomizer)
+- Archipelago Build of Chibi Robo from: [Chibi-Robo: Unplugged Randomization App](https://github.com/EverydaySimpleDev/Chibi-Robo-Randomizer)
 
 ## Installation Procedures (Windows)
 

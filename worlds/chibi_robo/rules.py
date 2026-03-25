@@ -69,9 +69,6 @@ def set_location_rules(self) -> None:
     multiworld = self.multiworld
     player = self.player
 
-    #  TODO: Look Into Copter Item
-    # copter = "Chibi-Copter Chibi-Gear"
-
     has_blaster = Has(blaster)
 
     reach_charger = HasAll( blaster, mug)
@@ -103,7 +100,7 @@ def set_location_rules(self) -> None:
 
     # kitchen_table_happy_block = multiworld.get_location("Kitchen - Table Happy Block", player)
     # self.set_rule(kitchen_table_happy_block, has_blaster)
-    #
+
     # kitchen_cabinet_happy_block = multiworld.get_location("Kitchen - Cabinet Happy Block", player)
     # self.set_rule(kitchen_cabinet_happy_block, has_blaster)
 
