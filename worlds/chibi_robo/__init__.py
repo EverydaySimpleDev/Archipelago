@@ -23,7 +23,7 @@ from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 0, 2)
+VERSION: tuple[int, int, int] = (1, 0, 3)
 
 def launch_client():
     from . import client
@@ -63,7 +63,7 @@ class ChibiRoboContainer(APPlayerContainer):
     """
 
     game: str = game_name
-    patch_file_ending: str = ".aptcr"
+    patch_file_ending: str = ".apcr"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         if "data" in kwargs:
@@ -79,7 +79,7 @@ class ChibiRoboContainer(APPlayerContainer):
         super().write_contents(opened_zipfile)
 
         # Record the data for the game under the key `plando`.
-        opened_zipfile.writestr("plando", b64encode(bytes(yaml.safe_dump(self.data, sort_keys=False), "utf-8")))
+        opened_zipfile.writestr("plando", b64encode( bytes(yaml.safe_dump(self.data, sort_keys=False), "utf-8") ).decode("utf-8"))
 
 
 class ChibiRoboWorld(World):
@@ -159,7 +159,7 @@ class ChibiRoboWorld(World):
 
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs","chibi_vision_off", "death_link")
+        return self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "chibi_vision_off", "death_link")
 
     def generate_output(self, output_directory: str) -> None:
         """

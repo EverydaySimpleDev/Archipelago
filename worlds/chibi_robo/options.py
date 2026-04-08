@@ -7,7 +7,7 @@ class FreePJs(DefaultOnToggle):
     Makes PJs in shop free
     """
     display_name = "Free PJs"
-    default = 0
+    default = 1
 
 class ChargedGigaBattery(DefaultOnToggle):
     """
@@ -23,13 +23,6 @@ class OpenUpstairs(Toggle):
     display_name = "Open Upstairs"
     default = 1
 
-class OpenDownStairs(Toggle):
-    """
-    Opens DownStairs
-    """
-    display_name = "Open Downstairs"
-    default = 1
-
 class ChibiVisionOff(Toggle):
     """
     Turns off Chibi Vision
@@ -42,13 +35,12 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
     free_pjs: FreePJs
     charged_giga_battery: ChargedGigaBattery
     open_upstairs: OpenUpstairs
-    open_downstairs: OpenDownStairs
     chibi_vision_off: ChibiVisionOff
     death_link: DeathLink
 
 chibi_robo_option_groups = [
     OptionGroup("Stage Locks", [
-        OpenUpstairs, OpenDownStairs
+        OpenDownStairs
     ]),
     OptionGroup("Quality Of Life Changes", [
         FreePJs, ChargedGigaBattery, ChibiVisionOff, DeathLink

@@ -1,4 +1,7 @@
 # Chibi Robo - Changelog
+## v1.0.3 - First Stable Release
+
+- Removed 'Open Downstairs' Option Due to a lot of confusion / issues for players. May re-add later
 
 ## v1.0.2 - First Stable Release
 
