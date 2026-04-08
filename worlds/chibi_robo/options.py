@@ -40,7 +40,7 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
 
 chibi_robo_option_groups = [
     OptionGroup("Stage Locks", [
-        OpenDownStairs
+        OpenUpstairs
     ]),
     OptionGroup("Quality Of Life Changes", [
         FreePJs, ChargedGigaBattery, ChibiVisionOff, DeathLink
