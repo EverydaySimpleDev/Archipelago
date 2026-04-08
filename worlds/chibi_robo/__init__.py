@@ -193,7 +193,7 @@ class ChibiRoboWorld(World):
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
             output_locations[location.name] = item_info
 
-        output_data.update(self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "open_downstairs", "chibi_vision_off"))
+        output_data.update(self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "chibi_vision_off"))
 
         mod_name = self.multiworld.get_out_file_name_base(self.player)
         out_file = os.path.join(output_directory, mod_name + ".json")
