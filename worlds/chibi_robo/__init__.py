@@ -1,8 +1,10 @@
 # Python standard libraries
+import base64
+import io
 import os
 import zipfile
 from base64 import b64encode
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from typing import Any, ClassVar
 from logging import Logger
@@ -10,6 +12,7 @@ import dolphin_memory_engine
 import yaml
 import json
 
+import Utils
 # Archipelago imports
 from worlds.AutoWorld import World, WebWorld
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths
@@ -23,7 +26,7 @@ from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 0, 3)
+VERSION: tuple[int, int, int] = (1, 1, 1)
 
 def launch_client():
     from . import client
@@ -63,23 +66,19 @@ class ChibiRoboContainer(APPlayerContainer):
     """
 
     game: str = game_name
-    patch_file_ending: str = ".apcr"
+    patch_file_ending: str = ".zip"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        if "data" in kwargs:
-            self.data = kwargs["data"]
-            del kwargs["data"]
-
-        super().__init__(*args, **kwargs)
+    def __init__(self, patch_data: Dict[str, str] | io.BytesIO, base_path: str = "", output_directory: str = "",
+                 player: Optional[int] = None, player_name: str = "", server: str = ""):
+        self.patch_data = patch_data
+        self.file_path = base_path
+        container_path = os.path.join(output_directory, base_path + ".zip")
+        super().__init__(container_path, player, player_name, server)
 
     def write_contents(self, opened_zipfile: zipfile.ZipFile) -> None:
-        """
-        Write the contents of the container file.
-        """
+        for filename, yml in self.patch_data.items():
+            opened_zipfile.writestr(filename, yml)
         super().write_contents(opened_zipfile)
-
-        # Record the data for the game under the key `plando`.
-        opened_zipfile.writestr("plando", b64encode( bytes(yaml.safe_dump(self.data, sort_keys=False), "utf-8") ).decode("utf-8"))
 
 
 class ChibiRoboWorld(World):
@@ -195,11 +194,21 @@ class ChibiRoboWorld(World):
 
         output_data.update(self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "chibi_vision_off"))
 
-        mod_name = self.multiworld.get_out_file_name_base(self.player)
-        out_file = os.path.join(output_directory, mod_name + ".json")
+        mod_name = f"AP-{self.multiworld.seed_name}-P{self.player}-{self.multiworld.get_file_safe_player_name(self.player)}"
+        mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
 
-        with open(out_file, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, ensure_ascii=False, indent=4)
+        files = {
+            f"AP-{multiworld.seed_name}-P{player}-{multiworld.get_file_safe_player_name(player)}.apcr": json.dumps(output_data),
+        }
+
+        apcr = ChibiRoboContainer(
+            files,
+            mod_dir,
+            output_directory,
+            self.player,
+            self.multiworld.get_file_safe_player_name(self.player)
+        )
+        apcr.write()
 
     def generate_early(self) -> None:
         self.plando_locations = dict()
