@@ -120,9 +120,9 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Backyard"].locations.append("Backyard - Twig under Tree")
     chibi_robo_regions["Backyard"].locations.append("Backyard - Twig under Awning")
     chibi_robo_regions["Backyard"].locations.append("Backyard - Scurvy Splinter")
-    chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds A")
-    chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds B")
-    chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds C")
+    # chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds A")
+    # chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds B")
+    # chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds C")
     chibi_robo_regions["Backyard"].locations.append("Backyard - Frog Ring")
     chibi_robo_regions["Backyard"].locations.append("Backyard - White Block")
 
