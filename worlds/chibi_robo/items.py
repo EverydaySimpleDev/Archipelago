@@ -73,7 +73,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Purple Crayon": ChibiRoboItemData("Item", IC.useful, 19, 0x97, "item_kure_5", 1),
     "Chibi-Battery": ChibiRoboItemData("Item", IC.useful, 21, 0x9e, "item_c_denchi", 1),
     "Dinahs Teeth": ChibiRoboItemData("Item", IC.useful, 22, 0x58, "item_rex_tooth", 1),
-    "Scurvy Splinter": ChibiRoboItemData("Item", IC.useful, 23, 0x72, "npc_hock_ship_114", 1),
+    # "Scurvy Splinter": ChibiRoboItemData("Item", IC.useful, 23, 0x72, "npc_hock_ship_114", 1),
     "Red Brick": ChibiRoboItemData("Item", IC.useful, 24, 0x7a, "item_t_block_6", 1),
     "Chibi-Radar Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 25, 0x83, "cb_radar", 1),
     "Ticket Stub": ChibiRoboItemData("Item", IC.useful, 26, 0x66, "item_ticket", 1),
@@ -100,17 +100,25 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Snorkel": ChibiRoboItemData("Item", IC.useful, 47, 0x63, "item_goggle", 1),
     "Blue Brick": ChibiRoboItemData("Item", IC.useful, 49, 0x7a, "item_t_block_1", 1),
     "Space Scrambler": ChibiRoboItemData("Item", IC.useful, 50, 0x6b, "item_nwing_item", 1),
-    "Wastepaper": ChibiRoboItemData("Item", IC.filler, 143, 0x12, "item_kami_kuzu", 1),
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 165, 0x88, "item_candy_gomi", 1),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 173, 0x89, "item_okasi_gomi_1", 1),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 178, 0x8a, "item_okasi_gomi_2", 1),
 }
 
 FILLER_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
-    "Wastepaper": ChibiRoboItemData("Item", IC.filler, 143, 0x12, "item_kami_kuzu", 1),
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 165, 0x88, "item_candy_gomi", 1),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 173, 0x89, "item_okasi_gomi_1", 1),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 178, 0x8a, "item_okasi_gomi_2", 1),
+}
+
+SUIT_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
+    "Drake Redcrest Suit": ChibiRoboItemData("Suit", IC.progression, 179, 0x18, "item_capsule_24", 1),
+    "Toa Suit": ChibiRoboItemData("Suit", IC.progression, 180, 0x19, "item_capsule_25", 1),
+    "Frog Suit": ChibiRoboItemData("Suit", IC.progression, 181, 0x1a, "item_capsule_26", 1),
+    "Super Chibi-Robo Suit": ChibiRoboItemData("Suit", IC.progression, 182, 0x1f, "item_capsule_31", 1),
+    "Trauma Suit": ChibiRoboItemData("Suit", IC.progression, 183, 0x20, "item_capsule_32", 1),
+    "Ghost Suit": ChibiRoboItemData("Suit", IC.progression, 184, 0x22, "item_cos_obake", 1),
+    "Pajamas": ChibiRoboItemData("Suit", IC.progression, 184, 0x1e, "item_capsule_30", 1),
 }
 
 ITEM_TABLE_DESC: dict[str, str] = {

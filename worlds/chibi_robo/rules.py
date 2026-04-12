@@ -73,11 +73,9 @@ def set_location_rules(self) -> None:
 
     reach_charger = HasAll( blaster, mug)
 
-    reach_ship = HasAll(spoon, blaster)
+    # reach_ship = HasAll(spoon, blaster)
 
     reach_backyard_awning = HasAll(spoon, blaster, charge_chip, squirter)
-
-    reach_backyard_tree_happy_block = HasAll( blaster, charge_chip)
 
     # reach_jenny_battery = Has(red_shoe) & Has (blaster)
 
@@ -162,8 +160,8 @@ def set_location_rules(self) -> None:
     # self.set_rule(basement_swing_10m_coin, reach_charger)
 
     # Backyard
-    backyard_ship = multiworld.get_location("Backyard - Scurvy Splinter", player)
-    self.set_rule(backyard_ship, reach_ship)
+    # backyard_ship = multiworld.get_location("Backyard - Scurvy Splinter", player)
+    # self.set_rule(backyard_ship, reach_ship)
 
     # backyard_right_awning_happy_block_c = multiworld.get_location("Backyard - Right Awning Happy Block C", player)
     # self.set_rule(backyard_right_awning_happy_block_c, reach_backyard_awning)
