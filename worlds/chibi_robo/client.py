@@ -29,9 +29,9 @@ CONNECTION_CONNECTED_STATUS = "Dolphin connected successfully."
 CONNECTION_INITIAL_STATUS = "Dolphin connection has not been initiated."
 
 # The expected index for the following item that should be received.
-EXPECTED_INDEX_ADDR = 0x8038f778
+EXPECTED_INDEX_ADDR = 0x80000008
 
-item_index_addr = 0x8038f778
+GIVE_ITEM_ARRAY_ADDR = 0x8038f778
 
 CURRENT_INDEX_ADDR = 0
 
@@ -124,6 +124,78 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
             logger.info("Enabled Blaster")
             return
 
+    def _cmd_enable_living_ladder(self) -> None:
+        """
+        Enable Blaster
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x80368522, 1)
+            logger.info("Living Room Ladder Enabled")
+            return
+
+    def _cmd_enable_foyer_ladder(self) -> None:
+        """
+        Enable Blaster
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x8036852a, 1)
+            logger.info("Foyer Ladder Enabled")
+            return
+
+    def _cmd_enable_foyer_teleport(self) -> None:
+        """
+        Enable Foyer Teleport
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x8036852c, 1)
+            logger.info("Foyer Teleport Enabled")
+            return
+
+    def _cmd_enable_living_bridge(self) -> None:
+        """
+        Enable Living Room Bridge
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x80368532, 1)
+            logger.info("Living Room Bridge Enabled")
+            return
+
+    def _cmd_enable_kitchen_ladder(self) -> None:
+        """
+        Enable Kitchen Ladder
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x80368526, 1)
+            logger.info("Kitchen Ladder Enabled")
+            return
+
+    def _cmd_enable_kitchen_bridge(self) -> None:
+        """
+        Enable Kitchen Bridge
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x80368536, 1)
+            logger.info("Kitchen Bridge Enabled")
+            return
+
+    def _cmd_enable_bedroom_bridge(self) -> None:
+        """
+        Enable Bedroom Bridge
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x8036853a, 1)
+            logger.info("Bedroom Bridge Enabled")
+            return
+
+    def _cmd_enable_basement_teleport(self) -> None:
+        """
+        Enable Basement Teleport
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+            write_short(0x8036853e, 1)
+            logger.info("Basement Teleport Enabled")
+            return
+
     def _cmd_dolphin(self) -> None:
         """
         Display the current Dolphin emulator connection status.
@@ -159,6 +231,7 @@ class ChibiRoboContext(CommonContext):
 
         self.current_stage_name: str = ""
         self.curr_stage_pickup: int
+        self.len_give_item_array: int = 0x10
 
 
     async def server_auth(self, password_requested: bool = True) -> None:
@@ -188,7 +261,6 @@ class ChibiRoboContext(CommonContext):
     async def disconnect(self, allow_autoreconnect: bool = False) -> None:
         self.auth = None
         self.current_stage_name = ""
-        reset_item_flag()
         await super().disconnect(allow_autoreconnect)
 
     async def disconnect_proxy(self):
@@ -380,43 +452,29 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
     if not check_ingame() or dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
         return False
 
-    global item_index_addr
-    global CURRENT_INDEX_ADDR
-
     item_id = ITEM_TABLE[item_name].item_id
+    is_special = ITEM_TABLE[item_name].special
+    # Loop through the item array, placing the item in an empty slot.
+    for idx in range(ctx.len_give_item_array):
+        item_slot = dolphin_memory_engine.read_bytes(GIVE_ITEM_ARRAY_ADDR + idx, 2)
+        if item_slot == b'\xff\xff':
 
-    if "Chibi-Blaster Chibi-Gear" == item_name:
-        write_short(0x80398ef8, 1)
-        return True
+            logger.info('Giving Player: ' + item_name)
 
-    if "Chibi-Radar Chibi-Gear" == item_name:
-        write_short(0x80398f00, 1)
-        return True
+            # If item is special and doesn't get added to the inventory like normal
+            if is_special:
+                dolphin_memory_engine.write_byte(item_id, 1)
+                return True
 
-    if "Chibi-Copter Chibi-Gear" == item_name:
-        write_short(0x80398ef2, 1)
-        return True
+            # If item can be added to inventory normally
+            else:
+                dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx), 0x00)
+                dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1, item_id)
+                dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, 1)
+                return True
 
-    current_address_item = dolphin_memory_engine.read_bytes(item_index_addr + CURRENT_INDEX_ADDR, 2)
-
-    if int.from_bytes(current_address_item) == 65535: # if no item is set in inventory
-        # logger.info("Gave: " + item_name)
-        # logger.info(item_id)
-        # logger.info(current_address_item)
-        if item_id != 0:
-
-            write_short( ( item_index_addr + CURRENT_INDEX_ADDR), item_id)
-            write_short( (item_index_addr + CURRENT_INDEX_ADDR) + 2, 1)
-            return True
-    else:
-
-        CURRENT_INDEX_ADDR += 1
-        if CURRENT_INDEX_ADDR == 65:
-            CURRENT_INDEX_ADDR = 0
-        return False
-
+    # If unable to place the item in the array, return `False`.
     return False
-
 
 def check_ingame() -> bool:
     """
@@ -438,41 +496,22 @@ async def give_items(ctx: ChibiRoboContext) -> None:
     """
 
     if check_ingame() and dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) != b"\x00\x00\x00\x0e":
-        # Read the expected index of the player, which is the index of the next item they're expecting to receive.
+        expected_idx = read_short(EXPECTED_INDEX_ADDR)
 
         # Check if there are new items.
         received_items = ctx.items_received
-        unique_received_items = set(received_items)
-
-        for item in unique_received_items:
-            _give_item(ctx, LOOKUP_ID_TO_NAME[item.item])
-            # logger.info(item)
-            ctx.items_received.remove(item)
-
+        if len(received_items) <= expected_idx:
+            # There are no new items.
             return
 
+        # Loop through items to give.
+        for idx, item in enumerate(received_items[expected_idx:], start=expected_idx):
+            # Attempt to give the item and increment the expected index.
+            while not _give_item(ctx, LOOKUP_ID_TO_NAME[item.item]):
+                await asyncio.sleep(0.01)
 
-
-def update_item_flag() -> None:
-
-    global EXPECTED_INDEX_ADDR
-    global CURRENT_INDEX_ADDR
-
-    if dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) == b"\x00\x00\x00\x00" or dolphin_memory_engine.read_bytes(EXPECTED_INDEX_ADDR, 4) == b"\x00\x00\xff\xff":
-        return
-    else:
-
-        EXPECTED_INDEX_ADDR += 4  # increment by 4 to get next flag / memory to set
-
-        return
-def reset_item_flag() -> None:
-
-    global EXPECTED_INDEX_ADDR
-    global CURRENT_INDEX_ADDR
-
-    EXPECTED_INDEX_ADDR = 0x8038f77a  # increment by 4 to get next flag / memory to set
-
-    return
+            # Increment the expected index.
+            dolphin_memory_engine.write_byte(EXPECTED_INDEX_ADDR, idx + 1)
 
 async def check_locations(ctx: ChibiRoboContext) -> None:
     """
@@ -483,7 +522,6 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
 
     :param ctx: The client context.
     """
-
     # We check which locations are currently checked on the current stage.
     curr_stage_id = stage_hex_to_id()
     ctx.curr_stage_pickup = read_4byte_short(EXPECTED_INDEX_ADDR)
@@ -671,15 +709,15 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
 
         try:
             if dolphin_memory_engine.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
-
                 if not check_ingame():
                     # Reset the give item array while not in the game.
-                    reset_item_flag()
+                    # dolphin_memory_engine.write_bytes(GIVE_ITEM_ARRAY_ADDR, bytes([0xFF] * ctx.len_give_item_array))
                     sleep_time = 0.1
                     continue
                 if ctx.slot is not None:
                     if "DeathLink" in ctx.tags:
                         await check_death(ctx)
+
                     await give_items(ctx)
                     await check_locations(ctx)
                     await check_current_stage_changed(ctx)
@@ -708,7 +746,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                     logger.info(ctx.dolphin_status)
                     logger.info("Connection to Dolphin failed, attempting again in 5 seconds...")
                     ctx.dolphin_status = CONNECTION_LOST_STATUS
-                    reset_item_flag()
+                    # reset_item_flag()
                     await ctx.disconnect()
                     sleep_time = 5
                     continue
@@ -717,7 +755,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
             logger.info("Connection to Dolphin failed, attempting again in 5 seconds...")
             logger.error(traceback.format_exc())
             ctx.dolphin_status = CONNECTION_LOST_STATUS
-            reset_item_flag()
+            # reset_item_flag()
             await ctx.disconnect()
             sleep_time = 5
             continue

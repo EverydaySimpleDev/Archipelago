@@ -21,6 +21,7 @@ class ChibiRoboItemData(NamedTuple):
     item_id: Optional[int]
     object_name: Optional[str]
     qty: Optional[int]
+    special: Optional[bool] = False
 
 
 class ChibiRoboItem(Item):
@@ -55,7 +56,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Toothbrush Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 0, 0x10, "item_brush", 1),
     "Spoon Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 1, 0x15, "item_spoon", 1),
     "Mug Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 2, 0x16, "item_mag_cup", 1),
-    "Chibi-Blaster Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 3, 0x83, "cb_cannon_lv_2", 1),
+    "Chibi-Blaster Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 3, 0x80398ef8, "cb_cannon_lv_2", 1, True),
     "Squirter Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 4, 0x38, "item_tyuusyaki", 1),
     "Range Chip": ChibiRoboItemData("Item", IC.progression, 5, 0x06, "item_chip_54", 1),
     "Alien Ear Chip": ChibiRoboItemData("Item", IC.progression, 6, 0x3e, "item_hocyouki", 1),
@@ -75,7 +76,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Dinahs Teeth": ChibiRoboItemData("Item", IC.useful, 22, 0x58, "item_rex_tooth", 1),
     # "Scurvy Splinter": ChibiRoboItemData("Item", IC.useful, 23, 0x72, "npc_hock_ship_114", 1),
     "Red Brick": ChibiRoboItemData("Item", IC.useful, 24, 0x7a, "item_t_block_6", 1),
-    "Chibi-Radar Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 25, 0x83, "cb_radar", 1),
+    "Chibi-Radar Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 25, 0x80398f00, "cb_radar", 1, True),
     "Ticket Stub": ChibiRoboItemData("Item", IC.useful, 26, 0x66, "item_ticket", 1),
     "Foyer Waterfall Frog Ring": ChibiRoboItemData("Item", IC.useful, 27, 0x00, "item_frog_ring", 1),
     "Basement Frog Ring": ChibiRoboItemData("Item", IC.useful, 28, 0x00, "item_frog_ring", 1),
