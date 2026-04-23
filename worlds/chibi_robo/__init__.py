@@ -26,7 +26,7 @@ from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 1, 3)
+VERSION: tuple[int, int, int] = (1, 1, 4)
 
 def launch_client():
     from . import client
@@ -158,7 +158,7 @@ class ChibiRoboWorld(World):
 
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "chibi_vision_off", "death_link")
+        return self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "chibi_vision_off", "death_link", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray")
 
     def generate_output(self, output_directory: str) -> None:
         """
@@ -192,7 +192,7 @@ class ChibiRoboWorld(World):
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
             output_locations[location.name] = item_info
 
-        output_data.update(self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "chibi_vision_off"))
+        output_data.update(self.options.as_dict( "free_pjs", "charged_giga_battery", "open_upstairs", "chibi_vision_off", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray"))
 
         mod_name = f"AP-{self.multiworld.seed_name}-P{self.player}-{self.multiworld.get_file_safe_player_name(self.player)}"
         mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
@@ -260,6 +260,18 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     for name in ITEM_TABLE.keys():
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
+
+    tooth_brush_loc = world.get_location("Living Room - Toothbrush")
+    mug_loc = world.get_location("Kitchen - Mug Location")
+    squirter_loc = world.get_location("Jenny's Room - Squirter")
+    snorkel_loc = world.get_location("Jenny's Room - Snorkel")
+
+    filler_item = ChibiRoboItem("Candy Wrapper", world.player, ChibiRoboItemData("Item", IC.filler, 165, 0x88, "item_candy_gomi", 1), IC.filler)
+
+    tooth_brush_loc.place_locked_item(filler_item)
+    mug_loc.place_locked_item(filler_item)
+    squirter_loc.place_locked_item(filler_item)
+    snorkel_loc.place_locked_item(filler_item)
 
     for name in FILLER_ITEM_TABLE.keys():
         item_type: ItemClassification = FILLER_ITEM_TABLE.get(name).classification

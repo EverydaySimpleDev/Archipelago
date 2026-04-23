@@ -29,7 +29,8 @@ CONNECTION_CONNECTED_STATUS = "Dolphin connected successfully."
 CONNECTION_INITIAL_STATUS = "Dolphin connection has not been initiated."
 
 # The expected index for the following item that should be received.
-EXPECTED_INDEX_ADDR = 0x80000008
+# Saves over total times player has recharged that is no longer increased via patcher
+EXPECTED_INDEX_ADDR = 0x803686a6
 
 GIVE_ITEM_ARRAY_ADDR = 0x8038f778
 
@@ -83,7 +84,7 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
             write_short(0x8038f6c2, 2)
             write_short(0x8038f6c4, 0)
             write_short(0x8038f6c6, 2)
-            logger.info("Equiping Blaster")
+            logger.info("Equipping Blaster")
             return
 
     def _cmd_equip_radar(self) -> None:
@@ -94,7 +95,7 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
             write_short(0x8038f6c2, 3)
             write_short(0x8038f6c4, 0)
             write_short(0x8038f6c6, 3)
-            logger.info("Equiping Radar")
+            logger.info("Equipping Radar")
             return
 
     def _cmd_enable_radar(self) -> None:
@@ -202,11 +203,15 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
         """
         if isinstance(self.ctx, ChibiRoboContext):
             logger.info(f"Dolphin Status: {self.ctx.dolphin_status}")
+            return
 
 
 class ChibiRoboContext(CommonContext):
     command_processor = ChibiRoboCommandProcessor
     game = "Chibi Robo"
+    items_handling: int = 0b111
+    len_give_item_array: int = 0x272
+    items_received = []
 
     def __init__(self, server_address: Optional[str], password: Optional[str]) -> None:
         super().__init__(server_address, password)
@@ -214,14 +219,12 @@ class ChibiRoboContext(CommonContext):
         self.dolphin_status: str = CONNECTION_INITIAL_STATUS
         self.awaiting_rom: bool = False
         self.has_send_death: bool = False
-        self.send_index: int = 0
 
         self.proxy = None
         self.proxy_task = None
         self.gamejsontotext = ChibiRoboJSONToTextParser(self)
         self.autoreconnect_task = None
         self.endpoint = None
-        self.items_handling = 0b111
         self.room_info = None
         self.connected_msg = None
         self.game_connected = False
@@ -231,7 +234,6 @@ class ChibiRoboContext(CommonContext):
 
         self.current_stage_name: str = ""
         self.curr_stage_pickup: int
-        self.len_give_item_array: int = 0x10
 
 
     async def server_auth(self, password_requested: bool = True) -> None:
@@ -327,7 +329,6 @@ class ChibiRoboContext(CommonContext):
         elif cmd == "RoomInfo":
             self.seed_name = args["seed_name"]
             self.room_info = encode([args])
-
         else:
             if cmd != "PrintJSON":
                 self.server_msgs.append(encode([args]))
@@ -440,7 +441,7 @@ async def check_death(ctx: ChibiRoboContext) -> None:
         else:
             ctx.has_send_death = False
 
-def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
+def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
     """
     Give an item to the player in-game.
 
@@ -454,23 +455,44 @@ def _give_item(ctx: ChibiRoboContext, item_name: str) -> bool:
 
     item_id = ITEM_TABLE[item_name].item_id
     is_special = ITEM_TABLE[item_name].special
+    IC = ITEM_TABLE[item_name].classification
+
     # Loop through the item array, placing the item in an empty slot.
     for idx in range(ctx.len_give_item_array):
+
+
         item_slot = dolphin_memory_engine.read_bytes(GIVE_ITEM_ARRAY_ADDR + idx, 2)
-        if item_slot == b'\xff\xff':
+        current_item = dolphin_memory_engine.read_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1)
 
-            logger.info('Giving Player: ' + item_name)
-
-            # If item is special and doesn't get added to the inventory like normal
+        if ctx.slot == player:
             if is_special:
                 dolphin_memory_engine.write_byte(item_id, 1)
                 return True
-
-            # If item can be added to inventory normally
             else:
-                dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx), 0x00)
-                dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1, item_id)
-                dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, 1)
+                return True
+
+        # logger.info(ctx.slot)
+
+
+        if item_slot == b'\xff\xff':
+
+            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx), 0x00)
+            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1, item_id)
+            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, 1)
+            return True
+
+        elif current_item == item_id and IC == 0:
+
+            # logger.info(hex(item_id))
+            # logger.info(hex(current_item))
+            # logger.info("Same Item: " + item_name)
+
+            current_item_qty = dolphin_memory_engine.read_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3) +1
+            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, current_item_qty)
+            return True
+
+        elif is_special:
+                dolphin_memory_engine.write_byte(item_id, 1)
                 return True
 
     # If unable to place the item in the array, return `False`.
@@ -503,15 +525,17 @@ async def give_items(ctx: ChibiRoboContext) -> None:
         if len(received_items) <= expected_idx:
             # There are no new items.
             return
-
         # Loop through items to give.
         for idx, item in enumerate(received_items[expected_idx:], start=expected_idx):
+
+            received_player = received_items[idx][2]
+
             # Attempt to give the item and increment the expected index.
-            while not _give_item(ctx, LOOKUP_ID_TO_NAME[item.item]):
+            while not _give_item(ctx, LOOKUP_ID_TO_NAME[item.item], received_player):
                 await asyncio.sleep(0.01)
 
             # Increment the expected index.
-            dolphin_memory_engine.write_byte(EXPECTED_INDEX_ADDR, idx + 1)
+            write_short(EXPECTED_INDEX_ADDR, idx + 1)
 
 async def check_locations(ctx: ChibiRoboContext) -> None:
     """
@@ -682,7 +706,7 @@ async def check_alive() -> bool:
     """
     cur_health = read_short(CURR_BATTERY_ADDR)
 
-    logger.info(cur_health)
+    # logger.info(cur_health)
 
     return cur_health > 0
 
@@ -711,7 +735,8 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
             if dolphin_memory_engine.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
                 if not check_ingame():
                     # Reset the give item array while not in the game.
-                    # dolphin_memory_engine.write_bytes(GIVE_ITEM_ARRAY_ADDR, bytes([0xFF] * ctx.len_give_item_array))
+                    dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, bytes([0xFF] * ctx.len_give_item_array))
+                    dolphin_memory_engine.write_bytes(GIVE_ITEM_ARRAY_ADDR, bytes([0xFF] * ctx.len_give_item_array))
                     sleep_time = 0.1
                     continue
                 if ctx.slot is not None:

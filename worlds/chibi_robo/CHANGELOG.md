@@ -1,4 +1,11 @@
 # Chibi Robo - Changelog
+## v1.1.4 - Utilibot / Client Issues Fixes
+- Fixed a issue where the client wasn't giving the player their items
+- Utilibots are now included in the rando as a item but still show up in the shop 
+- Add custom commands to the client just in case there is a issue with the utilibots
+- Added battery drain options
+- Updated rules to help with item gen
+
 ## v1.1.3 - Fixed Locations / Code Clean up
 - Fixed Some Locations Not Sending
 - Ship is no longer in the item / location pool due to player not able to pick up any other item at that location but may add back later.
