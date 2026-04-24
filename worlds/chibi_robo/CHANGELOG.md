@@ -1,4 +1,10 @@
 # Chibi Robo - Changelog
+## v1.1.5 - Utilibot Fixes / Code Changes
+- Fixed some Utilibots not showing correctly
+- Fixed Range Chip not sending correctly
+- Fixed Bedroom - Vanity Candy Bag location not sending
+- Add new option to pick what voice you hear when you pick up a AP item ( Telly is the only voice that will play in any room otherwise the voice will only play if the voice is in the correct room)
+
 ## v1.1.4 - Utilibot / Client Issues Fixes
 - Fixed a issue where the client wasn't giving the player their items
 - Utilibots are now included in the rando as a item but still show up in the shop 

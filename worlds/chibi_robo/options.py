@@ -363,6 +363,43 @@ class BatteryDrainSquirterSpray(Range):
     range_start = 50
     range_end = 200
 
+class FavoriteCharacterVoice(Choice):
+    """
+    The voice the player will hear when
+    Picking Up An AP Item
+    """
+    display_name = "Favorite Character Voice"
+    option_telly = 0
+    # option_jenny_frog = 1
+    # option_jenny_frog = 14
+    option_jenny = 2
+    option_dad = 3
+    option_mom = 4
+    option_drake = 7
+    option_plank_beard = 8
+    option_cincy = 9
+    option_peekoe = 10
+    option_peeko_underwater = 29
+    option_sophie = 11
+    option_sonny = 12
+    option_sarge = 13
+    option_primo = 15
+    option_mr_prongs = 16
+    option_aliens = 17
+    option_funky = 18
+    option_dinha = 19
+    option_dina_toothless = 24
+    option_princess_pitts = 20
+    option_mort = 21
+    option_sunshine = 22
+    option_sunshine_hungry = 23
+    option_fred_the_frog = 25
+    option_freda_the_frog = 26
+    option_toa = 27
+    option_eggplant = 30
+
+    default = 0
+
 @dataclass
 class ChibiRoboGameOptions(PerGameCommonOptions):
     free_pjs: FreePJs
@@ -407,6 +444,7 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
     battery_drain_mug: BatteryDrainMug
     battery_drain_squirter_suck: BatteryDrainSquirterSuck
     battery_drain_squirter_spray: BatteryDrainSquirterSpray
+    favorite_character_voice: FavoriteCharacterVoice
 
 chibi_robo_option_groups = [
     OptionGroup("Stage Locks", [
@@ -416,6 +454,7 @@ chibi_robo_option_groups = [
         FreePJs,
         ChargedGigaBattery,
         ChibiVisionOff,
+        FavoriteCharacterVoice,
         DeathLink
     ]),
     OptionGroup("Battery Drain (Use at your own risk!!)", [

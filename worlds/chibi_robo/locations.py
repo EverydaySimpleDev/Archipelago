@@ -204,7 +204,7 @@ LOCATION_TABLE: dict[str, ChibiRoboLocationData] = {
     "Bedroom - Vanity Candy Wrapper A": ChibiRoboLocationData(211, "Bedroom", 0x06, 5, 0xde20, 290),
     "Bedroom - Vanity Candy Wrapper B": ChibiRoboLocationData(212, "Bedroom", 0x06, 6, 0xde20, 291),
     "Bedroom - Shelf Candy Wrapper": ChibiRoboLocationData(213, "Bedroom", 0x06, 7, 0xde20, 292),
-    "Bedroom - Vanity Candy Bag": ChibiRoboLocationData(214, "Bedroom", 0x06, 4, 0xde20, 293),
+    "Bedroom - Vanity Candy Bag": ChibiRoboLocationData(214, "Bedroom", 0x06, 8, 0xde26, 293),
 }
 
 location_groups = {
