@@ -197,6 +197,20 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
             logger.info("Basement Teleport Enabled")
             return
 
+    def _cmd_increase_giga_charge(self) -> None:
+        """
+        Increases Giga Charge (Max of 9)
+        """
+        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
+
+            cur_charge = read_4byte_short(0x80367c4c)
+            if cur_charge < 9000:
+                write_4byte_short(0x80367c4c, cur_charge + 1000)
+            else:
+                logger.info("Giga Battery is at max (9000) charge")
+
+        return
+
     def _cmd_dolphin(self) -> None:
         """
         Display the current Dolphin emulator connection status.
@@ -460,9 +474,18 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
     # Loop through the item array, placing the item in an empty slot.
     for idx in range(ctx.len_give_item_array):
 
-
         item_slot = dolphin_memory_engine.read_bytes(GIVE_ITEM_ARRAY_ADDR + idx, 2)
         current_item = dolphin_memory_engine.read_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1)
+
+        if item_name == "Battery Charge":
+            # Make sure the giga battery doesn't go over 9000 otherwise player can't pick up the maxed battery
+            cur_charge = read_4byte_short(0x80367c4c)
+            if cur_charge < 9000:
+                write_4byte_short(0x80367c4c, cur_charge + 1000)
+                return True
+            else:
+                logger.info("Giga Battery is at max (9000) charge")
+                return True
 
         if ctx.slot == player:
             if is_special:
@@ -470,9 +493,6 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
                 return True
             else:
                 return True
-
-        # logger.info(ctx.slot)
-
 
         if item_slot == b'\xff\xff':
 

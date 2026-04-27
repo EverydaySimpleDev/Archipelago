@@ -19,14 +19,15 @@ from worlds.LauncherComponents import components, Component, launch_subprocess, 
 from BaseClasses import Item, ItemClassification, Tutorial, CollectionState, MultiWorld
 from .regions import create_regions, connect_entrances
 from .game_id import game_name
-from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE
+from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE, \
+    CHARGE_ITEM_TABLE
 from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
 from .options import ChibiRoboGameOptions, chibi_robo_option_groups
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 1, 5)
+VERSION: tuple[int, int, int] = (1, 1, 6)
 
 def launch_client():
     from . import client
@@ -124,7 +125,6 @@ class ChibiRoboWorld(World):
     def _get_object_name(name: str, self, item_for_player) -> str:
         """
         Return the items object name
-
         """
 
         if name in ITEM_TABLE and self == item_for_player:
@@ -137,7 +137,6 @@ class ChibiRoboWorld(World):
     def _get_location_object_id(name: str) -> int:
         """
         Return the items object name
-
         """
 
         if name in LOCATION_TABLE:
@@ -238,6 +237,9 @@ class ChibiRoboWorld(World):
         if name in FILLER_ITEM_TABLE:
             return ChibiRoboItem(name, self.player, FILLER_ITEM_TABLE[name])
 
+        if name in CHARGE_ITEM_TABLE:
+            return ChibiRoboItem(name, self.player, CHARGE_ITEM_TABLE[name])
+
         raise KeyError(f"Invalid item name: {name}")
 
     def create_items(self):
@@ -261,17 +263,8 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
 
-    tooth_brush_loc = world.get_location("Living Room - Toothbrush")
-    mug_loc = world.get_location("Kitchen - Mug Location")
-    squirter_loc = world.get_location("Jenny's Room - Squirter")
-    snorkel_loc = world.get_location("Jenny's Room - Snorkel")
-
-    filler_item = ChibiRoboItem("Candy Wrapper", world.player, ChibiRoboItemData("Item", IC.filler, 165, 0x88, "item_candy_gomi", 1), IC.filler)
-
-    tooth_brush_loc.place_locked_item(filler_item)
-    mug_loc.place_locked_item(filler_item)
-    squirter_loc.place_locked_item(filler_item)
-    snorkel_loc.place_locked_item(filler_item)
+    for x in range(8):
+        itempool += create_multiple_items(world, "Battery Charge", 1, IC.filler)
 
     for name in FILLER_ITEM_TABLE.keys():
         item_type: ItemClassification = FILLER_ITEM_TABLE.get(name).classification
@@ -282,7 +275,7 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
 
     while len(itempool) < unfilled_locations:
         rand_item = world.random.choice(list(FILLER_ITEM_TABLE.keys()))
-        itempool += create_multiple_items(world, rand_item, 1, ItemClassification.filler)
+        itempool += create_multiple_items(world, rand_item, 1, IC.filler)
 
     return itempool
 

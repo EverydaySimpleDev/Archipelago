@@ -1,4 +1,10 @@
 # Chibi Robo - Changelog
+## v1.1.6 - Utilibot Fixes / Code Changes
+- Added Chibi Copter And Dog Bone To Item Pool
+- New Battery Charges Item For Giga Battery. Only Can Be Charged To 9 Via These Items To Not Lock Player Out Of Getting Full Giga Battery
+- Fixed Crashing Issue When Picking Up Certain Candy Wrappers (Hopefully) 
+- Updated Gen Rules
+
 ## v1.1.5 - Utilibot Fixes / Code Changes
 - Fixed some Utilibots not showing correctly
 - Fixed Range Chip not sending correctly

@@ -58,6 +58,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Mug Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 2, 0x16, "item_mag_cup", 1),
     "Chibi-Blaster Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 3, 0x80398ef8, "cb_cannon_lv_2", 1, True),
     "Squirter Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 4, 0x38, "item_tyuusyaki", 1),
+    "Chibi-Copter Chibi-Gear": ChibiRoboItemData("Item", IC.progression, 72, 0x80398ef2, "archipelago_item", 1, True),
     "Range Chip": ChibiRoboItemData("Item", IC.progression, 5, 0x36, "item_chip_54", 1),
     "Alien Ear Chip": ChibiRoboItemData("Item", IC.progression, 6, 0x3e, "item_hocyouki", 1),
     "Charge Chip": ChibiRoboItemData("Item", IC.progression, 7, 0x35, "item_chip_53", 1),
@@ -68,7 +69,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "C Battery": ChibiRoboItemData("Item", IC.useful, 13, 0x3b, "item_denchi_2", 1),
     "AA Battery": ChibiRoboItemData("Item", IC.useful, 14, 0x3c, "item_denchi_3", 1),
     "D Battery": ChibiRoboItemData("Item", IC.useful, 15, 0x3a, "item_denchi_1", 1),
-    "Red Shoe": ChibiRoboItemData("Item", IC.useful, 16, 0x3d, "item_peets_kutu", 1),
+    "Red Shoe": ChibiRoboItemData("Item", IC.progression, 16, 0x3d, "item_peets_kutu", 1),
     "Green Crayon": ChibiRoboItemData("Item", IC.useful, 17, 0x96, "item_kure_4", 1),
     "Red Crayon": ChibiRoboItemData("Item", IC.useful, 18, 0x93, "item_kure_1", 1),
     "Purple Crayon": ChibiRoboItemData("Item", IC.useful, 19, 0x97, "item_kure_5", 1),
@@ -104,6 +105,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 51, 0x88, "item_candy_gomi", 1),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 52, 0x89, "item_okasi_gomi_1", 1),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 53, 0x8a, "item_okasi_gomi_2", 1),
+    "Dog Bone": ChibiRoboItemData("Item", IC.progression, 73, 0x0e, "item_snack_bone", 1),
 
     "Living Room Ladder": ChibiRoboItemData("Item", IC.progression, 64, 0x80368522, "archipelago_item", 1, True),
     "Kitchen Ladder": ChibiRoboItemData("Item", IC.progression, 65, 0x80368526, "archipelago_item", 1, True),
@@ -113,12 +115,17 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Kitchen Bridge": ChibiRoboItemData("Item", IC.filler, 69, 0x80368536, "archipelago_item", 1, True),
     "Bedroom Bridge": ChibiRoboItemData("Item", IC.filler, 70, 0x8036853a, "archipelago_item", 1, True),
     "Basement Teleport": ChibiRoboItemData("Item", IC.filler, 71, 0x8036853e, "archipelago_item", 1, True),
+    "Battery Charge": ChibiRoboItemData("Item", IC.filler, 74, 0x80367c4e, "archipelago_item", 1, True),
 }
 
 FILLER_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 54, 0x88, "item_candy_gomi", 1),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 55, 0x89, "item_okasi_gomi_1", 1),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 56, 0x8a, "item_okasi_gomi_2", 1),
+}
+
+CHARGE_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
+    "Battery Charge": ChibiRoboItemData("Item", IC.filler, 75, 0x80367c4e, "archipelago_item", 1, True),
 }
 
 SUIT_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
