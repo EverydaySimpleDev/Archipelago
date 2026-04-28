@@ -1,4 +1,9 @@
 # Chibi Robo - Changelog
+## v1.1.7 - New Password Rando Option
+- Added Option To Randomize Left Leg and Suit Case Passwords
+- Max Out Text Speed For In Game Messages
+- Fixed Location Checks
+
 ## v1.1.6 - Utilibot Fixes / Code Changes
 - Added Chibi Copter And Dog Bone To Item Pool
 - New Battery Charges Item For Giga Battery. Only Can Be Charged To 9 Via These Items To Not Lock Player Out Of Getting Full Giga Battery

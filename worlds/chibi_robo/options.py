@@ -9,12 +9,6 @@ class FreePJs(DefaultOnToggle):
     display_name = "Free PJs"
     default = 1
 
-class ChargedGigaBattery(DefaultOnToggle):
-    """
-    Makes Giga Battery Charged
-    """
-    display_name = "Charged Giga Battery"
-    default = 0
 
 class OpenUpstairs(Toggle):
     """
@@ -28,6 +22,13 @@ class ChibiVisionOff(Toggle):
     Turns off Chibi Vision
     """
     display_name = "Chibi Vision Off"
+    default = 0
+
+class PasswordRando(Toggle):
+    """
+    Randomizes Passwords For Left Foot And Case
+    """
+    display_name = "Randomizes Passwords For Left Foot And Case"
     default = 0
 
 class BatteryDrainIdle(Range):
@@ -403,9 +404,9 @@ class FavoriteCharacterVoice(Choice):
 @dataclass
 class ChibiRoboGameOptions(PerGameCommonOptions):
     free_pjs: FreePJs
-    charged_giga_battery: ChargedGigaBattery
     open_upstairs: OpenUpstairs
     chibi_vision_off: ChibiVisionOff
+    password_rando: PasswordRando
     death_link: DeathLink
     battery_drain_idle: BatteryDrainIdle
     battery_drain_walk: BatteryDrainWalk
@@ -448,14 +449,16 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
 
 chibi_robo_option_groups = [
     OptionGroup("Stage Locks", [
-        OpenUpstairs
+        OpenUpstairs,
+        PasswordRando
     ]),
     OptionGroup("Quality Of Life Changes", [
         FreePJs,
-        ChargedGigaBattery,
-        ChibiVisionOff,
         FavoriteCharacterVoice,
         DeathLink
+    ]),
+    OptionGroup("Misc", [
+        ChibiVisionOff,
     ]),
     OptionGroup("Battery Drain (Use at your own risk!!)", [
         BatteryDrainIdle,

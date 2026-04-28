@@ -80,15 +80,7 @@ def set_location_rules(self) -> None:
 
     blaster_copter_lr_ladder_lr_bridge = HasAll(blaster, copter, "Living Room Ladder", "Living Room Bridge")
 
-    has_living_ladder = Has("Living Room Ladder")
-
     reach_charger = HasAll( blaster, mug, copter, tooth_brush)
-
-    # reach_ship = HasAll(spoon, blaster)
-
-    reach_backyard_awning = HasAll(spoon, blaster, charge_chip, squirter)
-
-    has_living_room_bridge_ladder = HasAll("Living Room Bridge", "Living Room Ladder")
 
     # Living Room
     living_room_frog_ring_window = multiworld.get_location("Living Room - Frog Ring (Behind Window)", player)

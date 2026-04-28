@@ -7,7 +7,7 @@
 
 1. Download the above release and extract it.
 2. Generate your world and extract the zip file
-3. Location the .json file from the zip 
+3. Location the .apcr file from the zip 
 4. Use the Chibi Robo Randomizer to randomize your game
 
 ## Joining a MultiWorld Game
