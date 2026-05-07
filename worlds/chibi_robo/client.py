@@ -226,6 +226,7 @@ class ChibiRoboContext(CommonContext):
     items_handling: int = 0b111
     len_give_item_array: int = 0x272
     items_received = []
+    victory: int
 
     def __init__(self, server_address: Optional[str], password: Optional[str]) -> None:
         super().__init__(server_address, password)
@@ -315,6 +316,7 @@ class ChibiRoboContext(CommonContext):
             json = args
             if "slot_info" in json.keys():
                 json["slot_info"] = {}
+                ctx.victory = args["slot_data"]["victory_goal"]
             if "death_link" in args["slot_data"]:
                 Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"])))
             if "players" in json.keys():
@@ -477,15 +479,21 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
         item_slot = dolphin_memory_engine.read_bytes(GIVE_ITEM_ARRAY_ADDR + idx, 2)
         current_item = dolphin_memory_engine.read_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1)
 
-        if item_name == "Battery Charge":
+        if item_name == "Giga Battery Charge":
             # Make sure the giga battery doesn't go over 9000 otherwise player can't pick up the maxed battery
             cur_charge = read_4byte_short(0x80367c4c)
             if cur_charge < 9000:
                 write_4byte_short(0x80367c4c, cur_charge + 1000)
                 return True
             else:
-                logger.info("Giga Battery is at max (9000) charge")
                 return True
+
+        elif item_name == "Max Battery Increase":
+
+            cur_max = read_4byte_short(0x8038f74a)
+            write_4byte_short(0x8038f74a, cur_max + 20)
+
+            return True
 
         if ctx.slot == player:
             if is_special:
@@ -570,11 +578,24 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
     curr_stage_id = stage_hex_to_id()
     ctx.curr_stage_pickup = read_4byte_short(EXPECTED_INDEX_ADDR)
 
+
     if not ctx.finished_game:
-        if curr_stage_id == 9: # end credits = completing game
-            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-            ctx.finished_game = True
-            logger.info("Congratulations, you have completed the game!")
+
+        if ctx.victory == 1: # Activating Giga Robo = completing game
+            activated_giga = read_4byte_short(0x803684ae)
+
+            if activated_giga == 65536:
+                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+                ctx.finished_game = True
+                logger.info("Congratulations, you have completed the game!")
+        else:
+            if curr_stage_id == 9:  # end credits = completing game
+                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+                ctx.finished_game = True
+                logger.info("Congratulations, you have completed the game!")
+
+
+
 
     for location, data in LOCATION_TABLE.items():
 

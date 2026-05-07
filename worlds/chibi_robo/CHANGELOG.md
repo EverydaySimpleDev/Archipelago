@@ -1,4 +1,12 @@
 # Chibi Robo - Changelog
+## v1.2.0 - Bug Fixes / Generation Update
+- Setup Ground Work For Multiple Victory Goals
+- Updated Generation Rules Based On Options
+- New Max Battery Increase Item (Chibi Ranks / Happy Points Are Currently Useless Now)
+- Renamed Battery Charge to Giga Battery Charge
+- Patcher App experience improved 
+- Hopefully fixed main items disappearing after picking up default item at location (Let me know if you run into any that still cause issues!)
+
 ## v1.1.7 - New Password Rando Option
 - Added Option To Randomize Left Leg and Suit Case Passwords
 - Max Out Text Speed For In Game Messages

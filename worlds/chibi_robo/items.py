@@ -95,44 +95,44 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Bandage": ChibiRoboItemData("Item", IC.useful, 40, 0x67, "item_houtai", 1),
     "Dog Tags": ChibiRoboItemData("Item", IC.useful, 41, 0x65, "item_tug", 1),
     "Hot Rod": ChibiRoboItemData("Item", IC.useful, 42, 0x7b, "item_car_item", 1),
-    "Gunpower": ChibiRoboItemData("Item", IC.useful, 43, 0x62, "item_kayaku", 1),
+    "Gunpowder": ChibiRoboItemData("Item", IC.useful, 43, 0x62, "item_kayaku", 1),
     "Free Rangers Photo": ChibiRoboItemData("Item", IC.useful, 44, 0x6c, "item_army_photo", 1),
     "Passed-out Frog": ChibiRoboItemData("Item", IC.useful, 45, 0x7f, "item_frog", 1),
     "Yellow Crayon": ChibiRoboItemData("Item", IC.useful, 46, 0x97, "item_kure_3", 1),
     "Snorkel": ChibiRoboItemData("Item", IC.useful, 47, 0x63, "item_goggle", 1),
     "Blue Brick": ChibiRoboItemData("Item", IC.useful, 49, 0x75, "item_t_block_1", 1),
     "Space Scrambler": ChibiRoboItemData("Item", IC.useful, 50, 0x6b, "item_nwing_item", 1),
+    "Dog Bone": ChibiRoboItemData("Item", IC.progression, 73, 0x0e, "item_snack_bone", 1),
+
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 51, 0x88, "item_candy_gomi", 1),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 52, 0x89, "item_okasi_gomi_1", 1),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 53, 0x8a, "item_okasi_gomi_2", 1),
-    "Dog Bone": ChibiRoboItemData("Item", IC.progression, 73, 0x0e, "item_snack_bone", 1),
+    "Giga Battery Charge": ChibiRoboItemData("Item", IC.filler, 75, 0x80367c4e, "archipelago_item", 1, True),
+    "Max Battery Increase": ChibiRoboItemData("Item", IC.filler, 76, 0x8038f74c, "archipelago_item", 1, True),
 
     "Living Room Ladder": ChibiRoboItemData("Item", IC.progression, 64, 0x80368522, "archipelago_item", 1, True),
     "Kitchen Ladder": ChibiRoboItemData("Item", IC.progression, 65, 0x80368526, "archipelago_item", 1, True),
     "Foyer Teleport": ChibiRoboItemData("Item", IC.progression, 66, 0x8036852c, "archipelago_item", 1, True),
     "Foyer Ladder": ChibiRoboItemData("Item", IC.progression, 67, 0x8036852a, "archipelago_item", 1, True),
     "Living Room Bridge": ChibiRoboItemData("Item", IC.progression, 68, 0x80368532, "archipelago_item", 1, True),
-    "Kitchen Bridge": ChibiRoboItemData("Item", IC.filler, 69, 0x80368536, "archipelago_item", 1, True),
-    "Bedroom Bridge": ChibiRoboItemData("Item", IC.filler, 70, 0x8036853a, "archipelago_item", 1, True),
-    "Basement Teleport": ChibiRoboItemData("Item", IC.filler, 71, 0x8036853e, "archipelago_item", 1, True),
-    "Battery Charge": ChibiRoboItemData("Item", IC.filler, 74, 0x80367c4e, "archipelago_item", 1, True),
+    "Kitchen Bridge": ChibiRoboItemData("Item", IC.progression, 69, 0x80368536, "archipelago_item", 1, True),
+    "Bedroom Bridge": ChibiRoboItemData("Item", IC.useful, 70, 0x8036853a, "archipelago_item", 1, True),
+    "Basement Teleport": ChibiRoboItemData("Item", IC.useful, 71, 0x8036853e, "archipelago_item", 1, True)
 }
 
 FILLER_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 54, 0x88, "item_candy_gomi", 1),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 55, 0x89, "item_okasi_gomi_1", 1),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 56, 0x8a, "item_okasi_gomi_2", 1),
-}
-
-CHARGE_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
-    "Battery Charge": ChibiRoboItemData("Item", IC.filler, 75, 0x80367c4e, "archipelago_item", 1, True),
+    "Giga Battery Charge": ChibiRoboItemData("Item", IC.filler, 75, 0x80367c4c, "archipelago_item", 1, True),
+    "Max Battery Increase": ChibiRoboItemData("Item", IC.useful, 77, 0x8038f74a, "archipelago_item", 1, True),
 }
 
 SUIT_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Drake Redcrest Suit": ChibiRoboItemData("Suit", IC.progression, 57, 0x18, "item_capsule_24", 1),
     "Toa Suit": ChibiRoboItemData("Suit", IC.progression, 58, 0x19, "item_capsule_25", 1),
     "Frog Suit": ChibiRoboItemData("Suit", IC.progression, 59, 0x1a, "item_capsule_26", 1),
-    "Super Chibi-Robo Suit": ChibiRoboItemData("Suit", IC.progression, 60, 0x1f, "item_capsule_31", 1),
+    # "Super Chibi-Robo Suit": ChibiRoboItemData("Suit", IC.progression, 60, 0x1f, "item_capsule_31", 1),
     "Trauma Suit": ChibiRoboItemData("Suit", IC.progression, 61, 0x20, "item_capsule_32", 1),
     "Ghost Suit": ChibiRoboItemData("Suit", IC.progression, 62, 0x22, "item_cos_obake", 1),
     "Pajamas": ChibiRoboItemData("Suit", IC.progression, 63, 0x1e, "item_capsule_30", 1),
@@ -180,7 +180,7 @@ ITEM_TABLE_DESC: dict[str, str] = {
     "Bandage": "Give it to Mort the mummy for some Happy Points.",
     "Dog Tags": "At some point during training with the Free Rangers, you can give these tags to some of the soldiers, and then to Sarge.",
     "Hot Rod": "Play chicken with the hot-rodding Free Ranger and get an S ranking.",
-    "Gunpower": "Give it to Drake Redcrest once he runs out of 'pose juice'. It's part of his Sticker quest.",
+    "Gunpowder": "Give it to Drake Redcrest once he runs out of 'pose juice'. It's part of his Sticker quest.",
     "Free Rangers Photo": "Give it to the Sarge for some Happy Points.",
     "Passed-out Frog": "Carry him to Freida in the Backyard.",
     "Yellow Crayon": "A crayon left by Jenny. Put it back in its box.",
@@ -232,7 +232,7 @@ item_name_groups = {
         "Dog Tags",
         "Bandage",
         "Ticket Stub",
-        "Gunpower",
+        "Gunpowder",
         "Hot Rod",
         "Space Scrambler",
         "Scurvy Splinter",

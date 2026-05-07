@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup
-
 class FreePJs(DefaultOnToggle):
     """
     Makes PJs in shop free
@@ -401,8 +400,20 @@ class FavoriteCharacterVoice(Choice):
 
     default = 0
 
+class VictoryGoal(Choice):
+    """
+    What will send victory / goal of the game
+    """
+    display_name = "Goal / Victory"
+
+    option_credits = 0
+    option_activate_giga_robo = 1
+
+    default = 1
+
 @dataclass
 class ChibiRoboGameOptions(PerGameCommonOptions):
+    victory_goal: VictoryGoal
     free_pjs: FreePJs
     open_upstairs: OpenUpstairs
     chibi_vision_off: ChibiVisionOff
@@ -454,11 +465,12 @@ chibi_robo_option_groups = [
     ]),
     OptionGroup("Quality Of Life Changes", [
         FreePJs,
+        VictoryGoal,
         FavoriteCharacterVoice,
         DeathLink
     ]),
     OptionGroup("Misc", [
-        ChibiVisionOff,
+        ChibiVisionOff
     ]),
     OptionGroup("Battery Drain (Use at your own risk!!)", [
         BatteryDrainIdle,

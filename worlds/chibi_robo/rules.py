@@ -30,7 +30,7 @@ def set_rules(self) -> None:
 
     living_to_backyard = multiworld.get_entrance("Living Room - Backyard", player)
 
-    reach_second_floor = Has("Foyer Ladder") | Has("Foyer Teleport")
+    reach_second_floor = HasAll("Foyer Ladder", copter) | Has("Foyer Teleport")
 
     foyer_to_jenny = multiworld.get_entrance("Foyer - Jenny's Room", player)
 
@@ -54,11 +54,14 @@ def set_rules(self) -> None:
 
     self.set_rule(living_to_backyard, can_enter_backyard)
 
-    self.set_rule(foyer_to_jenny, reach_second_floor)
+    if self.options.open_upstairs == 0:
+        self.set_rule(foyer_to_jenny, reach_second_floor)
+        self.set_rule(foyer_to_bedroom, reach_second_floor)
 
-    self.set_rule(foyer_to_bedroom, reach_second_floor)
-
-    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone")
+        has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery",
+                               "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder" , "Foyer Teleport")
+    else:
+        has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone")
 
     self.set_rule(living_to_spider, has_all_items)
 
@@ -76,9 +79,9 @@ def set_location_rules(self) -> None:
 
     has_blaster = Has(blaster)
 
-    blaster_copter_lr_ladder = HasAll(blaster, copter, "Living Room Ladder")
+    blaster_copter_lr_ladder = HasAll(blaster, copter, "Living Room Ladder", tooth_brush, mug)
 
-    blaster_copter_lr_ladder_lr_bridge = HasAll(blaster, copter, "Living Room Ladder", "Living Room Bridge")
+    blaster_copter_lr_ladder_lr_bridge = HasAll(blaster, copter, "Living Room Ladder", "Living Room Bridge", tooth_brush, mug)
 
     reach_charger = HasAll( blaster, mug, copter, tooth_brush)
 
