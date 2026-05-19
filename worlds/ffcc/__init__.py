@@ -19,29 +19,28 @@ from worlds.AutoWorld import World, WebWorld
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths
 from BaseClasses import Item, ItemClassification, Tutorial, CollectionState, MultiWorld
 from .regions import create_regions, connect_entrances
-from .game_id import game_name
-from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE
-from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
-from .options import ChibiRoboGameOptions, chibi_robo_option_groups
+from .items import FFCCItem, ITEM_TABLE, item_name_groups, FFCCItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE
+from .locations import FFCCLocation, LOCATION_TABLE, location_groups, FFCCLocationData
+from .options import FFCCGameOptions, FFCC_option_groups
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 2, 1)
+VERSION: tuple[int, int, int] = (0, 0, 0)
 
 def launch_client():
     from . import client
-    launch_subprocess(client.launch, name="ChibiRoboClient")
+    launch_subprocess(client.launch, name="FFCCClient")
 
 
-components.append(Component("Chibi Robo Client",
+components.append(Component("Final Fantasy Crystal Chronicles Client",
                             func=launch_client,
                             component_type=Type.CLIENT,
-                            icon="chibi_body_icon"))
+                            icon="FFCC_icon"))
 
-icon_paths["chibi_body_icon"] = f"ap:{__name__}/icons/chibi_body_icon.png"
+icon_paths["FFCC_icon"] = f"ap:{__name__}/icons/FFCC_icon.png"
 
-class ChibiRoboWebWorld(WebWorld):
+class FFCCWebWorld(WebWorld):
     theme = "dirt"
 
     item_descriptions = ITEM_TABLE_DESC
@@ -50,7 +49,7 @@ class ChibiRoboWebWorld(WebWorld):
 
     setup_en = Tutorial(
         tutorial_name="Start Guide",
-        description="A guide to playing Chibi Robo! Plug Into Adventure! in Archipelago.",
+        description="A guide to playing Final Fantasy Crystal Chronicles in Archipelago.",
         language="English",
         file_name="guide_en.md",
         link="guide/en",
@@ -59,14 +58,14 @@ class ChibiRoboWebWorld(WebWorld):
 
     tutorials = [setup_en]
 
-    option_groups = chibi_robo_option_groups
+    option_groups = FFCC_option_groups
 
-class ChibiRoboContainer(APPlayerContainer):
+class FFCCContainer(APPlayerContainer):
     """
     This class defines the container file
     """
 
-    game: str = game_name
+    game: str = "Final Fantasy Crystal Chronicles"
     patch_file_ending: str = ".zip"
 
     def __init__(self, patch_data: Dict[str, str] | io.BytesIO, base_path: str = "", output_directory: str = "",
@@ -82,24 +81,24 @@ class ChibiRoboContainer(APPlayerContainer):
         super().write_contents(opened_zipfile)
 
 
-class ChibiRoboWorld(World):
+class FFCCWorld(World):
     dolphin: dolphin_memory_engine
     logger: Logger
 
-    game = game_name
-    web = ChibiRoboWebWorld()
-    options_dataclass = ChibiRoboGameOptions
-    options: ChibiRoboGameOptions
+    game = "Final Fantasy Crystal Chronicles"
+    web = FFCCWebWorld()
+    # options_dataclass = FFCCGameOptions
+    # options: FFCCGameOptions
     topology_present = True
 
     plando_locations: Dict[str, str]
 
     item_name_to_id: ClassVar[dict[str, int]] = {
-        name: ChibiRoboItem.get_apid(data.code) for name, data in ITEM_TABLE.items() if data.code is not None
+        name: FFCCItem.get_apid(data.code) for name, data in ITEM_TABLE.items() if data.code is not None
     }
 
     location_name_to_id: ClassVar[dict[str, int]] = {
-        name: ChibiRoboLocation.get_apid(data.code) for name, data in LOCATION_TABLE.items() if data.code is not None
+        name: FFCCLocation.get_apid(data.code) for name, data in LOCATION_TABLE.items() if data.code is not None
     }
 
     item_name_groups: ClassVar[dict[str, set[str]]] = item_name_groups
@@ -157,7 +156,7 @@ class ChibiRoboWorld(World):
 
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict( "victory_goal", "free_pjs", "open_upstairs", "password_rando", "chibi_vision_off", "favorite_character_voice", "death_link", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray")
+        return self.options.as_dict( "victory_goal")
 
     def generate_output(self, output_directory: str) -> None:
         """
@@ -188,10 +187,10 @@ class ChibiRoboWorld(World):
                     "location_id": self._get_location_object_id(location.name),
                 }
             else:
-                item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
+                item_info = {"name": "Nothing", "game": "Final Fantasy Crystal Chronicles", "classification": "filler"}
             output_locations[location.name] = item_info
 
-        output_data.update(self.options.as_dict( "victory_goal", "free_pjs", "open_upstairs","password_rando", "chibi_vision_off", "favorite_character_voice", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray"))
+        output_data.update(self.options.as_dict( "victory_goal"))
 
         mod_name = f"AP-{self.multiworld.seed_name}-P{self.player}-{self.multiworld.get_file_safe_player_name(self.player)}"
         mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
@@ -200,7 +199,7 @@ class ChibiRoboWorld(World):
             f"AP-{multiworld.seed_name}-P{player}-{multiworld.get_file_safe_player_name(player)}.apcr": json.dumps(output_data),
         }
 
-        apcr = ChibiRoboContainer(
+        apcr = FFCCContainer(
             files,
             mod_dir,
             output_directory,
@@ -212,10 +211,6 @@ class ChibiRoboWorld(World):
     def generate_early(self) -> None:
         self.plando_locations = dict()
 
-        self.multiworld.local_early_items[self.player]["Toothbrush Chibi-Gear"] = 1
-        self.multiworld.local_early_items[self.player]["Mug Chibi-Gear"] = 1
-        self.multiworld.local_early_items[self.player]["Drake Redcrest Suit"] = 1
-
 
     def get_pre_fill_items(self) -> List[Item]:
         return [self.create_item(item)
@@ -225,7 +220,7 @@ class ChibiRoboWorld(World):
         for location, item in self.plando_locations.items():
             self.multiworld.get_location(location, self.player).place_locked_item(self.create_item(item))
 
-    def create_item(self, name: str) -> ChibiRoboItem:
+    def create_item(self, name: str) -> FFCCItem:
         """
         Create an item for this world type and player.
 
@@ -234,10 +229,10 @@ class ChibiRoboWorld(World):
         """
 
         if name in ITEM_TABLE:
-            return ChibiRoboItem(name, self.player, ITEM_TABLE[name])
+            return FFCCItem(name, self.player, ITEM_TABLE[name])
 
         elif name in FILLER_ITEM_TABLE:
-            return ChibiRoboItem(name, self.player, FILLER_ITEM_TABLE[name])
+            return FFCCItem(name, self.player, FILLER_ITEM_TABLE[name])
 
         raise KeyError(f"Invalid item name: {name}")
 
@@ -245,15 +240,15 @@ class ChibiRoboWorld(World):
       self.multiworld.itempool += create_itempool(self)
 
 
-    def collect(self, state: CollectionState, item: ChibiRoboItem) -> bool:
+    def collect(self, state: CollectionState, item: FFCCItem) -> bool:
         change = super().collect(state, item)
         return change
 
-    def remove(self, state: CollectionState, item: ChibiRoboItem) -> bool:
+    def remove(self, state: CollectionState, item: FFCCItem) -> bool:
         change = super().remove(state, item)
         return change
 
-def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
+def create_itempool(world: "FFCCWorld") -> List[Item]:
     itempool: List[Item] = []
 
     # total_locations = len(world.multiworld.get_unfilled_locations(world.player))
@@ -261,9 +256,6 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     for name in ITEM_TABLE.keys():
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
-
-    for x in range(8):
-        itempool += create_multiple_items(world, "Giga Battery Charge", 1, IC.filler)
 
     for name in FILLER_ITEM_TABLE.keys():
         item_type: ItemClassification = FILLER_ITEM_TABLE.get(name).classification
@@ -277,7 +269,7 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
 
     return itempool
 
-def create_multiple_items(world: "ChibiRoboWorld", name: str, count: int = 1,
+def create_multiple_items(world: "FFCCWorld", name: str, count: int = 1,
                               item_type: ItemClassification = ItemClassification.progression) -> List[Item]:
 
     if name in ITEM_TABLE:
@@ -286,6 +278,6 @@ def create_multiple_items(world: "ChibiRoboWorld", name: str, count: int = 1,
     itemlist: List[Item] = []
 
     for i in range(count):
-            itemlist += [ChibiRoboItem(name, world.player, data, item_type)]
+            itemlist += [FFCCItem(name, world.player, data, item_type)]
 
     return itemlist

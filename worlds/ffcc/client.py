@@ -59,7 +59,7 @@ class ChibiRoboJSONToTextParser(JSONtoTextParser):
         return self._handle_text(node)  # No colors for the in-game text
 
 
-class ChibiRoboCommandProcessor(ClientCommandProcessor):
+class FFCCCommandProcessor(ClientCommandProcessor):
     def __init__(self, ctx: CommonContext):
         """
         Initialize the command processor with the provided context.
@@ -68,161 +68,18 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
         """
         super().__init__(ctx)
 
-    def _cmd_infinite_energy(self) -> None:
-        """
-        Enable Infinite Energy
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x8038f75a, 1)
-            return
-
-    def _cmd_equip_blaster(self) -> None:
-        """
-        Equips Blaster
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x8038f6c2, 2)
-            write_short(0x8038f6c4, 0)
-            write_short(0x8038f6c6, 2)
-            logger.info("Equipping Blaster")
-            return
-
-    def _cmd_equip_radar(self) -> None:
-        """
-        Equips Radar
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x8038f6c2, 3)
-            write_short(0x8038f6c4, 0)
-            write_short(0x8038f6c6, 3)
-            logger.info("Equipping Radar")
-            return
-
-    def _cmd_enable_radar(self) -> None:
-        """
-        Enable Radar
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x80398f00, 1)
-            logger.info("Enabled Radar")
-            return
-
-    def _cmd_enable_copter(self) -> None:
-        """
-        Enable Copter
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x80398ef2, 1)
-            logger.info("Enabled Copter")
-            return
-
-    def _cmd_enable_blaster(self) -> None:
-        """
-        Enable Blaster
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x80398ef8, 1)
-            logger.info("Enabled Blaster")
-            return
-
-    def _cmd_enable_living_ladder(self) -> None:
-        """
-        Enable Blaster
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x80368522, 1)
-            logger.info("Living Room Ladder Enabled")
-            return
-
-    def _cmd_enable_foyer_ladder(self) -> None:
-        """
-        Enable Blaster
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x8036852a, 1)
-            logger.info("Foyer Ladder Enabled")
-            return
-
-    def _cmd_enable_foyer_teleport(self) -> None:
-        """
-        Enable Foyer Teleport
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x8036852c, 1)
-            logger.info("Foyer Teleport Enabled")
-            return
-
-    def _cmd_enable_living_bridge(self) -> None:
-        """
-        Enable Living Room Bridge
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x80368532, 1)
-            logger.info("Living Room Bridge Enabled")
-            return
-
-    def _cmd_enable_kitchen_ladder(self) -> None:
-        """
-        Enable Kitchen Ladder
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x80368526, 1)
-            logger.info("Kitchen Ladder Enabled")
-            return
-
-    def _cmd_enable_kitchen_bridge(self) -> None:
-        """
-        Enable Kitchen Bridge
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x80368536, 1)
-            logger.info("Kitchen Bridge Enabled")
-            return
-
-    def _cmd_enable_bedroom_bridge(self) -> None:
-        """
-        Enable Bedroom Bridge
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x8036853a, 1)
-            logger.info("Bedroom Bridge Enabled")
-            return
-
-    def _cmd_enable_basement_teleport(self) -> None:
-        """
-        Enable Basement Teleport
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-            write_short(0x8036853e, 1)
-            logger.info("Basement Teleport Enabled")
-            return
-
-    def _cmd_increase_giga_charge(self) -> None:
-        """
-        Increases Giga Charge (Max of 9)
-        """
-        if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
-
-            cur_charge = read_4byte_short(0x80367c4c)
-            if cur_charge < 9000:
-                write_4byte_short(0x80367c4c, cur_charge + 1000)
-            else:
-                logger.info("Giga Battery is at max (9000) charge")
-
-        return
-
     def _cmd_dolphin(self) -> None:
         """
         Display the current Dolphin emulator connection status.
         """
-        if isinstance(self.ctx, ChibiRoboContext):
+        if isinstance(self.ctx, FFCCContext):
             logger.info(f"Dolphin Status: {self.ctx.dolphin_status}")
             return
 
 
-class ChibiRoboContext(CommonContext):
-    command_processor = ChibiRoboCommandProcessor
-    game = "Chibi Robo"
+class FFCCContext(CommonContext):
+    command_processor = FFCCCommandProcessor
+    game = "Final Fantasy Crystal Chronicles"
     items_handling: int = 0b111
     len_give_item_array: int = 0x272
     items_received = []
@@ -237,7 +94,7 @@ class ChibiRoboContext(CommonContext):
 
         self.proxy = None
         self.proxy_task = None
-        self.gamejsontotext = ChibiRoboJSONToTextParser(self)
+        self.gamejsontotext = FFCCJSONToTextParser(self)
         self.autoreconnect_task = None
         self.endpoint = None
         self.room_info = None
@@ -310,7 +167,7 @@ class ChibiRoboContext(CommonContext):
         self.server_msgs.append(encode([{"cmd": "ReceivedItems", "index": 0, "items": self.full_inventory}]))
 
     def on_package(self, cmd: str, args: dict):
-        ctx = ChibiRoboContext
+        ctx = FFCCContext
         if cmd == "Connected":
 
             json = args
@@ -426,7 +283,7 @@ def read_string(console_address: int, strlen: int) -> str:
 
     return dolphin_memory_engine.read_bytes(console_address, strlen).split(b"\0", 1)[0].decode()
 
-def _give_death(ctx: ChibiRoboContext) -> None:
+def _give_death(ctx: FFCCContext) -> None:
     """
     Trigger the player's death in-game by setting their current health to zero.
 
@@ -441,7 +298,7 @@ def _give_death(ctx: ChibiRoboContext) -> None:
         ctx.has_send_death = True
         write_short(CURR_BATTERY_ADDR, 0)
 
-async def check_death(ctx: ChibiRoboContext) -> None:
+async def check_death(ctx: FFCCContext) -> None:
     """
     Check if the player is currently dead in-game.
     If DeathLink is on, notify the server of the player's death.
@@ -453,11 +310,11 @@ async def check_death(ctx: ChibiRoboContext) -> None:
         if cur_battery <= 0:
             if not ctx.has_send_death and time.time() >= ctx.last_death_link + 3:
                 ctx.has_send_death = True
-                await ctx.send_death(ctx.player_names[ctx.slot] + " ran out of battery.")
+                await ctx.send_death(ctx.player_names[ctx.slot] + " ran out of hearts.")
         else:
             ctx.has_send_death = False
 
-def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
+def _give_item(ctx: FFCCContext, item_name: str, player: int) -> bool:
     """
     Give an item to the player in-game.
 
@@ -537,7 +394,7 @@ def check_ingame() -> bool:
 
     return dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1) not in ["" , '\x00', '\x40', '\x07']
 
-async def give_items(ctx: ChibiRoboContext) -> None:
+async def give_items(ctx: FFCCContext) -> None:
     """
     Give the player all outstanding items they have yet to receive.
 
@@ -565,7 +422,7 @@ async def give_items(ctx: ChibiRoboContext) -> None:
             # Increment the expected index.
             write_short(EXPECTED_INDEX_ADDR, idx + 1)
 
-async def check_locations(ctx: ChibiRoboContext) -> None:
+async def check_locations(ctx: FFCCContext) -> None:
     """
     Iterate through all locations and check whether the player has checked each location.
 
@@ -609,7 +466,7 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
         await ctx.send_msgs([{"cmd": "LocationChecks", "locations": locations_checked}])
 
 
-def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str, data: ChibiRoboLocationData) -> bool:
+def check_location(ctx: FFCCContext, curr_stage_id: int, name: str, data: ChibiRoboLocationData) -> bool:
     """
     Check that the player has checked a given location.
     This function handles locations that only require checking that a particular bit is set.
@@ -714,7 +571,7 @@ def stage_hex_to_id() -> int:
 
     return -1 #"Could Not Find Room / Stage Name"
 
-async def check_current_stage_changed(ctx: ChibiRoboContext) -> None:
+async def check_current_stage_changed(ctx: FFCCContext) -> None:
     """
     Check if the player has moved to a new stage.
     If so, update all trackers with the new stage name.
@@ -752,7 +609,7 @@ async def check_alive() -> bool:
     return cur_health > 0
 
 
-async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
+async def dolphin_sync_task(ctx: FFCCContext) -> None:
     """
     The task loop for managing the connection to Dolphin.
 
@@ -826,7 +683,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
             sleep_time = 5
             continue
 
-async def proxy(websocket, path: str = "/", ctx: ChibiRoboContext = None):
+async def proxy(websocket, path: str = "/", ctx: FFCCContext = None):
     ctx.endpoint = Endpoint(websocket)
     try:
         await on_client_connected(ctx)
@@ -883,14 +740,14 @@ async def proxy(websocket, path: str = "/", ctx: ChibiRoboContext = None):
         await ctx.disconnect_proxy()
 
 
-async def on_client_connected(ctx: ChibiRoboContext):
+async def on_client_connected(ctx: FFCCContext):
     if ctx.room_info and ctx.is_connected():
         await ctx.send_msgs_proxy(ctx.room_info)
     else:
         ctx.awaiting_info = True
 
 
-async def proxy_loop(ctx: ChibiRoboContext):
+async def proxy_loop(ctx: FFCCContext):
     try:
         while not ctx.exit_event.is_set():
             if len(ctx.server_msgs) > 0:
@@ -901,7 +758,7 @@ async def proxy_loop(ctx: ChibiRoboContext):
             await asyncio.sleep(0.1)
     except Exception as e:
         logger.exception(e)
-        logger.info("Aborting ChibiRobo Proxy Client due to errors")
+        logger.info("Aborting FFCC Proxy Client due to errors")
 
 
 def launch(*launch_args: str):
@@ -909,7 +766,7 @@ def launch(*launch_args: str):
         parser = get_base_parser()
         args = parser.parse_args(launch_args)
 
-        ctx = ChibiRoboContext(args.connect, args.password)
+        ctx = FFCCContext(args.connect, args.password)
         logger.info("Starting Chibi Robo proxy server")
         ctx.proxy = websockets.serve(functools.partial(proxy, ctx=ctx),
                                      host="localhost", port=11311, ping_timeout=999999, ping_interval=999999)

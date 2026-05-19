@@ -1,14 +1,10 @@
-# Chibi Robo Setup Guide
-
-## Required Software
-- Archipelago Build of Chibi Robo from: [Chibi-Robo: Unplugged Randomization App](https://github.com/EverydaySimpleDev/Chibi-Robo-Randomizer)
+# Final Fantasy Crystal Chronicles Setup Guide
 
 ## Installation Procedures (Windows)
 
 1. Download the above release and extract it.
 2. Generate your world and extract the zip file
-3. Location the .apcr file from the zip 
-4. Use the Chibi Robo Randomizer to randomize your game
+3. Location the .ffcc file from the zip 
 
 ## Joining a MultiWorld Game
 
