@@ -196,17 +196,17 @@ class FFCCWorld(World):
         mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
 
         files = {
-            f"AP-{multiworld.seed_name}-P{player}-{multiworld.get_file_safe_player_name(player)}.apcr": json.dumps(output_data),
+            f"AP-{multiworld.seed_name}-P{player}-{multiworld.get_file_safe_player_name(player)}.ffcc": json.dumps(output_data),
         }
 
-        apcr = FFCCContainer(
+        ffcc = FFCCContainer(
             files,
             mod_dir,
             output_directory,
             self.player,
             self.multiworld.get_file_safe_player_name(self.player)
         )
-        apcr.write()
+        ffcc.write()
 
     def generate_early(self) -> None:
         self.plando_locations = dict()

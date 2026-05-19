@@ -12,7 +12,7 @@ from NetUtils import decode, encode, JSONtoTextParser, JSONMessagePart, NetworkI
 from MultiServer import Endpoint
 from CommonClient import CommonContext, gui_enabled, ClientCommandProcessor, logger, get_base_parser
 from .items import LOOKUP_ID_TO_NAME, ITEM_TABLE
-from .locations import LOCATION_TABLE, ChibiRoboLocation, ChibiRoboLocationData
+from .locations import LOCATION_TABLE, FFCCLocation, FFCCLocationData
 
 DEBUG = True
 
