@@ -66,6 +66,10 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Living Room"].locations.append("Living Room - Table Cookie Box A")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Table Cookie Box B")
 
+    chibi_robo_regions["Living Room"].locations.append("Living Room - Drake Redcrest Suit")
+    chibi_robo_regions["Living Room"].locations.append("Living Room - Trauma Suit")
+    chibi_robo_regions["Living Room"].locations.append("Living Room - Ghost Suit")
+
     # Kitchen - 21 Locations
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Mug Location")
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Spoon Location")
@@ -97,6 +101,8 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Foyer"].locations.append("Foyer - Waterfall Frog Ring")
     chibi_robo_regions["Foyer"].locations.append("Foyer - Red Block")
 
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Toa Suit")
+
     # Basement - 15 Locations
     chibi_robo_regions["Basement"].locations.append("Basement - Giga Battery")
     chibi_robo_regions["Basement"].locations.append("Basement - Giga Charger")
@@ -125,6 +131,8 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     # chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds C")
     chibi_robo_regions["Backyard"].locations.append("Backyard - Frog Ring")
     chibi_robo_regions["Backyard"].locations.append("Backyard - White Block")
+
+    chibi_robo_regions["Backyard"].locations.append("Backyard - Frog Suit")
 
     # Jenny's Room - 42 Locations
     chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - AA Battery")
@@ -187,6 +195,8 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - Vanity Candy Wrapper B")
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - Shelf Candy Wrapper")
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - Vanity Candy Bag")
+
+    chibi_robo_regions["Bedroom"].locations.append("Bedroom - Pajama Suit")
 
     # Set up the regions correctly.
     for name, data in chibi_robo_regions.items():

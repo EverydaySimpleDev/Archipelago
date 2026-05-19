@@ -44,7 +44,7 @@ def set_rules(self) -> None:
 
     living_to_spider = multiworld.get_entrance("Living Room - Mother Spider", player)
 
-    can_enter_basement = HasAll(tooth_brush, mug)
+    can_enter_basement = HasAll(tooth_brush, mug, "Drake Redcrest Suit")
 
     self.set_rule(living_to_foyer, can_enter_basement)
 
@@ -59,9 +59,9 @@ def set_rules(self) -> None:
         self.set_rule(foyer_to_bedroom, reach_second_floor)
 
         has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery",
-                               "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder" , "Foyer Teleport")
+                               "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder" , "Foyer Teleport", "Drake Redcrest Suit")
     else:
-        has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone")
+        has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery", "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Drake Redcrest Suit")
 
     self.set_rule(living_to_spider, has_all_items)
 
@@ -79,11 +79,13 @@ def set_location_rules(self) -> None:
 
     has_blaster = Has(blaster)
 
-    blaster_copter_lr_ladder = HasAll(blaster, copter, "Living Room Ladder", tooth_brush, mug)
+    has_brush = Has(tooth_brush)
 
-    blaster_copter_lr_ladder_lr_bridge = HasAll(blaster, copter, "Living Room Ladder", "Living Room Bridge", tooth_brush, mug)
+    blaster_copter_lr_ladder = HasAll(blaster, copter, "Living Room Ladder", tooth_brush, mug, "Drake Redcrest Suit")
 
-    reach_charger = HasAll( blaster, mug, copter, tooth_brush)
+    blaster_copter_lr_ladder_lr_bridge = HasAll(blaster, copter, "Living Room Ladder", "Living Room Bridge", tooth_brush, mug, "Drake Redcrest Suit")
+
+    reach_charger = HasAll( blaster, mug, copter, tooth_brush, "Drake Redcrest Suit")
 
     # Living Room
     living_room_frog_ring_window = multiworld.get_location("Living Room - Frog Ring (Behind Window)", player)
@@ -118,6 +120,14 @@ def set_location_rules(self) -> None:
 
     living_room_couch_candy_wrapper = multiworld.get_location("Living Room - Couch Candy Wrapper", player)
     self.set_rule(living_room_couch_candy_wrapper, can_hover)
+
+    living_room_drake_suit = multiworld.get_location("Living Room - Drake Redcrest Suit", player)
+    self.set_rule(living_room_drake_suit, has_brush)
+
+    has_trauma_suit = Has("Trauma Suit")
+
+    living_room_ghost_suit = multiworld.get_location("Living Room - Ghost Suit", player)
+    self.set_rule(living_room_ghost_suit, has_trauma_suit)
 
     # Kitchen
     has_kitchen_ladder = Has("Kitchen Ladder")
@@ -158,6 +168,11 @@ def set_location_rules(self) -> None:
     foyer_red_block = multiworld.get_location("Foyer - Red Block", player)
     self.set_rule(foyer_red_block, has_copter_f_ladder)
 
+    can_get_toa_suit = HasAll("Dog Tags", mug, tooth_brush)
+
+    foyer_toa_suit = multiworld.get_location("Foyer - Toa Suit", player)
+    self.set_rule(foyer_toa_suit, can_get_toa_suit)
+
     #  Basement
     basement_giga_charger = multiworld.get_location("Basement - Giga Charger", player)
     self.set_rule(basement_giga_charger, reach_charger)
@@ -182,26 +197,32 @@ def set_location_rules(self) -> None:
 
     # Backyard
 
-    has_blaster_copter_charge_chip_squirter = HasAll(copter, "Charge Chip", blaster, squirter)
+    can_get_frog_suit = HasAll(blaster, squirter)
 
-    # backyard_ship = multiworld.get_location("Backyard - Scurvy Splinter", player)
-    # self.set_rule(backyard_ship, reach_ship)
+    backyard_frog_suit = multiworld.get_location("Backyard - Frog Suit", player)
+    self.set_rule(backyard_frog_suit, can_get_frog_suit)
+
+    has_blaster_copter_charge_chip_squirter = HasAll(copter, "Charge Chip", blaster, squirter)
 
     backyard_white_block = multiworld.get_location("Backyard - White Block", player)
     self.set_rule(backyard_white_block, has_blaster_copter_charge_chip_squirter)
 
     # Jenny's Room
 
-    reach_j_batteries = HasAll(copter, "Red Shoe", blaster, "Foyer Ladder", mug) | HasAll(copter, "Red Shoe", blaster, "Foyer Teleport", mug)
+    reach_j_aa_battery = HasAll(copter, "Red Shoe", blaster, "Foyer Ladder", mug) | HasAll(copter, "Red Shoe", blaster, "Foyer Teleport", mug)
 
     jenny_aa_battery = multiworld.get_location("Jenny's Room - AA Battery", player)
-    self.set_rule(jenny_aa_battery, reach_j_batteries)
+    self.set_rule(jenny_aa_battery, reach_j_aa_battery)
+
+    reach_j_d_battery = HasAll(copter, "Red Shoe", blaster, "Foyer Ladder", mug, "AA Battery") | HasAll(copter, "Red Shoe", blaster, "Foyer Teleport", mug, "AA Battery")
 
     jenny_d_battery = multiworld.get_location("Jenny's Room - D Battery", player)
-    self.set_rule(jenny_d_battery, reach_j_batteries)
+    self.set_rule(jenny_d_battery, reach_j_d_battery)
+
+    reach_j_c_battery = HasAll(copter, "Red Shoe", blaster, "Foyer Ladder", mug, "AA Battery", "D Battery") | HasAll(copter, "Red Shoe", blaster, "Foyer Teleport", mug, "AA Battery", "D Battery")
 
     jenny_c_battery = multiworld.get_location("Jenny's Room - C Battery", player)
-    self.set_rule(jenny_c_battery, reach_j_batteries)
+    self.set_rule(jenny_c_battery, reach_j_c_battery)
 
     jenny_purple_crayon = multiworld.get_location("Jenny's Room - Purple Crayon", player)
     self.set_rule(can_hover, jenny_purple_crayon)
@@ -233,4 +254,9 @@ def set_location_rules(self) -> None:
 
     bedroom_vanity_candy_bag = multiworld.get_location("Bedroom - Vanity Candy Bag", player)
     self.set_rule(bedroom_vanity_candy_bag, can_hover)
+
+    can_reach_pajama = HasAll("Foyer Ladder", copter, "Old Boxers", "Toy Receipt") | HasAll("Foyer Teleport", "Old Boxers", "Toy Receipt")
+
+    bedroom_pajama_suit = multiworld.get_location("Bedroom - Pajama Suit", player)
+    self.set_rule(bedroom_pajama_suit, can_reach_pajama)
 

@@ -27,7 +27,7 @@ from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 2, 0)
+VERSION: tuple[int, int, int] = (1, 2, 1)
 
 def launch_client():
     from . import client
@@ -214,6 +214,8 @@ class ChibiRoboWorld(World):
 
         self.multiworld.local_early_items[self.player]["Toothbrush Chibi-Gear"] = 1
         self.multiworld.local_early_items[self.player]["Mug Chibi-Gear"] = 1
+        self.multiworld.local_early_items[self.player]["Drake Redcrest Suit"] = 1
+
 
     def get_pre_fill_items(self) -> List[Item]:
         return [self.create_item(item)

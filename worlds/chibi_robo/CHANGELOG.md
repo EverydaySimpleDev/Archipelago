@@ -1,4 +1,8 @@
 # Chibi Robo - Changelog
+## v1.2.1 - Bug Fixes / Generation Update
+- Suits are now included in the item pool!
+- Gen Rules Updated
+
 ## v1.2.0 - Bug Fixes / Generation Update
 - Setup Ground Work For Multiple Victory Goals
 - Updated Generation Rules Based On Options

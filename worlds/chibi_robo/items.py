@@ -66,9 +66,9 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Giga-Charger": ChibiRoboItemData("Item", IC.progression, 9, 0x30, "item_chibi_house_denti_2", 1),
     "Toy Receipt": ChibiRoboItemData("Item", IC.progression, 11, 0x37,"item_receipt", 1),
     "Wedding Band": ChibiRoboItemData("Item", IC.progression, 12, 0x7c, "item_papa_yubiwa", 1),
-    "C Battery": ChibiRoboItemData("Item", IC.useful, 13, 0x3b, "item_denchi_2", 1),
-    "AA Battery": ChibiRoboItemData("Item", IC.useful, 14, 0x3c, "item_denchi_3", 1),
-    "D Battery": ChibiRoboItemData("Item", IC.useful, 15, 0x3a, "item_denchi_1", 1),
+    "C Battery": ChibiRoboItemData("Item", IC.progression, 13, 0x3b, "item_denchi_2", 1),
+    "AA Battery": ChibiRoboItemData("Item", IC.progression, 14, 0x3c, "item_denchi_3", 1),
+    "D Battery": ChibiRoboItemData("Item", IC.progression, 15, 0x3a, "item_denchi_1", 1),
     "Red Shoe": ChibiRoboItemData("Item", IC.progression, 16, 0x3d, "item_peets_kutu", 1),
     "Green Crayon": ChibiRoboItemData("Item", IC.useful, 17, 0x96, "item_kure_4", 1),
     "Red Crayon": ChibiRoboItemData("Item", IC.useful, 18, 0x93, "item_kure_1", 1),
@@ -93,7 +93,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Yellow Brick": ChibiRoboItemData("Item", IC.useful, 38, 0x79, "item_t_block_5", 1),
     "Purple Brick": ChibiRoboItemData("Item", IC.useful, 39, 0x76, "item_t_block_2", 1),
     "Bandage": ChibiRoboItemData("Item", IC.useful, 40, 0x67, "item_houtai", 1),
-    "Dog Tags": ChibiRoboItemData("Item", IC.useful, 41, 0x65, "item_tug", 1),
+    "Dog Tags": ChibiRoboItemData("Item", IC.progression, 41, 0x65, "item_tug", 1),
     "Hot Rod": ChibiRoboItemData("Item", IC.useful, 42, 0x7b, "item_car_item", 1),
     "Gunpowder": ChibiRoboItemData("Item", IC.useful, 43, 0x62, "item_kayaku", 1),
     "Free Rangers Photo": ChibiRoboItemData("Item", IC.useful, 44, 0x6c, "item_army_photo", 1),
@@ -117,25 +117,24 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Living Room Bridge": ChibiRoboItemData("Item", IC.progression, 68, 0x80368532, "archipelago_item", 1, True),
     "Kitchen Bridge": ChibiRoboItemData("Item", IC.progression, 69, 0x80368536, "archipelago_item", 1, True),
     "Bedroom Bridge": ChibiRoboItemData("Item", IC.useful, 70, 0x8036853a, "archipelago_item", 1, True),
-    "Basement Teleport": ChibiRoboItemData("Item", IC.useful, 71, 0x8036853e, "archipelago_item", 1, True)
+    "Basement Teleport": ChibiRoboItemData("Item", IC.useful, 71, 0x8036853e, "archipelago_item", 1, True),
+
+    "Drake Redcrest Suit": ChibiRoboItemData("Suit", IC.progression, 57, 0x18, "item_capsule_24", 1),
+    "Toa Suit": ChibiRoboItemData("Suit", IC.useful, 58, 0x19, "item_capsule_25", 1),
+    "Frog Suit": ChibiRoboItemData("Suit", IC.progression, 59, 0x1a, "item_capsule_26", 1),
+    "Trauma Suit": ChibiRoboItemData("Suit", IC.progression, 61, 0x20, "item_capsule_32", 1),
+    "Super Chibi-Robo Suit": ChibiRoboItemData("Suit", IC.progression, 60, 0x1f, "item_capsule_31", 1),
+    "Ghost Suit": ChibiRoboItemData("Suit", IC.useful, 62, 0x22, "item_cos_obake", 1),
+    "Pajamas Suit": ChibiRoboItemData("Suit", IC.progression, 63, 0x1e, "item_capsule_30", 1),
+
+    "Old Boxers": ChibiRoboItemData("Item", IC.progression, 74, 0x1e, "old_boxers", 1),
 }
 
 FILLER_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 54, 0x88, "item_candy_gomi", 1),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 55, 0x89, "item_okasi_gomi_1", 1),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 56, 0x8a, "item_okasi_gomi_2", 1),
-    "Giga Battery Charge": ChibiRoboItemData("Item", IC.filler, 75, 0x80367c4c, "archipelago_item", 1, True),
     "Max Battery Increase": ChibiRoboItemData("Item", IC.useful, 77, 0x8038f74a, "archipelago_item", 1, True),
-}
-
-SUIT_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
-    "Drake Redcrest Suit": ChibiRoboItemData("Suit", IC.progression, 57, 0x18, "item_capsule_24", 1),
-    "Toa Suit": ChibiRoboItemData("Suit", IC.progression, 58, 0x19, "item_capsule_25", 1),
-    "Frog Suit": ChibiRoboItemData("Suit", IC.progression, 59, 0x1a, "item_capsule_26", 1),
-    # "Super Chibi-Robo Suit": ChibiRoboItemData("Suit", IC.progression, 60, 0x1f, "item_capsule_31", 1),
-    "Trauma Suit": ChibiRoboItemData("Suit", IC.progression, 61, 0x20, "item_capsule_32", 1),
-    "Ghost Suit": ChibiRoboItemData("Suit", IC.progression, 62, 0x22, "item_cos_obake", 1),
-    "Pajamas": ChibiRoboItemData("Suit", IC.progression, 63, 0x1e, "item_capsule_30", 1),
 }
 
 ITEM_TABLE_DESC: dict[str, str] = {
@@ -186,6 +185,12 @@ ITEM_TABLE_DESC: dict[str, str] = {
     "Yellow Crayon": "A crayon left by Jenny. Put it back in its box.",
     "Snorkel": "Give it to The Great Peekoe when he's in the fishbowl at night after reviving Giga-Robo.",
     "Space Scrambler": "Ride against the Scrambler Free Rangers and get an S ranking.",
+    "Drake Redcrest Suit": "Pose with this suit to take a heroic stance with fireworks behind you!",
+    "Toa Suit": "Pose with this suit to Crouch and Bark like Tao. You can now understand Tao",
+    "Frog Suit": "Post with this suit to act like a frog. Animals (besides Toa) now can talk to you",
+    "Trauma Suit": "Pose with this suit to drop dead and then be taken to the Chibi-House with no time passed.",
+    "Ghost Suit": "Pose with this suit to summon tiny ghosts to encircle Chibi-Robo's feet and show off your tongue! Also blows up Spydorz since this suit is too scary for them.",
+    "Pajamas Suit": "Pose with this suit will end the half day by making Chibi-Robo lie on the ground and fall asleep."
 }
 
 LOOKUP_ID_TO_NAME: dict[int, str] = {
@@ -200,7 +205,6 @@ item_name_groups = {
         "Chibi-Radar Chibi-Gear",
         "Mug Chibi-Gear",
         "Spoon Chibi-Gear",
-        "Range Chip",
     },
     "Story Items": {
         "Giga-Charger",
@@ -208,7 +212,16 @@ item_name_groups = {
         "Charge Chip",
         "Toy Receipt",
         "Alien Ear Chip",
+        "Range Chip",
         "Wedding Band",
+    },
+    "Suits": {
+        "Drake Redcrest Suit",
+        "Toa Suit",
+        "Frog Suit",
+        "Trauma Suit",
+        "Ghost Suit",
+        "Pajamas Suit"
     },
     "Frog Rings": {
         "Foyer Waterfall Frog Ring",
@@ -250,7 +263,8 @@ _simple_groups = {
     ("Chibi-Gear", "Chibi-Gear"),
     ("Crayons", "Crayon"),
     ("Battery's", "Battery"),
-    ("Bricks", "Brick")
+    ("Bricks", "Brick"),
+    ("Suits", "Suit"),
 }
 
 for basename, substring in _simple_groups:
