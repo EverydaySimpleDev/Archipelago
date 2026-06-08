@@ -1,6 +1,9 @@
 # Chibi Robo - Changelog
-## v1.2.1 - Bug Fixes / Generation Update
-- Suits are now included in the item pool!
+## v1.2.1 - Updated Patcher App / Suit Items / Gen Update
+- Suits are now included in the item pool / location checks!
+- New 'Old Clothes' item / option for changing PJ Suit Color
+- Major overhaul of patcher app to update the styling, functionality, and a few bug fixes
+- New AP Item Models!! 
 - Gen Rules Updated
 
 ## v1.2.0 - Bug Fixes / Generation Update

@@ -127,7 +127,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Ghost Suit": ChibiRoboItemData("Suit", IC.useful, 62, 0x22, "item_cos_obake", 1),
     "Pajamas Suit": ChibiRoboItemData("Suit", IC.progression, 63, 0x1e, "item_capsule_30", 1),
 
-    "Old Boxers": ChibiRoboItemData("Item", IC.progression, 74, 0x1e, "old_boxers", 1),
+    "Old Clothes": ChibiRoboItemData("Item", IC.progression, 74, 0x1e, "", 1), # Object Name Gets Set In Function Based On Option
 }
 
 FILLER_ITEM_TABLE: dict[str, ChibiRoboItemData] = {

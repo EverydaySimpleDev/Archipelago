@@ -14,7 +14,8 @@ class ChibiRoboRegionData(NamedTuple):
 def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions: Dict[str, ChibiRoboRegionData] = {
         "Menu": ChibiRoboRegionData([], ["Menu - Living Room" ]),
-        "Living Room": ChibiRoboRegionData([], ["Living Room - Kitchen", "Living Room - Foyer", "Living Room - Backyard", "Living Room - Mother Spider"]),
+        "Chibi House": ChibiRoboRegionData([], ["Chibi House - Living Room"]),
+        "Living Room": ChibiRoboRegionData([], ["Living Room - Kitchen", "Living Room - Foyer", "Living Room - Backyard", "Living Room - Chibi House", "Living Room - Mother Spider"]),
         "Kitchen": ChibiRoboRegionData([], ["Kitchen - Living Room", "Kitchen - Sink Drain", "Kitchen - Foyer" ]),
         "Sink Drain": ChibiRoboRegionData([], ["Sink Drain - Kitchen"]),
         "Backyard": ChibiRoboRegionData([], ["Backyard - Living Room", "Backyard - UFO" ]),
@@ -67,8 +68,9 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Living Room"].locations.append("Living Room - Table Cookie Box B")
 
     chibi_robo_regions["Living Room"].locations.append("Living Room - Drake Redcrest Suit")
-    chibi_robo_regions["Living Room"].locations.append("Living Room - Trauma Suit")
-    chibi_robo_regions["Living Room"].locations.append("Living Room - Ghost Suit")
+
+    chibi_robo_regions["Chibi House"].locations.append("Chibi House - Trauma Suit")
+    chibi_robo_regions["Chibi House"].locations.append("Chibi House - Ghost Suit")
 
     # Kitchen - 21 Locations
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Mug Location")
@@ -118,7 +120,7 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Basement"].locations.append("Basement - Frog Ring")
     chibi_robo_regions["Basement"].locations.append("Basement - Purple Can")
     chibi_robo_regions["Basement"].locations.append("Basement - Cabinet Trash A")
-    chibi_robo_regions["Basement"].locations.append("Basement - Cabinet Trash B")
+    chibi_robo_regions["Basement"].locations.append("Basement - Trash On Stairs")
 
     # Backyard - 10 Locations
     chibi_robo_regions["Backyard"].locations.append("Backyard - Twig by Glass Door")
@@ -208,10 +210,13 @@ def create_regions(multiworld: MultiWorld, player: int, options):
 def connect_entrances(multiworld: MultiWorld, player: int):
 
     multiworld.get_entrance("Menu - Living Room", player).connect(multiworld.get_region("Living Room", player))
+    multiworld.get_entrance("Chibi House - Living Room", player).connect(multiworld.get_region("Living Room", player))
     multiworld.get_entrance("Kitchen - Living Room", player).connect(multiworld.get_region("Living Room", player))
     multiworld.get_entrance("Backyard - Living Room", player).connect(multiworld.get_region("Living Room", player))
     multiworld.get_entrance("Foyer - Living Room", player).connect(multiworld.get_region("Living Room", player))
     multiworld.get_entrance("Mother Spider - Living Room", player).connect(multiworld.get_region("Living Room", player))
+
+    multiworld.get_entrance("Living Room - Chibi House", player).connect(multiworld.get_region("Chibi House", player))
 
     multiworld.get_entrance("Living Room - Kitchen", player).connect(multiworld.get_region("Kitchen", player))
     multiworld.get_entrance("Sink Drain - Kitchen", player).connect(multiworld.get_region("Kitchen", player))

@@ -52,8 +52,6 @@ SCRAP_ADDR = 0X8038f756
 
 HAPPY_POINTS_ADDR = 0x8038f73e
 
-BASE_ITEM_ADDR = 0x80370000
-
 class ChibiRoboJSONToTextParser(JSONtoTextParser):
     def _handle_color(self, node: JSONMessagePart):
         return self._handle_text(node)  # No colors for the in-game text
@@ -629,7 +627,7 @@ def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str, data: C
 
         if data.address:
 
-            location_addr = hex(BASE_ITEM_ADDR + data.address)
+            location_addr = hex(data.address)
 
             location_value = dolphin_memory_engine.read_bytes(int( location_addr, 16), 4)
 

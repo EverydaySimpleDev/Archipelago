@@ -1,14 +1,6 @@
 from dataclasses import dataclass
 
 from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup
-class FreePJs(DefaultOnToggle):
-    """
-    Makes PJs in shop free
-    """
-    display_name = "Free PJs"
-    default = 1
-
-
 class OpenUpstairs(Toggle):
     """
     Opens Upstairs
@@ -411,10 +403,33 @@ class VictoryGoal(Choice):
 
     default = 1
 
+class LogicSetting(Choice):
+    """
+    To enable logic / rules
+    """
+    display_name = "Logic Settings"
+
+    option_logic_disabled = 0
+    option_logic_enabled = 1
+
+    default = 1
+
+class PjSuiteStyle(Choice):
+    """
+    PJ Suite Style
+    """
+    display_name = "PJ Suite Style"
+
+    option_old_boxers = 0
+    option_outdated_scarf = 1
+    option_small_handkerchief = 2
+
+    default = 0
 @dataclass
 class ChibiRoboGameOptions(PerGameCommonOptions):
     victory_goal: VictoryGoal
-    free_pjs: FreePJs
+    pk_suit_style: PjSuiteStyle
+    logic_setting: LogicSetting
     open_upstairs: OpenUpstairs
     chibi_vision_off: ChibiVisionOff
     password_rando: PasswordRando
@@ -464,13 +479,14 @@ chibi_robo_option_groups = [
         PasswordRando
     ]),
     OptionGroup("Quality Of Life Changes", [
-        FreePJs,
+        PjSuiteStyle,
         VictoryGoal,
         FavoriteCharacterVoice,
         DeathLink
     ]),
     OptionGroup("Misc", [
-        ChibiVisionOff
+        ChibiVisionOff,
+        LogicSetting
     ]),
     OptionGroup("Battery Drain (Use at your own risk!!)", [
         BatteryDrainIdle,
