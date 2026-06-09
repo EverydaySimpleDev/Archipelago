@@ -428,7 +428,7 @@ class PjSuiteStyle(Choice):
 @dataclass
 class ChibiRoboGameOptions(PerGameCommonOptions):
     victory_goal: VictoryGoal
-    pk_suit_style: PjSuiteStyle
+    pj_suit_style: PjSuiteStyle
     logic_setting: LogicSetting
     open_upstairs: OpenUpstairs
     chibi_vision_off: ChibiVisionOff
