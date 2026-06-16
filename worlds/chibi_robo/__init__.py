@@ -22,12 +22,12 @@ from .regions import create_regions, connect_entrances
 from .game_id import game_name
 from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE
 from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
-from .options import ChibiRoboGameOptions, chibi_robo_option_groups
+from .options import ChibiRoboGameOptions, chibi_robo_option_groups, STICKER_NAMES
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 2, 1)
+VERSION: tuple[int, int, int] = (1, 2, 2)
 
 def launch_client():
     from . import client
@@ -169,7 +169,7 @@ class ChibiRoboWorld(World):
 
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict( "victory_goal", "pj_suit_style", "open_upstairs", "password_rando", "chibi_vision_off", "favorite_character_voice", "death_link", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray")
+        return self.options.as_dict( "victory_goal", "required_stickers", "pj_suit_style", "open_upstairs", "password_rando", "chibi_vision_off", "favorite_character_voice", "death_link", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray")
 
     def generate_output(self, output_directory: str) -> None:
         """
@@ -203,7 +203,7 @@ class ChibiRoboWorld(World):
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
             output_locations[location.name] = item_info
 
-        output_data.update(self.options.as_dict( "victory_goal", "pj_suit_style", "open_upstairs","password_rando", "chibi_vision_off", "favorite_character_voice", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray"))
+        output_data.update(self.options.as_dict( "victory_goal","required_stickers", "pj_suit_style", "open_upstairs","password_rando", "chibi_vision_off", "favorite_character_voice", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray"))
 
         mod_name = f"AP-{self.multiworld.seed_name}-P{self.player}-{self.multiworld.get_file_safe_player_name(self.player)}"
         mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
@@ -223,6 +223,13 @@ class ChibiRoboWorld(World):
 
     def generate_early(self) -> None:
         self.plando_locations = dict()
+
+        stickers = self.options.required_stickers
+
+        if "Random" in stickers.value or not stickers.value:
+            pool = sorted(STICKER_NAMES)
+            count = self.random.randint(1, len(pool))
+            stickers.value = set(self.random.sample(pool, count))
 
         self.multiworld.local_early_items[self.player]["Toothbrush Chibi-Gear"] = 1
         self.multiworld.local_early_items[self.player]["Mug Chibi-Gear"] = 1

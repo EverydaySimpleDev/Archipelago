@@ -1,6 +1,14 @@
 from dataclasses import dataclass
 
-from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup
+from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup, OptionSet
+
+STICKER_NAMES = frozenset({
+    "Giga-Robo", "Telly Vision", "Chibi - Door", "Utilibot","Frog Ring",
+    "Frog", "Bluebird", "Mr. Prongs", "Drake Redcrest", "Sophie",
+    "Free Rangers", "Captain Plankbeard", "The Great Peekoe", "Sunshine",
+    "Mort & Princess", "Dinah", "Funky Phil", "Queen Spydor", "Hot Rod",
+    "Space Scrambler", "Cooking", "Kid Eggplant", "Primopuel", "Tamagotchi",
+})
 class OpenUpstairs(Toggle):
     """
     Opens Upstairs
@@ -400,8 +408,21 @@ class VictoryGoal(Choice):
 
     option_credits = 0
     option_activate_giga_robo = 1
+    option_stickers = 2
 
     default = 1
+
+class VictoryStickers(OptionSet):
+    """
+    What stickers are required for victory.
+    (You must have stickers set as a victory goal.)
+
+    Pick any combination of stickers, or pick `Random` to have a random
+    subset chosen for you.
+    """
+    display_name = "Sticker List (You must have stickers set as a victory goal)"
+    valid_keys = STICKER_NAMES | {"Random"}
+    default = STICKER_NAMES   # all real stickers required by default
 
 class LogicSetting(Choice):
     """
@@ -428,6 +449,7 @@ class PjSuiteStyle(Choice):
 @dataclass
 class ChibiRoboGameOptions(PerGameCommonOptions):
     victory_goal: VictoryGoal
+    required_stickers: VictoryStickers
     pj_suit_style: PjSuiteStyle
     logic_setting: LogicSetting
     open_upstairs: OpenUpstairs
@@ -478,9 +500,12 @@ chibi_robo_option_groups = [
         OpenUpstairs,
         PasswordRando
     ]),
+    OptionGroup("Victory Options", [
+        VictoryGoal,
+        VictoryStickers,
+    ]),
     OptionGroup("Quality Of Life Changes", [
         PjSuiteStyle,
-        VictoryGoal,
         FavoriteCharacterVoice,
         DeathLink
     ]),

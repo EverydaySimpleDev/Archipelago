@@ -52,6 +52,35 @@ SCRAP_ADDR = 0X8038f756
 
 HAPPY_POINTS_ADDR = 0x8038f73e
 
+# Sticker completion flags: name -> (address, 16-bit bitmask).
+# A sticker is earned when (read_short(address) & bitmask) == bitmask.
+STICKER_FLAGS = {
+    "Giga Robo":          (0x8036781c, 0x0008),
+    "Telly Vision":       (0x8036789a, 0x0100),
+    "Chibi Door":         (0x803678ac, 0x2000),
+    "Utilibot":           (0x80367846, 0x0002),
+    "Frog Ring":          (0x803678e6, 0x1000),
+    "Frog":               (0x8036786c, 0x0800),
+    "Bluebird":           (0x803678a0, 0x0800),
+    "Mr. Prongs":         (0x803678a6, 0x0004),
+    "Drake Redcrest":     (0x803678e4, 0x0002),
+    "Sophie":             (0x803678d8, 0x0008),
+    "Free Rangers":       (0x80367892, 0x0100),
+    "Captain Plankbeard": (0x803678d8, 0x0400),
+    "The Great Peekoe":   (0x803678a2, 0x8000),
+    "Sunshine":           (0x803678da, 0x0020),
+    "Mort & Princess":    (0x80367882, 0x8000),
+    "Dinah":              (0x803678a0, 0x2000),
+    "Funky Phil":         (0x803678a0, 0x1000),
+    "Queen Spydor":       (0x8036781c, 0x0002),
+    "Hot Rod":            (0x803678b6, 0x0200),
+    "Space Scrambler":    (0x803678b6, 0x0400),
+    "Cooking":            (0x803678b6, 0x0800),
+    "Kid Eggplant":       (0x803678e6, 0x8000),
+    "Primopuel":          (0x803678e4, 0x0004),
+    "Tamagotchi":         (0x803678e4, 0x0008),
+}
+
 class ChibiRoboJSONToTextParser(JSONtoTextParser):
     def _handle_color(self, node: JSONMessagePart):
         return self._handle_text(node)  # No colors for the in-game text
@@ -225,6 +254,7 @@ class ChibiRoboContext(CommonContext):
     len_give_item_array: int = 0x272
     items_received = []
     victory: int
+    required_stickers: List[str] = []
 
     def __init__(self, server_address: Optional[str], password: Optional[str]) -> None:
         super().__init__(server_address, password)
@@ -315,6 +345,7 @@ class ChibiRoboContext(CommonContext):
             if "slot_info" in json.keys():
                 json["slot_info"] = {}
                 ctx.victory = args["slot_data"]["victory_goal"]
+                ctx.required_stickers = args["slot_data"].get("required_stickers", [])
             if "death_link" in args["slot_data"]:
                 Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"])))
             if "players" in json.keys():
@@ -507,6 +538,12 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
             dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, 1)
             return True
 
+        elif item_slot == b'\x00\x00' and current_item == item_id: # Extra check to make sure frog rings are stacking correctly
+
+            current_item_qty = dolphin_memory_engine.read_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3) +1
+            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, current_item_qty)
+            return True
+
         elif current_item == item_id and IC == 0:
 
             # logger.info(hex(item_id))
@@ -575,25 +612,23 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
     # We check which locations are currently checked on the current stage.
     curr_stage_id = stage_hex_to_id()
     ctx.curr_stage_pickup = read_4byte_short(EXPECTED_INDEX_ADDR)
-
-
     if not ctx.finished_game:
+        goal_reached = False
 
-        if ctx.victory == 1: # Activating Giga Robo = completing game
-            activated_giga = read_4byte_short(0x803684ae)
+        if ctx.victory == 1:  # Activate Giga-Robo
+            goal_reached = read_4byte_short(0x803684ae) == 65536
+        elif ctx.victory == 2:  # Collect all required stickers
+            required = ctx.required_stickers
+            goal_reached = bool(required) and all(
+                is_sticker_complete(name) for name in required
+            )
+        else:  # Credits (victory == 0)
+            goal_reached = curr_stage_id == 9
 
-            if activated_giga == 65536:
-                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                ctx.finished_game = True
-                logger.info("Congratulations, you have completed the game!")
-        else:
-            if curr_stage_id == 9:  # end credits = completing game
-                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                ctx.finished_game = True
-                logger.info("Congratulations, you have completed the game!")
-
-
-
+        if goal_reached:
+            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+            ctx.finished_game = True
+            logger.info("Congratulations, you have completed the game!")
 
     for location, data in LOCATION_TABLE.items():
 
@@ -606,6 +641,15 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
     if locations_checked:
         await ctx.send_msgs([{"cmd": "LocationChecks", "locations": locations_checked}])
 
+def is_sticker_complete(name: str) -> bool:
+    """Return True if the named sticker's completion bit is set in memory."""
+    flag = STICKER_FLAGS.get(name)
+    if flag is None:
+        # Unknown name (e.g. an option/table name mismatch) can never be satisfied,
+        # so a typo fails safe instead of granting an early victory.
+        return False
+    address, mask = flag
+    return (read_short(address) & mask) == mask
 
 def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str, data: ChibiRoboLocationData) -> bool:
     """
