@@ -103,7 +103,7 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Foyer"].locations.append("Foyer - Waterfall Frog Ring")
     chibi_robo_regions["Foyer"].locations.append("Foyer - Red Block")
 
-    chibi_robo_regions["Foyer"].locations.append("Foyer - Toa Suit")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Tao Suit")
 
     # Basement - 15 Locations
     chibi_robo_regions["Basement"].locations.append("Basement - Giga Battery")

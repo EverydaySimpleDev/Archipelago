@@ -210,7 +210,7 @@ LOCATION_TABLE: dict[str, ChibiRoboLocationData] = {
     "Backyard - Frog Suit": ChibiRoboLocationData(216, "Backyard", 0x08, 8, 0x803684b6, 293),
     "Chibi House - Trauma Suit": ChibiRoboLocationData(217, "Chibi House", 0x05, 8, 0x803684be, 448),
     "Chibi House - Ghost Suit": ChibiRoboLocationData(218, "Chibi House", 0x05, 8, 0x803684c2, 448),
-    "Foyer - Toa Suit": ChibiRoboLocationData(219, "Foyer", 0x02, 8, 0x803684c6, 448),
+    "Foyer - Tao Suit": ChibiRoboLocationData(219, "Foyer", 0x02, 8, 0x803684c6, 448),
     "Bedroom - Pajama Suit": ChibiRoboLocationData(220, "Bedroom", 0x06, 8, 0x803684ba, 448),
 }
 

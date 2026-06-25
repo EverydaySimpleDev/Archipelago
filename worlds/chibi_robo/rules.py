@@ -168,7 +168,7 @@ def set_location_rules(self) -> None:
 
     can_get_toa_suit = HasAll("Dog Tags", mug, tooth_brush)
 
-    foyer_toa_suit = multiworld.get_location("Foyer - Toa Suit", player)
+    foyer_toa_suit = multiworld.get_location("Foyer - Tao Suit", player)
     self.set_rule(foyer_toa_suit, can_get_toa_suit)
 
     #  Basement

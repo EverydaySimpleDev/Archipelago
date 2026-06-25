@@ -120,7 +120,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Basement Teleport": ChibiRoboItemData("Item", IC.useful, 71, 0x8036853e, "archipelago_item", 1, True),
 
     "Drake Redcrest Suit": ChibiRoboItemData("Suit", IC.progression, 57, 0x18, "item_capsule_24", 1),
-    "Toa Suit": ChibiRoboItemData("Suit", IC.useful, 58, 0x19, "item_capsule_25", 1),
+    "Tao Suit": ChibiRoboItemData("Suit", IC.useful, 58, 0x19, "item_capsule_25", 1),
     "Frog Suit": ChibiRoboItemData("Suit", IC.progression, 59, 0x1a, "item_capsule_26", 1),
     "Trauma Suit": ChibiRoboItemData("Suit", IC.progression, 61, 0x20, "item_capsule_32", 1),
     "Super Chibi-Robo Suit": ChibiRoboItemData("Suit", IC.progression, 60, 0x1f, "item_capsule_31", 1),
@@ -186,8 +186,8 @@ ITEM_TABLE_DESC: dict[str, str] = {
     "Snorkel": "Give it to The Great Peekoe when he's in the fishbowl at night after reviving Giga-Robo.",
     "Space Scrambler": "Ride against the Scrambler Free Rangers and get an S ranking.",
     "Drake Redcrest Suit": "Pose with this suit to take a heroic stance with fireworks behind you!",
-    "Toa Suit": "Pose with this suit to Crouch and Bark like Tao. You can now understand Tao",
-    "Frog Suit": "Post with this suit to act like a frog. Animals (besides Toa) now can talk to you",
+    "Tao Suit": "Pose with this suit to Crouch and Bark like Tao. You can now understand Tao",
+    "Frog Suit": "Post with this suit to act like a frog. Animals (besides Tao) now can talk to you",
     "Trauma Suit": "Pose with this suit to drop dead and then be taken to the Chibi-House with no time passed.",
     "Ghost Suit": "Pose with this suit to summon tiny ghosts to encircle Chibi-Robo's feet and show off your tongue! Also blows up Spydorz since this suit is too scary for them.",
     "Pajamas Suit": "Pose with this suit will end the half day by making Chibi-Robo lie on the ground and fall asleep."
@@ -217,7 +217,7 @@ item_name_groups = {
     },
     "Suits": {
         "Drake Redcrest Suit",
-        "Toa Suit",
+        "Tao Suit",
         "Frog Suit",
         "Trauma Suit",
         "Ghost Suit",
