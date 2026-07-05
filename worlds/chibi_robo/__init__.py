@@ -5,7 +5,7 @@ import logging
 import os
 import zipfile
 from base64 import b64encode
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 from typing import Any, ClassVar
 from logging import Logger
@@ -14,6 +14,7 @@ import yaml
 import json
 
 import Utils
+import settings 
 # Archipelago imports
 from worlds.AutoWorld import World, WebWorld
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths
@@ -27,7 +28,7 @@ from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 2, 2)
+VERSION: tuple[int, int, int] = (1, 2, 3)
 
 def launch_client():
     from . import client
@@ -40,6 +41,14 @@ components.append(Component("Chibi Robo Client",
                             icon="chibi_body_icon"))
 
 icon_paths["chibi_body_icon"] = f"ap:{__name__}/icons/chibi_body_icon.png"
+
+class UTPackPath(settings.FilePath):
+
+    required = False                        # set True to require the pack on launch
+    ut_dialog_name = "Select Chibi Robo PopTracker pack (.zip)"
+
+class ChibiRoboSettings(settings.Group):
+    ut_pack_path: Union[UTPackPath, str] = UTPackPath()
 
 class ChibiRoboWebWorld(WebWorld):
     theme = "dirt"
@@ -82,6 +91,22 @@ class ChibiRoboContainer(APPlayerContainer):
         super().write_contents(opened_zipfile)
 
 
+def _chibi_robo_map_index(stage_id) -> int:
+    """Convert a stage_hex_to_id() integer to an index in the EmoTracker maps.json.
+    maps.json order: 0=backyard, 1=basement, 2=livingroom, 3=foyer, 4=foyer2f,
+                     5=jennysroom, 6=kitchen, 7=drain, 8=bedroom
+    """
+    return {
+        1:  6,  # Kitchen
+        2:  3,  # Foyer (first floor)
+        3:  1,  # Basement
+        4:  5,  # Jenny's Room
+        6:  8,  # Bedroom
+        7:  2,  # Living Room
+        8:  0,  # Backyard
+        10: 7,  # Sink Drain
+    }.get(int(stage_id) if stage_id not in (None, "") else -1, 2)
+
 class ChibiRoboWorld(World):
     dolphin: dolphin_memory_engine
     logger: Logger
@@ -104,6 +129,39 @@ class ChibiRoboWorld(World):
 
     item_name_groups: ClassVar[dict[str, set[str]]] = item_name_groups
     location_name_groups: ClassVar[dict[str, set[str]]] = location_groups
+
+    settings_key = "chibi_robo_options"
+
+    settings: ClassVar[ChibiRoboSettings]
+
+    tracker_world: ClassVar = {
+        "external_pack_key":       "ut_pack_path",            # key in ChibiRoboSettings
+        "map_page_maps":           "maps/maps.json",
+        "map_page_locations":      "locations/locations.json",
+        # Every section in the EmoTracker pack is named "Item" rather than the AP
+        # location name, so we map "Location Name/Item" → AP location ID for all 220 checks.
+        "poptracker_name_mapping": {
+            f"{name}/Item": ChibiRoboLocation.get_apid(data.code)
+            for name, data in LOCATION_TABLE.items()
+            if data.code is not None
+        },
+        # Auto-tab: UT watches this DataStorage key and calls map_page_index when it changes.
+        # The client writes the stage_hex_to_id() integer here on every room transition.
+        "map_page_setting_key": "chibi_robo_stage_{player}_{team}",
+        "map_page_index":       _chibi_robo_map_index,
+    }
+
+    @staticmethod
+    def interpret_slot_data(slot_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # UT calls int() on all values whose keys match known option names.
+        # required_stickers is an OptionSet (list of strings) which crashes that.
+        # Pass integer options normally; sticker list under a non-option key.
+        result = {k: v for k, v in slot_data.items() if isinstance(v, int)}
+        stickers = slot_data.get("_chibi_stickers")
+        if isinstance(stickers, (list, set, frozenset)):
+            result["_chibi_stickers"] = list(stickers)
+        return result if result else None
+
 
     @staticmethod
     def _get_classification_name(classification: IC) -> str:
@@ -169,12 +227,18 @@ class ChibiRoboWorld(World):
 
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict( "victory_goal", "required_stickers", "pj_suit_style", "open_upstairs", "password_rando", "chibi_vision_off", "favorite_character_voice", "death_link", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray")
+        slot_data = self.options.as_dict("victory_goal", "pj_suit_style", "open_upstairs", "password_rando", "chibi_vision_off", "favorite_character_voice", "death_link", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray")
+        slot_data["_chibi_stickers"] = list(self.options.required_stickers.value)
+        return slot_data
 
     def generate_output(self, output_directory: str) -> None:
         """
         Create the output file that is used to randomize the ISO.
         """
+
+        if hasattr(self.multiworld, "generation_is_fake"):
+            return
+
         multiworld = self.multiworld
         player = self.player
 
@@ -223,6 +287,32 @@ class ChibiRoboWorld(World):
 
     def generate_early(self) -> None:
         self.plando_locations = dict()
+
+        if hasattr(self.multiworld, "re_gen_passthrough"):
+
+            passthrough = self.multiworld.re_gen_passthrough.get(game_name, None)
+
+            if passthrough is not None:
+                victory = passthrough.get("victory_goal", None)
+
+                if victory is not None:
+                    self.options.victory_goal.value = victory
+
+                stickers = passthrough.get("_chibi_stickers", None)
+                if stickers is not None:
+                    self.options.required_stickers.value = (
+                        set(stickers) if isinstance(stickers, list) else stickers
+                    )
+
+                open_upstairs = passthrough.get("open_upstairs", None)
+                if open_upstairs is not None:
+                    self.options.open_upstairs.value = open_upstairs
+
+                password_rando = passthrough.get("password_rando", None)
+                if password_rando is not None:
+                    self.options.password_rando.value = password_rando
+
+                return  # skip sticker randomization — use actual seed values
 
         stickers = self.options.required_stickers
 

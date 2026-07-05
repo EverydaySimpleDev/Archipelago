@@ -10,7 +10,15 @@ from copy import deepcopy
 from typing import List, Any, Iterable, Any, Optional
 from NetUtils import decode, encode, JSONtoTextParser, JSONMessagePart, NetworkItem, NetworkPlayer, ClientStatus
 from MultiServer import Endpoint
-from CommonClient import CommonContext, gui_enabled, ClientCommandProcessor, logger, get_base_parser
+from CommonClient import gui_enabled, ClientCommandProcessor, logger, get_base_parser
+
+tracker_loaded = False
+try:
+    from worlds.tracker.TrackerClient import TrackerGameContext as SuperContext, TrackerCommandProcessor as SuperCommandProcessor
+    tracker_loaded = True
+except ModuleNotFoundError:
+    from CommonClient import CommonContext as SuperContext, ClientCommandProcessor as SuperCommandProcessor
+
 from .items import LOOKUP_ID_TO_NAME, ITEM_TABLE
 from .locations import LOCATION_TABLE, ChibiRoboLocation, ChibiRoboLocationData
 
@@ -86,8 +94,8 @@ class ChibiRoboJSONToTextParser(JSONtoTextParser):
         return self._handle_text(node)  # No colors for the in-game text
 
 
-class ChibiRoboCommandProcessor(ClientCommandProcessor):
-    def __init__(self, ctx: CommonContext):
+class ChibiRoboCommandProcessor(SuperCommandProcessor):
+    def __init__(self, ctx: SuperContext):
         """
         Initialize the command processor with the provided context.
 
@@ -238,6 +246,44 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
 
         return
 
+    def _cmd_unlock_kitchen(self) -> None:
+        """
+        Unlocks Kitchen
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            write_short(0x80369766, 1) # Living Room -> Kitchen
+            write_short(0x8036973e, 1) # Kitchen -> Living Room
+            return
+
+    def _cmd_unlock_foyer(self) -> None:
+        """
+        Unlocks Foyer
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            write_short(0x8036974a, 1) # Foyer -> Living Room
+            write_short(0x80369746, 1) # Foyer -> Kitchen
+            write_short(0x80369752, 1) # Kitchen -> Foyer
+            write_short(0x80369762, 1) # Living Room -> Foyer
+            return
+
+    def _cmd_unlock_jenny(self) -> None:
+        """
+        Unlocks Jenny's Room
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            write_short(0x80369742, 1) # Foyer -> Jenny's Room
+            write_short(0x80369756, 1) # Jenny's Room -> Foyer
+            return
+
+    def _cmd_unlock_bedroom(self) -> None:
+        """
+        Unlocks Bedroom
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            write_short(0x8036975e, 1) # Bedroom -> Foyer
+            write_short(0x8036974e, 1) # Foyer -> Bedroom
+            return
+
     def _cmd_dolphin(self) -> None:
         """
         Display the current Dolphin emulator connection status.
@@ -247,7 +293,7 @@ class ChibiRoboCommandProcessor(ClientCommandProcessor):
             return
 
 
-class ChibiRoboContext(CommonContext):
+class ChibiRoboContext(SuperContext):
     command_processor = ChibiRoboCommandProcessor
     game = "Chibi Robo"
     items_handling: int = 0b111
@@ -255,6 +301,7 @@ class ChibiRoboContext(CommonContext):
     items_received = []
     victory: int
     required_stickers: List[str] = []
+    tags = {"AP"}
 
     def __init__(self, server_address: Optional[str], password: Optional[str]) -> None:
         super().__init__(server_address, password)
@@ -276,7 +323,9 @@ class ChibiRoboContext(CommonContext):
         self.server_msgs: List[Any] = []
 
         self.current_stage_name: str = ""
-        self.curr_stage_pickup: int
+        self.curr_stage_pickup: int = 0
+        self.victory: int = 0
+        self.required_stickers: List[str] = []
 
 
     async def server_auth(self, password_requested: bool = True) -> None:
@@ -338,14 +387,15 @@ class ChibiRoboContext(CommonContext):
         self.server_msgs.append(encode([{"cmd": "ReceivedItems", "index": 0, "items": self.full_inventory}]))
 
     def on_package(self, cmd: str, args: dict):
-        ctx = ChibiRoboContext
+        super().on_package(cmd, args)
+        ctx = self
         if cmd == "Connected":
 
             json = args
             if "slot_info" in json.keys():
                 json["slot_info"] = {}
                 ctx.victory = args["slot_data"]["victory_goal"]
-                ctx.required_stickers = args["slot_data"].get("required_stickers", [])
+                ctx.required_stickers = args["slot_data"].get("_chibi_stickers") or args["slot_data"].get("required_stickers", [])
             if "death_link" in args["slot_data"]:
                 Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"])))
             if "players" in json.keys():
@@ -388,16 +438,12 @@ class ChibiRoboContext(CommonContext):
         _give_death(self)
 
     def run_gui(self):
-        from kvui import GameManager
+        result = super().run_gui()
 
-        class ChibiRoboManager(GameManager):
-            logging_pairs = [
-                ("Client", "Archipelago")
-            ]
-            base_title = "Archipelago Chibi Robo Client"
+        if self.ui:
+            self.ui.base_title = "Archipelago Chibi Robo Client"
 
-        self.ui = ChibiRoboManager(self)
-        self.ui_task = asyncio.create_task(self.ui.async_run(), name="UI")
+        return result
 
 def read_short(console_address: int) -> int:
     """
@@ -519,17 +565,54 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
 
         elif item_name == "Max Battery Increase":
 
-            cur_max = read_4byte_short(0x8038f74a)
-            write_4byte_short(0x8038f74a, cur_max + 20)
+            cur_max = read_short(0x8038f74c)
+            write_short(0x8038f74c, cur_max + 20)
 
             return True
 
+        elif item_name == "Living Room - Kitchen Key":
+
+            write_short(0x80369766, 1) # Living Room -> Kitchen
+            write_short(0x8036973e, 1) # Kitchen -> Living Room
+
+            return True
+
+        elif item_name == "Living Room - Foyer Key":
+
+            write_short(0x8036974a, 1)  # Foyer -> Living Room
+            write_short(0x80369762, 1)  # Living Room -> Foyer
+
+
+            return True
+
+        elif item_name == "Kitchen - Foyer Key":
+
+            write_short(0x80369746, 1) # Foyer -> Kitchen
+            write_short(0x80369752, 1) # Kitchen -> Foyer
+
+            return True
+
+        elif item_name == "Foyer - Jenny's Room Key":
+
+            write_short(0x80369742, 1) # Foyer -> Jenny's Room
+            write_short(0x80369756, 1) # Jenny's Room -> Foyer
+
+            return True
+
+        elif item_name == "Foyer - Bedroom Key":
+
+            write_short(0x8036975e, 1) # Bedroom -> Foyer
+            write_short(0x8036974e, 1) # Foyer -> Bedroom
+
+            return True
+
+
+        if is_special:
+            dolphin_memory_engine.write_byte(item_id, 1)
+            return True
+
         if ctx.slot == player:
-            if is_special:
-                dolphin_memory_engine.write_byte(item_id, 1)
-                return True
-            else:
-                return True
+            return True
 
         if item_slot == b'\xff\xff':
 
@@ -554,10 +637,6 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
             dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, current_item_qty)
             return True
 
-        elif is_special:
-                dolphin_memory_engine.write_byte(item_id, 1)
-                return True
-
     # If unable to place the item in the array, return `False`.
     return False
 
@@ -570,7 +649,12 @@ def check_ingame() -> bool:
 
     # logger.info(dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1))
 
-    return dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1) not in ["" , '\x00', '\x40', '\x07']
+    # there is a timing gap between the is_hooked and this read_bytes that can cause a client crash
+    # try catch to retry if client has that crash happen instead of just crashing
+    try:
+        return dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1) not in ["" , '\x00', '\x40', '\x07']
+    except RuntimeError:
+        return False
 
 async def give_items(ctx: ChibiRoboContext) -> None:
     """
@@ -781,6 +865,17 @@ async def check_current_stage_changed(ctx: ChibiRoboContext) -> None:
         }
         await ctx.send_msgs([message])
 
+        # Write stage ID to DataStorage so UT can auto-tab to the correct map.
+        if ctx.slot is not None:
+            team = ctx.team if hasattr(ctx, "team") and ctx.team is not None else 1
+            await ctx.send_msgs([{
+                "cmd": "Set",
+                "key": f"chibi_robo_stage_{ctx.slot}_{team}",
+                "default": -1,
+                "want_reply": False,
+                "operations": [{"operation": "replace", "value": stage_hex_to_id()}],
+            }])
+
 async def check_alive() -> bool:
     """
     Check if the player is currently alive in-game.
@@ -957,6 +1052,8 @@ def launch(*launch_args: str):
                                      host="localhost", port=11311, ping_timeout=999999, ping_interval=999999)
         ctx.proxy_task = asyncio.create_task(proxy_loop(ctx), name="ProxyLoop")
 
+        if tracker_loaded:
+            ctx.run_generator()
         if gui_enabled:
             ctx.run_gui()
         ctx.run_cli()

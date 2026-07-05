@@ -18,44 +18,53 @@ def set_rules(self) -> None:
     multiworld = self.multiworld
     player = self.player
 
-    backyard_to_living = multiworld.get_entrance("Backyard - Living Room", player)
-
-    kitchen_to_living = multiworld.get_entrance("Kitchen - Living Room", player)
-
-    kitchen_to_foyer = multiworld.get_entrance("Kitchen - Foyer", player)
-
-    living_to_kitchen = multiworld.get_entrance("Living Room - Kitchen", player)
-
-    foyer_to_kitchen = multiworld.get_entrance("Foyer - Kitchen", player)
-
+    kitchen_to_living  = multiworld.get_entrance("Kitchen - Living Room", player)
+    kitchen_to_foyer   = multiworld.get_entrance("Kitchen - Foyer", player)
+    living_to_kitchen  = multiworld.get_entrance("Living Room - Kitchen", player)
+    foyer_to_kitchen   = multiworld.get_entrance("Foyer - Kitchen", player)
     living_to_backyard = multiworld.get_entrance("Living Room - Backyard", player)
+    living_to_foyer    = multiworld.get_entrance("Living Room - Foyer", player)
+    foyer_to_living    = multiworld.get_entrance("Foyer - Living Room", player)
+    foyer_to_jenny     = multiworld.get_entrance("Foyer - Jenny's Room", player)
+    foyer_to_bedroom   = multiworld.get_entrance("Foyer - Bedroom", player)
+    foyer_to_basement  = multiworld.get_entrance("Foyer - Basement", player)
+    basement_to_foyer  = multiworld.get_entrance("Basement - Foyer", player)
+    bedroom_to_foyer   = multiworld.get_entrance("Bedroom - Foyer", player)
+    jenny_to_foyer     = multiworld.get_entrance("Jenny's Room - Foyer", player)
+    living_to_spider   = multiworld.get_entrance("Living Room - Mother Spider", player)
 
     reach_second_floor = HasAll("Foyer Ladder", copter, mug, tooth_brush, "Drake Redcrest Suit") | HasAll("Foyer Teleport", mug, tooth_brush, "Drake Redcrest Suit")
 
-    foyer_to_jenny = multiworld.get_entrance("Foyer - Jenny's Room", player)
-
-    foyer_to_bedroom = multiworld.get_entrance("Foyer - Bedroom", player)
-
-    bedroom_to_foyer = multiworld.get_entrance("Bedroom - Foyer", player)
-
-    living_to_foyer = multiworld.get_entrance("Living Room - Foyer", player)
-
-    foyer_to_living = multiworld.get_entrance("Foyer - Living Room", player)
-
-    living_to_spider = multiworld.get_entrance("Living Room - Mother Spider", player)
-
     can_enter_basement = HasAll(tooth_brush, mug, "Drake Redcrest Suit")
-
-    self.set_rule(living_to_foyer, can_enter_basement)
-
-    self.set_rule(kitchen_to_foyer, can_enter_basement)
 
     can_enter_backyard = Has(blaster)
 
+    # Living Room <-> Kitchen
+    self.set_rule(living_to_kitchen,  Has("Living Room - Kitchen Key"))
+    self.set_rule(kitchen_to_living,  Has("Living Room - Kitchen Key"))
+
+    # Living Room <-> Foyer
+    self.set_rule(living_to_foyer,    can_enter_basement & Has("Living Room - Foyer Key"))
+    self.set_rule(foyer_to_living,    Has("Living Room - Foyer Key"))
+
+    # Living Room <-> Backyard
     self.set_rule(living_to_backyard, can_enter_backyard)
 
-    self.set_rule(foyer_to_jenny, reach_second_floor)
-    self.set_rule(foyer_to_bedroom, reach_second_floor)
+    # Kitchen <-> Foyer
+    self.set_rule(kitchen_to_foyer,   can_enter_basement & Has("Kitchen - Foyer Key"))
+    self.set_rule(foyer_to_kitchen,   Has("Kitchen - Foyer Key"))
+
+    # Foyer <-> Basement
+    # self.set_rule(foyer_to_basement,  Has("Foyer - Basement Key"))
+    # self.set_rule(basement_to_foyer,  Has("Foyer - Basement Key"))
+
+    # Foyer <-> Jenny's Room
+    self.set_rule(foyer_to_jenny,     reach_second_floor & Has("Foyer - Jenny's Room Key"))
+    self.set_rule(jenny_to_foyer,     Has("Foyer - Jenny's Room Key"))
+
+    # Foyer <-> Bedroom
+    self.set_rule(foyer_to_bedroom,   reach_second_floor & Has("Foyer - Bedroom Key"))
+    self.set_rule(bedroom_to_foyer,   Has("Foyer - Bedroom Key"))
 
     has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery",
                            "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder",
@@ -83,7 +92,7 @@ def set_location_rules(self) -> None:
 
     blaster_copter_lr_ladder_lr_bridge = HasAll(blaster, copter, "Living Room Ladder", "Living Room Bridge", tooth_brush, mug, "Drake Redcrest Suit")
 
-    reach_charger = HasAll( blaster, mug, copter, tooth_brush, "Drake Redcrest Suit")
+    reach_charger = HasAll(blaster, mug, copter, tooth_brush, "Drake Redcrest Suit")
 
     # Living Room
     living_room_frog_ring_window = multiworld.get_location("Living Room - Frog Ring (Behind Window)", player)
@@ -115,6 +124,9 @@ def set_location_rules(self) -> None:
 
     living_room_couch_candy_bag = multiworld.get_location("Living Room - Couch Candy Bag", player)
     self.set_rule(living_room_couch_candy_bag, can_hover)
+
+    living_room_toy_receipt = multiworld.get_location("Living Room - Toy receipt on coach", player)
+    self.set_rule(living_room_toy_receipt, can_hover)
 
     living_room_couch_candy_wrapper = multiworld.get_location("Living Room - Couch Candy Wrapper", player)
     self.set_rule(living_room_couch_candy_wrapper, can_hover)
@@ -150,6 +162,11 @@ def set_location_rules(self) -> None:
     kitchen_frog_ring_table = multiworld.get_location("Kitchen - Frog Ring (Table)", player)
     self.set_rule(kitchen_frog_ring_table, has_blaster)
 
+    kitchen_frog_ring_table = multiworld.get_location("Kitchen - Wastepaper on Shelf by Toaster", player)
+    self.set_rule(kitchen_frog_ring_table, has_blaster)
+
+    # Kitchen - Cookie Crumbs by Plant Box
+
     #  Drain
     has_blaster_copter = HasAll(blaster, copter)
     sink_frog_ring = multiworld.get_location("Sink Drain - Frog Ring", player)
@@ -165,6 +182,63 @@ def set_location_rules(self) -> None:
 
     foyer_red_block = multiworld.get_location("Foyer - Red Block", player)
     self.set_rule(foyer_red_block, has_copter_f_ladder)
+
+    foyer_red_block = multiworld.get_location("Foyer - Red Block", player)
+    self.set_rule(foyer_red_block, has_copter_f_ladder)
+
+    foyer_upstairs_wastepaper = multiworld.get_location("Foyer - Upstairs Wastepaper by stairs", player)
+    self.set_rule(foyer_upstairs_wastepaper, has_copter_f_ladder)
+
+    foyer_upstairs_cookie_crumb = multiworld.get_location("Foyer - Upstairs Cookie Crumbs by stairs", player)
+    self.set_rule(foyer_upstairs_cookie_crumb, has_copter_f_ladder)
+
+    foyer_upstairs_candy_wrapper_jenny_a= multiworld.get_location("Foyer - Upstairs Candy Wrapper by Jenny's Door A", player)
+    self.set_rule(foyer_upstairs_candy_wrapper_jenny_a, has_copter_f_ladder)
+
+    foyer_upstairs_candy_wrapper_jenny_b = multiworld.get_location("Foyer - Upstairs Candy Wrapper by Jenny's Door B", player)
+    self.set_rule(foyer_upstairs_candy_wrapper_jenny_b, has_copter_f_ladder)
+
+    foyer_upstairs_candy_wrapper_bedroom = multiworld.get_location("Foyer - Upstairs Candy Wrapper by Parents' Door", player)
+    self.set_rule(foyer_upstairs_candy_wrapper_bedroom, has_copter_f_ladder)
+
+    foyer_upstairs_candy_wrapper_stairs= multiworld.get_location("Foyer - Candy Wrapper on Stairs",player)
+    self.set_rule(foyer_upstairs_candy_wrapper_stairs, has_copter_f_ladder)
+
+    foyer_candy_on_sofa_a = multiworld.get_location("Foyer - Candy Wrapper on Sofa A", player)
+    self.set_rule(foyer_candy_on_sofa_a, has_copter_f_ladder)
+
+    foyer_candy_on_sofa_b = multiworld.get_location("Foyer - Candy Wrapper on Sofa B", player)
+    self.set_rule(foyer_candy_on_sofa_b, has_copter_f_ladder)
+
+    foyer_candy_on_sofa_c = multiworld.get_location("Foyer - Candy Wrapper on Sofa C", player)
+    self.set_rule(foyer_candy_on_sofa_c, has_copter_f_ladder)
+
+    foyer_wastepaper_on_stairs = multiworld.get_location("Foyer - Wastepaper On Stairs", player)
+    self.set_rule(foyer_wastepaper_on_stairs, has_copter_f_ladder)
+
+    foyer_candy_jenny_photo_a = multiworld.get_location("Foyer - Candy Wrapper by Jenny Photo A", player)
+    self.set_rule(foyer_candy_jenny_photo_a, has_copter_f_ladder)
+
+    foyer_candy_jenny_photo_b = multiworld.get_location("Foyer - Candy Wrapper by Jenny Photo B", player)
+    self.set_rule(foyer_candy_jenny_photo_b, has_copter_f_ladder)
+
+    foyer_soda_on_shelf= multiworld.get_location("Foyer - Soda Can on Shelf", player)
+    self.set_rule(foyer_soda_on_shelf, has_copter_f_ladder)
+
+    foyer_spaceship_shelf_a = multiworld.get_location("Foyer - Candy Wrapper by Spaceship Shelf A", player)
+    self.set_rule(foyer_spaceship_shelf_a, has_copter_f_ladder)
+
+    foyer_spaceship_shelf_b = multiworld.get_location("Foyer - Candy Wrapper by Spaceship Shelf B", player)
+    self.set_rule(foyer_spaceship_shelf_b, has_copter_f_ladder)
+
+    foyer_spaceship_shelf_c = multiworld.get_location("Foyer - Candy Wrapper by Spaceship Shelf C", player)
+    self.set_rule(foyer_spaceship_shelf_c, has_copter_f_ladder)
+
+    foyer_upstairs_wastepaper_pdoor = multiworld.get_location("Foyer - Upstairs Wastepaper by Parents' Door", player)
+    self.set_rule(foyer_upstairs_wastepaper_pdoor, has_copter_f_ladder)
+
+    foyer_candy_wrapper_on_lower_shelf = multiworld.get_location("Foyer - Candy Wrapper on Lower Shelf by Entrance", player)
+    self.set_rule(foyer_candy_wrapper_on_lower_shelf, has_copter_f_ladder)
 
     can_get_toa_suit = HasAll("Dog Tags", mug, tooth_brush)
 
@@ -230,19 +304,19 @@ def set_location_rules(self) -> None:
     has_copter_stair_access = HasAll(copter, "Foyer Ladder", mug) | HasAll(copter, "Foyer Teleport", mug)
 
     jenny_yellow_crayon = multiworld.get_location("Jenny's Room - Yellow Crayon", player)
-    self.set_rule(has_copter_stair_access, jenny_yellow_crayon)
+    self.set_rule(jenny_yellow_crayon, has_copter_stair_access)
 
     jenny_purple_crayon = multiworld.get_location("Jenny's Room - Purple Crayon", player)
-    self.set_rule(has_copter_stair_access, jenny_purple_crayon)
+    self.set_rule(jenny_purple_crayon, has_copter_stair_access)
 
     jenny_frog_ring = multiworld.get_location("Jenny's Room - Frog Ring", player)
-    self.set_rule(has_copter_stair_access, jenny_frog_ring)
+    self.set_rule(jenny_frog_ring, has_copter_stair_access)
 
     jenny_green_block = multiworld.get_location("Jenny's Room - Green Block", player)
-    self.set_rule(has_copter_stair_access, jenny_green_block)
+    self.set_rule(jenny_green_block, has_copter_stair_access)
 
     jenny_snorkel = multiworld.get_location("Jenny's Room - Snorkel", player)
-    self.set_rule(has_copter_stair_access, jenny_snorkel)
+    self.set_rule(jenny_snorkel, has_copter_stair_access)
 
     # Bedroom
 
@@ -277,4 +351,3 @@ def set_location_rules(self) -> None:
 
     bedroom_pajama_suit = multiworld.get_location("Bedroom - Pajama Suit", player)
     self.set_rule(bedroom_pajama_suit, can_reach_pajama)
-

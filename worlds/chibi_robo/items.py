@@ -128,6 +128,15 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Pajamas Suit": ChibiRoboItemData("Suit", IC.progression, 63, 0x1e, "item_capsule_30", 1),
 
     "Old Clothes": ChibiRoboItemData("Item", IC.progression, 74, 0x1e, "", 1), # Object Name Gets Set In Function Based On Option
+
+    "Living Room - Kitchen Key": ChibiRoboItemData("Item", IC.progression, 78, None, "archipelago_item", 1, True),
+    "Living Room - Foyer Key": ChibiRoboItemData("Item", IC.progression, 79, None, "archipelago_item", 1, True),
+    # "Kitchen - Sink Drain Key": ChibiRoboItemData("Item", IC.progression, 82, None, "archipelago_item", 1, True),
+    "Kitchen - Foyer Key": ChibiRoboItemData("Item", IC.progression, 83, None, "archipelago_item", 1, True),
+    # "Foyer - Basement Key": ChibiRoboItemData("Item", IC.progression, 84, None, "archipelago_item", 1, True),
+    "Foyer - Jenny's Room Key": ChibiRoboItemData("Item", IC.progression, 85, None, "archipelago_item", 1, True),
+    "Foyer - Bedroom Key": ChibiRoboItemData("Item", IC.progression, 86, None, "archipelago_item", 1, True),
+
 }
 
 FILLER_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
@@ -233,6 +242,15 @@ item_name_groups = {
         "Living Room Frog Ring (Shelf)",
         "Kitchen Frog Ring (Table)",
         "Sink Drain Frog Ring",
+    },
+    "Keys": {
+        "Living Room - Kitchen Key",
+        "Living Room - Foyer Key",
+        # "Kitchen - Sink Drain Key",
+        "Kitchen - Foyer Key",
+        "Foyer - Basement Key",
+        "Foyer - Jenny's Room Key",
+        "Foyer - Bedroom Key",
     },
     "Misc": {
         "Red Brick",

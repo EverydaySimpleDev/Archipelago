@@ -29,7 +29,7 @@ def create_regions(multiworld: MultiWorld, player: int, options):
         "Staff Credits": ChibiRoboRegionData([], ["Staff Credits - Living Room"])
     }
 
-    # Living Room - 36 Locations
+    # Living Room - 37 Locations
     chibi_robo_regions["Living Room"].locations.append("Living Room - Frog Ring (Behind Window)")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Frog Ring (Corkboard)")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Frog Ring (Shelf)")
@@ -66,13 +66,14 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Living Room"].locations.append("Living Room - Couch Candy Bag")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Table Cookie Box A")
     chibi_robo_regions["Living Room"].locations.append("Living Room - Table Cookie Box B")
+    chibi_robo_regions["Living Room"].locations.append("Living Room - Toy receipt on coach")
 
     chibi_robo_regions["Living Room"].locations.append("Living Room - Drake Redcrest Suit")
 
     chibi_robo_regions["Chibi House"].locations.append("Chibi House - Trauma Suit")
     chibi_robo_regions["Chibi House"].locations.append("Chibi House - Ghost Suit")
 
-    # Kitchen - 21 Locations
+    # Kitchen - 22 Locations
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Mug Location")
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Spoon Location")
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Wastepaper by Foyer Door")
@@ -94,14 +95,37 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Table Candy Bag")
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Cookie Box by Spoon A")
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Cookie Box by Spoon B")
+    chibi_robo_regions["Kitchen"].locations.append("Kitchen - Wastepaper on Shelf by Toaster")
+    chibi_robo_regions["Kitchen"].locations.append("Kitchen - Cookie Crumbs under Counter")
 
     # Drain 1 Location
     chibi_robo_regions["Sink Drain"].locations.append("Sink Drain - Frog Ring")
 
-    # Foyer - 3 Locations
+    # Foyer - 19 Locations
     chibi_robo_regions["Foyer"].locations.append("Foyer - Free Rangers Photo")
     chibi_robo_regions["Foyer"].locations.append("Foyer - Waterfall Frog Ring")
     chibi_robo_regions["Foyer"].locations.append("Foyer - Red Block")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Wastepaper On Stairs")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper by Entrance")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper by Jenny Photo A")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper by Jenny Photo B")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Soda Can on Shelf")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper by Spaceship Shelf A")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper by Spaceship Shelf B")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper by Spaceship Shelf C")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper on Sofa A")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper on Sofa B")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper on Floor by Door")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Upstairs Wastepaper by Parents' Door")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Upstairs Wastepaper by stairs")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Upstairs Cookie Crumbs by stairs")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Upstairs Candy Wrapper by Parents' Door")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Upstairs Candy Wrapper by Jenny's Door A")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Upstairs Candy Wrapper by Jenny's Door B")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper on Sofa C")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper on Lower Shelf by Entrance")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Candy Wrapper on Stairs")
+    chibi_robo_regions["Foyer"].locations.append("Foyer - Upstairs Soda Can")
 
     chibi_robo_regions["Foyer"].locations.append("Foyer - Tao Suit")
 
@@ -136,7 +160,7 @@ def create_regions(multiworld: MultiWorld, player: int, options):
 
     chibi_robo_regions["Backyard"].locations.append("Backyard - Frog Suit")
 
-    # Jenny's Room - 42 Locations
+    # Jenny's Room - 43 Locations
     chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - AA Battery")
     chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - D Battery")
     chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - C Battery")
@@ -179,8 +203,9 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - Green Crayon")
     chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - Purple Crayon")
     chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - Green Block")
+    chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - Wastepaper under Bed E")
 
-    # Bedroom - 24 Locations
+    # Bedroom - 17 Locations
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - Dinahs Teeth")
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - Ticket Stub")
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - Passed Out Frog")
