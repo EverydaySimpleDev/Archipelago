@@ -278,6 +278,7 @@ item_name_groups = {
 }
 _simple_groups = {
     ("Frog Rings", "Frog Ring"),
+    ("Keys", "Key"),
     ("Chibi-Gear", "Chibi-Gear"),
     ("Crayons", "Crayon"),
     ("Battery's", "Battery"),
