@@ -28,7 +28,7 @@ from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 2, 3)
+VERSION: tuple[int, int, int] = (1, 2, 4)
 
 def launch_client():
     from . import client

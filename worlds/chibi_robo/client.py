@@ -63,9 +63,9 @@ HAPPY_POINTS_ADDR = 0x8038f73e
 # Sticker completion flags: name -> (address, 16-bit bitmask).
 # A sticker is earned when (read_short(address) & bitmask) == bitmask.
 STICKER_FLAGS = {
-    "Giga Robo":          (0x8036781c, 0x0008),
+    "Giga-Robo":          (0x8036781c, 0x0008),
     "Telly Vision":       (0x8036789a, 0x0100),
-    "Chibi Door":         (0x803678ac, 0x2000),
+    "Chibi - Door":       (0x803678ac, 0x2000),
     "Utilibot":           (0x80367846, 0x0002),
     "Frog Ring":          (0x803678e6, 0x1000),
     "Frog":               (0x8036786c, 0x0800),

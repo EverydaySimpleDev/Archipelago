@@ -1,4 +1,10 @@
 # Chibi Robo - Changelog
+## v1.2.3.1
+
+- Removed living room - foyer extra check for talking to drake redcrest
+- Client wasn't sending victory if the player had the 'chibi - door' or 'giga-robo' stickers set as part of victory
+- Added back some seeds to shop so players can get the funky sticker
+- Battery and timer now show back up when first starting the game
 
 ## v1.2.3 - Updated Patcher App / Suit Items / Gen Update
 
