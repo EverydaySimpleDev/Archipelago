@@ -1,796 +1,698 @@
+"""FFCC Archipelago client — connects to Dolphin via dolphin_memory_engine."""
+
 import asyncio
+import random
 import traceback
-import dolphin_memory_engine
-import time
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import Utils
-import websockets
-import functools
-from copy import deepcopy
-from typing import List, Any, Iterable, Any, Optional
-from NetUtils import decode, encode, JSONtoTextParser, JSONMessagePart, NetworkItem, NetworkPlayer, ClientStatus
-from MultiServer import Endpoint
-from CommonClient import CommonContext, gui_enabled, ClientCommandProcessor, logger, get_base_parser
-from .items import LOOKUP_ID_TO_NAME, ITEM_TABLE
-from .locations import LOCATION_TABLE, FFCCLocation, FFCCLocationData
+from CommonClient import CommonContext, ClientCommandProcessor, gui_enabled, logger, get_base_parser
+from NetUtils import ClientStatus
 
-DEBUG = True
+try:
+    import dolphin_memory_engine as dme
+    DOLPHIN_AVAILABLE = True
+except ImportError:
+    DOLPHIN_AVAILABLE = False
+    logger.warning("dolphin_memory_engine not installed — FFCC client will not function.")
 
-CONNECTION_REFUSED_GAME_STATUS = (
-    "Dolphin failed to connect. Please load a randomized ROM for Chibi Robo. Trying again in 5 seconds..."
-)
-CONNECTION_REFUSED_SAVE_STATUS = (
-    "Dolphin failed to connect. Please load into the save file. Trying again in 5 seconds..."
-)
-CONNECTION_LOST_STATUS = (
-    "Dolphin connection was lost. Please restart your emulator and make sure Chibi Robo is running."
-)
+from .game_id import game_name
+from .items import ITEM_TABLE, LOOKUP_ID_TO_NAME, PROGRESSIVE_ARTIFACT_ORDER, PROGRESSIVE_ARTIFACT_NAME
+from .locations import LOCATION_TABLE, FFCCLocationData
+
+# ── Expected game ID ───────────────────────────────────────────────────────────
+GAME_ID      = b"GCCE"     # FFCC NTSC-U 4-byte game code
+GAME_ID_ADDR = 0x80000000
+
+# ── Connection status strings ─────────────────────────────────────────────────
+CONNECTION_INITIAL_STATUS   = "Dolphin connection has not been initiated."
 CONNECTION_CONNECTED_STATUS = "Dolphin connected successfully."
-CONNECTION_INITIAL_STATUS = "Dolphin connection has not been initiated."
+CONNECTION_REFUSED_STATUS   = "Dolphin refused: wrong game loaded. Please load FFCC NTSC-U."
+CONNECTION_LOST_STATUS      = "Dolphin connection was lost. Please restart your emulator and ensure FFCC is running."
 
-# The expected index for the following item that should be received.
-# Saves over total times player has recharged that is no longer increased via patcher
-EXPECTED_INDEX_ADDR = 0x803686a6
+# ── World / dungeon state ──────────────────────────────────────────────────────
+ADDR_MAP_ID      = 0x8021de9b   # 1 byte: 0x00-0x0d = dungeon, others = not in dungeon
+ADDR_CURRENT_YEAR = 0x8021de93  # 1 byte: current caravan year (1=Year1, 2=Year2, ...)
+ADDR_WORLD_MAP   = 0x8021f25a   # 1 byte: 0x01 = on world map
+ADDR_PAUSED      = 0x8021f25b   # 1 byte: 0x01 = paused
 
-GIVE_ITEM_ARRAY_ADDR = 0x8038f778
+# Per-dungeon cycle address: map_id 0 → 0x8021deb3, map_id 1 → +4, etc.
+ADDR_CYCLE_BASE = 0x8021deb3   # 0x00=Cycle1, 0x01=Cycle2, 0x02=Cycle3
 
-CURRENT_INDEX_ADDR = 0
+# ── Player stats ───────────────────────────────────────────────────────────────
+ADDR_MAX_HEARTS = 0x8021f28b   # 1 byte
+ADDR_CUR_HEARTS = 0x8021f28d   # 1 byte (1 heart = 2 units; 0 = dead)
 
-# This address contains the current stage / room ID.
-CURR_STAGE_ID_ADDR = 0x8025f847
+# ── Status effects (2 bytes each; write any nonzero value to apply) ────────────
+ADDR_FROZEN     = 0x8021f2ae
+ADDR_BURNED     = 0x8021f2b0
+ADDR_POISONED   = 0x8021f2b2
+ADDR_PARALYZED  = 0x8021f2b6
+ADDR_SLOWED     = 0x8021f2be
 
-CURR_GAME_STATE = 0x8025df17
+# ── Inventory / items ──────────────────────────────────────────────────────────
+ADDR_ITEM_BAG   = 0x8021f33a   # material bag start (2 bytes per slot)
+ADDR_ARTIFACT   = 0x8021f3a6   # artifact bag start (2 bytes per slot)
+ADDR_GIL        = 0x8021f470   # 4 bytes BE
 
-# This address is used to check/set the player's battery
-CURR_BATTERY_ADDR = 0x8038f748
+# Number of 2-byte slots in the material bag (ADDR_ITEM_BAG → ADDR_ARTIFACT).
+ITEM_BAG_SLOTS      = (ADDR_ARTIFACT - ADDR_ITEM_BAG) // 2   # = 54
+# Number of 2-byte slots in the artifact bag (ADDR_ARTIFACT → ADDR_GIL).
+ARTIFACT_BAG_SLOTS  = (ADDR_GIL - ADDR_ARTIFACT) // 2        # = 101
+ITEM_SLOT_EMPTY = 0xffff  # sentinel for an empty inventory slot (confirmed via memory view)
 
-GC_GAME_ID_ADDRESS = 0x80000000
+# ── Chalice / bonus / food ─────────────────────────────────────────────────────
+ADDR_CHALICE    = 0x8021ef3e   # 1 byte: bit0=Fire,bit1=Water,bit2=Wind,bit3=Earth,bit4=Holy
+ADDR_BONUS      = 0x8021fe14   # 1 byte: 0x01–0x18
+ADDR_FOOD_BASE  = 0x8021f629   # 2 bytes × 8 foods (Striped Apple, Cherry Cluster, …)
 
-MOOLAH_ADDR = 0x8038f752
+# ── Chest bit flags (8 bytes, shared/reused per dungeon, cleared on dungeon exit) ─
+ADDR_CHEST_BASE = 0x80926000
 
-SCRAP_ADDR = 0X8038f756
+# ── Map ID → dungeon name ──────────────────────────────────────────────────────
+MAP_ID_TO_DUNGEON: Dict[int, str] = {
+    0x00: "River Belle Path",
+    0x01: "Goblin Wall",
+    0x02: "The Mine of Cathuriges",
+    0x03: "The Mushroom Forest",
+    0x04: "Tida",
+    0x05: "Moschet Manor",
+    0x06: "Mount Kilanda",
+    0x07: "Daemon's Court",
+    0x08: "Selepation Cave",
+    0x09: "Veo Lu Sluice",
+    0x0a: "Lynari Desert",
+    0x0b: "Conall Curach",
+    0x0c: "Rebena Te Ra",
+    0x0d: "Mount Vellenge",
+}
 
-HAPPY_POINTS_ADDR = 0x8038f73e
+# ── Chest bit flag positions per dungeon ───────────────────────────────────────
+# List of (byte_offset, bit_index) relative to ADDR_CHEST_BASE.
+# Order matches game8 chest number order for that dungeon.
+# NOTE: mapping is tentative — requires in-game testing to verify.
+# Dungeon flag-bit counts may not equal game8 chest counts; only the first
+# min(len(flags), len(chests)) pairs are used for AP location detection.
+DUNGEON_FLAG_BITS: Dict[str, List[Tuple[int, int]]] = {
+    "River Belle Path":       [(3,1),(3,3),(3,4),(3,6),(3,7),(3,5),(2,0)],  # re-verified in-game 2026-07-08 (previous order was wrong: 2/3/4/5/6 checks fired mismatched)
+    "Goblin Wall":            [(1,0),(2,1),(2,2),(2,3),(2,6),(2,7),(3,0),(3,1),(3,2),(3,3),(3,4)],
+    "The Mine of Cathuriges": [(1,4),(1,5),(1,6),(2,1),(2,2),(2,3),(2,4),(2,5),(2,6),(3,1),(3,2),(3,3),(3,4),(3,5)],
+    "The Mushroom Forest":    [(2,1),(3,1),(3,2),(3,3),(3,4)],
+    "Tida":                   [(1,0),(2,3),(2,4),(2,5),(2,7),(3,0),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
+    "Moschet Manor":          [(0,0),(1,3),(2,1),(2,6),(3,0),(3,1),(3,4)],
+    "Mount Kilanda":          [(2,2),(2,3),(2,4),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5)],
+    "Daemon's Court":         [(2,0),(2,1),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
+    "Selepation Cave":        [(2,2),(2,3),(2,4),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5),(3,6)],
+    "Veo Lu Sluice":          [(2,0),(2,1),(2,2),(2,3),(2,4),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
+    "Lynari Desert":          [(1,4),(1,5),(2,0),(2,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
+    "Conall Curach":          [(0,7),(1,0),(1,1),(1,2),(1,3),(1,4),(1,5),
+                               (2,3),(2,4),(2,5),(2,6),(2,7),
+                               (3,1),(3,4),(3,5),(3,6),(3,7),
+                               (7,0),(7,1),(7,2),(7,3),(7,4)],
+    "Rebena Te Ra":           [(0,6),(0,7),(1,4),(2,1),(2,2),(2,3),(2,4),
+                               (3,0),(3,1),(3,2),(7,0),(7,1),(7,2),(7,3),(7,4)],
+    "Mount Vellenge":         [(0,1),(0,2),(1,4),(1,6),(1,7),(2,0),
+                               (3,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
+}
 
-BASE_ITEM_ADDR = 0x80370000
+# game8 chest numbers per dungeon, per cycle (same identifiers as
+# locations._DUNGEON_CHESTS_BY_CYCLE — must be kept in sync with that table,
+# since these are used to reconstruct the exact AP location name strings).
+# Chest sets are NOT uniform across cycles for most dungeons; Mount Vellenge
+# has only one cycle and Veo Lu Sluice only has two.
+# NOTE: flag-bit order below is still tentative/unverified for every dungeon
+# except River Belle Path — expanding a dungeon's chest count here does not
+# mean the extra chests have verified flag-bit positions yet (see
+# DUNGEON_FLAG_BITS' `min(len(flags), len(chests))` truncation below).
+DUNGEON_CHESTS: Dict[str, Dict[int, List]] = {
+    "River Belle Path": {  # re-verified 2026-07-08 against DUNGEON_FLAG_BITS above
+        1: [1, 2, 3, 4, 5, 6, 7],
+        2: [1, 2, 3, 4, 5, 6, 7],
+        3: [1, 2, 3, 4, 5, 6, 7],
+    },
+    "Goblin Wall": {
+        1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14],
+        2: list(range(1, 15)),
+        3: list(range(1, 15)),
+    },
+    "The Mine of Cathuriges": {
+        1: [1, 2, 3, 4, 5, 12, 13, 14],
+        2: list(range(1, 15)),
+        3: list(range(1, 15)),
+    },
+    "The Mushroom Forest": {
+        1: [3, 5, 6, 7, 8],
+        2: list(range(1, 10)),
+        3: list(range(1, 10)),
+    },
+    "Moschet Manor": {
+        1: list(range(1, 8)),
+        2: list(range(1, 8)),
+        3: list(range(1, 8)),
+    },
+    "Veo Lu Sluice": {
+        1: [1, 2, 3, 4, 5],
+        2: list(range(1, 19)),
+    },
+    "Daemon's Court": {
+        1: list(range(1, 11)),
+        2: list(range(1, 11)),
+        3: list(range(1, 11)),
+    },
+    "Selepation Cave": {
+        1: list(range(1, 11)),
+        2: list(range(1, 11)),
+        3: list(range(1, 11)),
+    },
+    "Conall Curach": {
+        1: list(range(1, 23)),
+        2: list(range(1, 23)),
+        3: list(range(1, 23)),
+    },
+    "Rebena Te Ra": {
+        1: list(range(1, 16)),
+        2: list(range(1, 16)),
+        3: list(range(1, 16)),
+    },
+    "Mount Vellenge": {
+        1: list(range(1, 15)),
+    },
+    "Lynari Desert": {
+        1: list(range(1, 11)),
+        2: list(range(1, 11)),
+        3: list(range(1, 11)),
+    },
+    "Tida": {
+        1: list(range(1, 14)),
+        2: list(range(1, 14)),
+        3: list(range(1, 14)),
+    },
+    "Mount Kilanda": {
+        1: ["1/8", "2/5", 3, 4, "6/9", 7],
+        2: ["1/8", "2/5", 3, 4, "6/9", 7],
+        3: ["1/8", "2/5", 3, 4, "6/9", 7],
+    },
+}
 
-class ChibiRoboJSONToTextParser(JSONtoTextParser):
-    def _handle_color(self, node: JSONMessagePart):
-        return self._handle_text(node)  # No colors for the in-game text
+# Precompute: (dungeon, cycle, chest_index) → AP location name for fast lookup
+_BIT_INDEX_TO_LOCATION: Dict[Tuple[str, int, int], str] = {}
+for _dungeon, _cycles in DUNGEON_CHESTS.items():
+    for _cycle, _chests in _cycles.items():
+        for _idx, _chest in enumerate(_chests):
+            _loc_name = f"{_dungeon} - Cycle {_cycle} - Chest {_chest}"
+            _BIT_INDEX_TO_LOCATION[(_dungeon, _cycle, _idx)] = _loc_name
 
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _read_byte(addr: int) -> int:
+    return dme.read_bytes(addr, 1)[0]
+
+def _read_short(addr: int) -> int:
+    return int.from_bytes(dme.read_bytes(addr, 2), "big")
+
+def _read_int(addr: int) -> int:
+    return int.from_bytes(dme.read_bytes(addr, 4), "big")
+
+def _write_byte(addr: int, val: int) -> None:
+    dme.write_bytes(addr, val.to_bytes(1, "big"))
+
+def _write_short(addr: int, val: int) -> None:
+    dme.write_bytes(addr, val.to_bytes(2, "big"))
+
+def _read_game_id() -> bytes:
+    return dme.read_bytes(GAME_ID_ADDR, 4)
+
+def _is_in_dungeon() -> bool:
+    on_map = _read_byte(ADDR_WORLD_MAP)
+    return on_map == 0x00  # 0x01 = world map, 0x00 = in dungeon
+
+def _get_map_id() -> int:
+    return _read_byte(ADDR_MAP_ID)
+
+def _get_dungeon_cycle(map_id: int) -> int:
+    raw = _read_byte(ADDR_CYCLE_BASE + map_id * 4)
+    return raw + 1  # game stores 0/1/2; we want 1/2/3
+
+def _read_chest_flags() -> bytes:
+    return dme.read_bytes(ADDR_CHEST_BASE, 8)
+
+def _force_chest_flag(byte_offset: int, bit_index: int) -> None:
+    addr = ADDR_CHEST_BASE + byte_offset
+    current = _read_byte(addr)
+    _write_byte(addr, current | (1 << bit_index))
+
+def _get_bit(data: bytes, byte_offset: int, bit_index: int) -> bool:
+    if byte_offset >= len(data):
+        return False
+    return bool((data[byte_offset] >> bit_index) & 1)
+
+def _find_free_item_slot() -> Optional[int]:
+    """Return the address of the first empty (0xffff) material bag slot, or None if full."""
+    for i in range(ITEM_BAG_SLOTS):
+        addr = ADDR_ITEM_BAG + i * 2
+        if _read_short(addr) == ITEM_SLOT_EMPTY:
+            return addr
+    return None
+
+def _find_free_artifact_slot() -> Optional[int]:
+    """Return the address of the first empty (0xffff) artifact bag slot, or None if full."""
+    for i in range(ARTIFACT_BAG_SLOTS):
+        addr = ADDR_ARTIFACT + i * 2
+        if _read_short(addr) == ITEM_SLOT_EMPTY:
+            return addr
+    return None
+
+# ── Command processor ──────────────────────────────────────────────────────────
 
 class FFCCCommandProcessor(ClientCommandProcessor):
-    def __init__(self, ctx: CommonContext):
-        """
-        Initialize the command processor with the provided context.
-
-        :param ctx: Context for the client.
-        """
-        super().__init__(ctx)
-
     def _cmd_dolphin(self) -> None:
-        """
-        Display the current Dolphin emulator connection status.
-        """
+        """Show Dolphin connection status."""
         if isinstance(self.ctx, FFCCContext):
-            logger.info(f"Dolphin Status: {self.ctx.dolphin_status}")
-            return
+            logger.info(f"Dolphin status: {self.ctx.dolphin_status}")
 
+
+# ── Client context ─────────────────────────────────────────────────────────────
 
 class FFCCContext(CommonContext):
     command_processor = FFCCCommandProcessor
-    game = "Final Fantasy Crystal Chronicles"
-    items_handling: int = 0b111
-    len_give_item_array: int = 0x272
-    items_received = []
-    victory: int
+    game              = game_name
+    items_handling    = 0b111  # full remote items
 
     def __init__(self, server_address: Optional[str], password: Optional[str]) -> None:
         super().__init__(server_address, password)
-        self.dolphin_sync_task: Optional[asyncio.Task[None]] = None
-        self.dolphin_status: str = CONNECTION_INITIAL_STATUS
-        self.awaiting_rom: bool = False
-        self.has_send_death: bool = False
+        self.dolphin_status:   str = CONNECTION_INITIAL_STATUS
+        self.dolphin_sync_task: Optional[asyncio.Task] = None
+        self.has_sent_death:   bool = False
 
-        self.proxy = None
-        self.proxy_task = None
-        self.gamejsontotext = FFCCJSONToTextParser(self)
-        self.autoreconnect_task = None
-        self.endpoint = None
-        self.room_info = None
-        self.connected_msg = None
-        self.game_connected = False
-        self.awaiting_info = False
-        self.full_inventory: List[Any] = []
-        self.server_msgs: List[Any] = []
+        # Game state
+        self.current_dungeon:  Optional[str] = None
+        self.current_cycle:    int = 1
+        self.current_year:     Optional[int] = None
+        self.prev_chest_flags: bytes = bytes(8)
+        self.received_index:   int = 0  # items processed so far
 
-        self.current_stage_name: str = ""
-        self.curr_stage_pickup: int
+        # Settings loaded from slot_data
+        self.progressive_artifacts: bool = False
+        self.progressive_count:     int = 0   # how many progressive arts received
+        self.include_traps:         bool = True
+        self.trap_weights:          Dict[str, int] = {}
+        self.death_link_enabled:    bool = False
 
+        # AP location IDs where the hybrid patcher wrote the real item into the chest.
+        # The game engine gives those items on pickup, so we skip the memory-write
+        # when ReceivedItems delivers them to avoid a double-give.
+        self.physical_chest_ap_ids: Set[int] = set()
 
     async def server_auth(self, password_requested: bool = True) -> None:
         if password_requested and not self.password:
             await super().server_auth(password_requested)
-
         await self.get_username()
         await self.send_connect()
 
-    def get_chibi_robo_status(self) -> str:
-        if not self.is_proxy_connected():
-            return "Not connected to Chibi Robo"
-
-        return "Connected to Chibi Robo"
-
-    async def send_msgs_proxy(self, msgs: Iterable[dict]) -> bool:
-        """ `msgs` JSON serializable """
-        if not self.endpoint or not self.endpoint.socket.open or self.endpoint.socket.closed:
-            return False
-
-        if DEBUG:
-            logger.info(f"Outgoing message: {msgs}")
-
-        await self.endpoint.socket.send(msgs)
-        return True
-
-    async def disconnect(self, allow_autoreconnect: bool = False) -> None:
-        self.auth = None
-        self.current_stage_name = ""
-        await super().disconnect(allow_autoreconnect)
-
-    async def disconnect_proxy(self):
-        if self.endpoint and not self.endpoint.socket.closed:
-            await self.endpoint.socket.close()
-        if self.proxy_task is not None:
-            await self.proxy_task
-
-    def is_connected(self) -> bool:
-        return self.server and self.server.socket.open
-
-    def is_proxy_connected(self) -> bool:
-        return self.endpoint and self.endpoint.socket.open
-
-    def on_print_json(self, args: dict):
-        text = self.gamejsontotext(deepcopy(args["data"]))
-        msg = {"cmd": "PrintJSON", "data": [{"text": text}], "type": "Chat"}
-        self.server_msgs.append(encode([msg]))
-
-        if self.ui:
-            self.ui.print_json(args["data"])
-        else:
-            text = self.jsontotextparser(args["data"])
-            logger.info(text)
-
-    def update_items(self):
-        if not self.is_connected():
-            return
-
-        self.server_msgs.append(encode([{"cmd": "ReceivedItems", "index": 0, "items": self.full_inventory}]))
-
-    def on_package(self, cmd: str, args: dict):
-        ctx = FFCCContext
+    def on_package(self, cmd: str, args: dict) -> None:
         if cmd == "Connected":
+            slot_data = args.get("slot_data", {})
+            self.progressive_artifacts = bool(slot_data.get("progressive_artifacts", False))
+            self.include_traps         = bool(slot_data.get("include_traps", True))
+            self.trap_weights = {
+                "Frozen Trap":          slot_data.get("frozen_trap_weight", 2),
+                "Burned Trap":          slot_data.get("burned_trap_weight", 2),
+                "Slowed Trap":          slot_data.get("slowed_trap_weight", 2),
+                "Poisoned Trap":        slot_data.get("poisoned_trap_weight", 1),
+                "Chalice Element Trap": slot_data.get("chalice_element_trap_weight", 1),
+                "Bonus Set Trap":       slot_data.get("bonus_set_trap_weight", 1),
+                "Food Preference Trap": slot_data.get("food_preference_trap_weight", 1),
+            }
+            if slot_data.get("death_link"):
+                Utils.async_start(self.update_death_link(True))
+            self.physical_chest_ap_ids = set(slot_data.get("physical_chest_ap_ids", []))
+            if self.physical_chest_ap_ids:
+                logger.info(f"FFCC: Hybrid patch active — {len(self.physical_chest_ap_ids)} "
+                            f"chest(s) contain real items; client will skip those on receive.")
+        super().on_package(cmd, args)
 
-            json = args
-            if "slot_info" in json.keys():
-                json["slot_info"] = {}
-                ctx.victory = args["slot_data"]["victory_goal"]
-            if "death_link" in args["slot_data"]:
-                Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"])))
-            if "players" in json.keys():
-                me: NetworkPlayer
-                for n in json["players"]:
-                    if n.slot == json["slot"] and n.team == json["team"]:
-                        me = n
-                        break
-
-                json["players"] = [me]
-            if DEBUG:
-                print(json)
-            self.connected_msg = encode([json])
-            if self.awaiting_info:
-                self.server_msgs.append(self.room_info)
-                self.update_items()
-                self.awaiting_info = False
-
-        elif cmd == "RoomUpdate":
-            json = args
-            if "players" in json.keys():
-                json["players"] = []
-
-            self.server_msgs.append(encode(json))
-
-        elif cmd == "RoomInfo":
-            self.seed_name = args["seed_name"]
-            self.room_info = encode([args])
-        else:
-            if cmd != "PrintJSON":
-                self.server_msgs.append(encode([args]))
-
-    def on_deathlink(self, data: dict[str, Any]) -> None:
-        """
-        Handle a DeathLink event.
-
-        :param data: The data associated with the DeathLink event.
-        """
+    def on_deathlink(self, data: dict) -> None:
         super().on_deathlink(data)
-        _give_death(self)
+        if dme.is_hooked() and _is_in_dungeon():
+            logger.info("DeathLink received — killing player.")
+            _write_byte(ADDR_CUR_HEARTS, 0)
 
     def run_gui(self):
         from kvui import GameManager
 
-        class ChibiRoboManager(GameManager):
-            logging_pairs = [
-                ("Client", "Archipelago")
-            ]
-            base_title = "Archipelago Chibi Robo Client"
+        class FFCCManager(GameManager):
+            logging_pairs = [("Client", "Archipelago")]
+            base_title    = "Archipelago FFCC Client"
 
-        self.ui = ChibiRoboManager(self)
+        self.ui = FFCCManager(self)
         self.ui_task = asyncio.create_task(self.ui.async_run(), name="UI")
 
-def read_short(console_address: int) -> int:
-    """
-    Read a 2-byte short from Dolphin memory.
 
-    :param console_address: Address to read from.
-    :return: The value read from memory.
-    """
-    return int.from_bytes(dolphin_memory_engine.read_bytes(console_address, 2), byteorder="big")
+# ── Item giving ────────────────────────────────────────────────────────────────
 
-def read_4byte_short(console_address: int) -> int:
-    """
-    Read a 4-byte short from Dolphin memory.
-
-    :param console_address: Address to read from.
-    :return: The value read from memory.
-    """
-    return int.from_bytes(dolphin_memory_engine.read_bytes(console_address, 4), byteorder="big")
-
-def write_short(console_address: int, value: int) -> None:
-    """
-    Write a 2-byte short to Dolphin memory.
-
-    :param console_address: Address to write to.
-    :param value: Value to write.
-    """
-    dolphin_memory_engine.write_bytes(console_address, value.to_bytes(2, byteorder="big"))
-
-def write_4byte_short(console_address: int, value: int) -> None:
-    """
-    Write a 4-byte short to Dolphin memory.
-
-    :param console_address: Address to write to.
-    :param value: Value to write.
-    """
-    dolphin_memory_engine.write_bytes(console_address, value.to_bytes(4, byteorder="big"))
-
-def write_8byte_short(console_address: int, value: int) -> None:
-    """
-    Write a 4-byte short to Dolphin memory.
-
-    :param console_address: Address to write to.
-    :param value: Value to write.
-    """
-    dolphin_memory_engine.write_bytes(console_address, value.to_bytes(8, byteorder="big"))
-
-def read_string(console_address: int, strlen: int) -> str:
-    """
-    Read a string from Dolphin memory.
-
-    :param console_address: Address to start reading from.
-    :param strlen: Length of the string to read.
-    :return: The string.
-    """
-
-    return dolphin_memory_engine.read_bytes(console_address, strlen).split(b"\0", 1)[0].decode()
-
-def _give_death(ctx: FFCCContext) -> None:
-    """
-    Trigger the player's death in-game by setting their current health to zero.
-
-    :param ctx: The client context.
-    """
-    if (
-        ctx.slot is not None
-        and dolphin_memory_engine.is_hooked()
-        and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS
-        and check_ingame()
-    ):
-        ctx.has_send_death = True
-        write_short(CURR_BATTERY_ADDR, 0)
-
-async def check_death(ctx: FFCCContext) -> None:
-    """
-    Check if the player is currently dead in-game.
-    If DeathLink is on, notify the server of the player's death.
-
-    :return: `True` if the player is dead, otherwise `False`.
-    """
-    if ctx.slot is not None and check_ingame():
-        cur_battery = read_short(CURR_BATTERY_ADDR)
-        if cur_battery <= 0:
-            if not ctx.has_send_death and time.time() >= ctx.last_death_link + 3:
-                ctx.has_send_death = True
-                await ctx.send_death(ctx.player_names[ctx.slot] + " ran out of hearts.")
-        else:
-            ctx.has_send_death = False
-
-def _give_item(ctx: FFCCContext, item_name: str, player: int) -> bool:
-    """
-    Give an item to the player in-game.
-
-    :param ctx: The client context.
-    :param item_name: Name of the item to give.
-    :return: Whether the item was successfully given.
-    """
-
-    if not check_ingame() or dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
+def _give_item(ctx: FFCCContext, item_name: str) -> bool:
+    """Write an item to game memory. Returns True on success."""
+    if not dme.is_hooked() or not _is_in_dungeon():
         return False
 
-    item_id = ITEM_TABLE[item_name].item_id
-    is_special = ITEM_TABLE[item_name].special
-    IC = ITEM_TABLE[item_name].classification
-
-    # Loop through the item array, placing the item in an empty slot.
-    for idx in range(ctx.len_give_item_array):
-
-        item_slot = dolphin_memory_engine.read_bytes(GIVE_ITEM_ARRAY_ADDR + idx, 2)
-        current_item = dolphin_memory_engine.read_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1)
-
-        if item_name == "Giga Battery Charge":
-            # Make sure the giga battery doesn't go over 9000 otherwise player can't pick up the maxed battery
-            cur_charge = read_4byte_short(0x80367c4c)
-            if cur_charge < 9000:
-                write_4byte_short(0x80367c4c, cur_charge + 1000)
-                return True
-            else:
-                return True
-
-        elif item_name == "Max Battery Increase":
-
-            cur_max = read_4byte_short(0x8038f74a)
-            write_4byte_short(0x8038f74a, cur_max + 20)
-
-            return True
-
-        if ctx.slot == player:
-            if is_special:
-                dolphin_memory_engine.write_byte(item_id, 1)
-                return True
-            else:
-                return True
-
-        if item_slot == b'\xff\xff':
-
-            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx), 0x00)
-            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1, item_id)
-            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, 1)
-            return True
-
-        elif current_item == item_id and IC == 0:
-
-            # logger.info(hex(item_id))
-            # logger.info(hex(current_item))
-            # logger.info("Same Item: " + item_name)
-
-            current_item_qty = dolphin_memory_engine.read_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3) +1
-            dolphin_memory_engine.write_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 3, current_item_qty)
-            return True
-
-        elif is_special:
-                dolphin_memory_engine.write_byte(item_id, 1)
-                return True
-
-    # If unable to place the item in the array, return `False`.
-    return False
-
-def check_ingame() -> bool:
-    """
-    Check if the player is currently in-game.
-
-    :return: `True` if the player is in-game, otherwise `False`.
-    """
-
-    # logger.info(dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1))
-
-    return dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1) not in ["" , '\x00', '\x40', '\x07']
-
-async def give_items(ctx: FFCCContext) -> None:
-    """
-    Give the player all outstanding items they have yet to receive.
-
-    :param ctx: client context.
-
-    """
-
-    if check_ingame() and dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) != b"\x00\x00\x00\x0e":
-        expected_idx = read_short(EXPECTED_INDEX_ADDR)
-
-        # Check if there are new items.
-        received_items = ctx.items_received
-        if len(received_items) <= expected_idx:
-            # There are no new items.
-            return
-        # Loop through items to give.
-        for idx, item in enumerate(received_items[expected_idx:], start=expected_idx):
-
-            received_player = received_items[idx][2]
-
-            # Attempt to give the item and increment the expected index.
-            while not _give_item(ctx, LOOKUP_ID_TO_NAME[item.item], received_player):
-                await asyncio.sleep(0.01)
-
-            # Increment the expected index.
-            write_short(EXPECTED_INDEX_ADDR, idx + 1)
-
-async def check_locations(ctx: FFCCContext) -> None:
-    """
-    Iterate through all locations and check whether the player has checked each location.
-
-    Update the server with all newly checked locations since the last update. If the player has completed the goal,
-    notify the server.
-
-    :param ctx: The client context.
-    """
-    # We check which locations are currently checked on the current stage.
-    curr_stage_id = stage_hex_to_id()
-    ctx.curr_stage_pickup = read_4byte_short(EXPECTED_INDEX_ADDR)
-
-
-    if not ctx.finished_game:
-
-        if ctx.victory == 1: # Activating Giga Robo = completing game
-            activated_giga = read_4byte_short(0x803684ae)
-
-            if activated_giga == 65536:
-                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                ctx.finished_game = True
-                logger.info("Congratulations, you have completed the game!")
-        else:
-            if curr_stage_id == 9:  # end credits = completing game
-                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                ctx.finished_game = True
-                logger.info("Congratulations, you have completed the game!")
-
-
-
-
-    for location, data in LOCATION_TABLE.items():
-
-        checked = check_location(ctx, curr_stage_id, location, data)
-
-        if checked:
-            ctx.locations_checked.add(ChibiRoboLocation.get_apid(data.code))
-
-    locations_checked = ctx.locations_checked.difference(ctx.checked_locations)
-    if locations_checked:
-        await ctx.send_msgs([{"cmd": "LocationChecks", "locations": locations_checked}])
-
-
-def check_location(ctx: FFCCContext, curr_stage_id: int, name: str, data: ChibiRoboLocationData) -> bool:
-    """
-    Check that the player has checked a given location.
-    This function handles locations that only require checking that a particular bit is set.
-
-    The check looks at the saved data for the stage at which the location is located and the data for the current stage.
-    In the latter case, this data includes data that has not yet been written to the saved data.
-
-    :param ctx: The client context.
-    :param curr_stage_id: The current stage at which the player is.
-    :param data: The data associated with the location.
-    :raises NotImplementedError: If a location with an unknown type is provided.
-    """
-    checked = False
-
-    # If the location is in the current stage, check the bitfields for the current stage as well.
-    if not checked and curr_stage_id == data.stage_id:
-
-        if data.address:
-
-            location_addr = hex(BASE_ITEM_ADDR + data.address)
-
-            location_value = dolphin_memory_engine.read_bytes(int( location_addr, 16), 4)
-
-            checked = bool( (int.from_bytes(location_value, byteorder='little') >> data.bit) & 1)
-
-    return checked
-
-def stage_hex_to_name() -> str:
-    stage_value = dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 1)
-
-    if stage_value == b"\x0e":
-        return "Menu"
-    elif stage_value == b"\x01":
-        return "Kitchen"
-    elif stage_value == b"\x02":
-        return "Foyer"
-    elif stage_value == b"\x03":
-        return "Basement"
-    elif stage_value == b"\x04":
-        return "Jenny's Room"
-    elif stage_value == b"\x05":
-        return "Chibi House"
-    elif stage_value == b"\x06":
-        return "Bedroom"
-    elif stage_value == b"\x07":
-        return "Living Room"
-    elif stage_value == b"\x08" or stage_value == b"\t":
-        return "Backyard"
-    elif stage_value == b"\x0a":
-        return "Staff Credits"
-    elif stage_value == b"\x0b":
-        return "Sink Drain"
-    elif stage_value == b"\x0e":
-        return "Living Room (Birthday)"
-    elif stage_value == b"\x10":
-        return "UFO"
-    elif stage_value == b"\x12":
-        return "Bedroom (Past)"
-    elif stage_value == b"\x16":
-        return "Mother Spider Boss"
-    elif stage_value == b"\x0a":
-        return "Ending Credits"
-
-    return "Could Not Find Room / Stage Name"
-
-def stage_hex_to_id() -> int:
-
-    stage_value = dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 1)
-
-    if  stage_value == b"\x0e":
-        return 0 # 'Menu'
-    elif stage_value == b"\x01":
-        return 1 # "Kitchen"
-    elif stage_value == b"\x02":
-        return 2 #"Foyer"
-    elif stage_value == b"\x03":
-        return 3 #"Basement"
-    elif stage_value == b"\x04":
-        return 4 #"Jenny's Room"
-    elif stage_value == b"\x05":
-        return 5 #"Chibi House"
-    elif stage_value == b"\x06":
-        return 6 #"Bedroom"
-    elif stage_value == b"\x07":
-        return 7 #"Living Room"
-    elif stage_value == b"\x08" or stage_value == b"\t":
-        return 8 #"Backyard"
-    elif stage_value == b"\x0a":
-        return 9 #"Staff Credits"
-    elif stage_value == b"\x0b":
-        return 10 #"Sink Drain"
-    elif stage_value == b"\x0e":
-        return 11 #"Living Room (Birthday)"
-    elif stage_value == b"\x10":
-        return 12 #"UFO"
-    elif stage_value == b"\x12":
-        return 13 #"Bedroom (Past)"
-    elif stage_value == b"\x16":
-        return 14 #"Mother Spider Boss"
-    elif stage_value == b"\x0a":
-        return 15 #"Ending Credits"
-
-    return -1 #"Could Not Find Room / Stage Name"
-
-async def check_current_stage_changed(ctx: FFCCContext) -> None:
-    """
-    Check if the player has moved to a new stage.
-    If so, update all trackers with the new stage name.
-    If the stage has never been visited, additionally update the server.
-
-    :param ctx: client context.
-    """
-
-    new_stage_name = stage_hex_to_name()
-
-    current_stage_name = ctx.current_stage_name
-
-    if new_stage_name != current_stage_name:
-        # logger.info(current_stage_name + ' -> ' + new_stage_name)
-        ctx.current_stage_name = new_stage_name
-        # Send a Bounced message containing the new stage name to all trackers connected to the current slot.
-        data_to_send = {"chibi_robo_stage_name": new_stage_name}
-        message = {
-            "cmd": "Bounce",
-            "slots": [ctx.slot],
-            "data": data_to_send,
-        }
-        await ctx.send_msgs([message])
-
-async def check_alive() -> bool:
-    """
-    Check if the player is currently alive in-game.
-
-    :return: `True` if the player is alive, otherwise `False`.
-    """
-    cur_health = read_short(CURR_BATTERY_ADDR)
-
-    # logger.info(cur_health)
-
-    return cur_health > 0
-
+    data = ITEM_TABLE.get(item_name)
+    if not data:
+        logger.warning(f"Unknown item: {item_name!r}")
+        return True  # skip unknown items
+
+    if data.type == "Trap":
+        _apply_trap(ctx, item_name)
+        return True
+
+    if item_name == PROGRESSIVE_ARTIFACT_NAME:
+        if ctx.progressive_count < len(PROGRESSIVE_ARTIFACT_ORDER):
+            art_id = PROGRESSIVE_ARTIFACT_ORDER[ctx.progressive_count]
+            if not _give_artifact(art_id):
+                return False  # bag full, retry next tick
+            ctx.progressive_count += 1
+        return True
+
+    if data.item_id is None:
+        return True
+
+    if data.type == "Artifact":
+        return _give_artifact(data.item_id)  # False if bag full → retry
+
+    # Materials, Food, Recipes, Magicite, Phoenix Down — find a free bag slot.
+    # Empty slots are 0xffff; never overwrite an occupied slot.
+    addr = _find_free_item_slot()
+    if addr is None:
+        logger.warning("FFCC: Item bag is full — cannot deliver item, will retry.")
+        return False  # retry on next tick
+    _write_short(addr, data.item_id)
+    return True
+
+
+def _give_artifact(artifact_id: int) -> bool:
+    """Write an artifact item ID into the first empty artifact bag slot.
+    Returns False if the bag is full (caller should retry next tick)."""
+    addr = _find_free_artifact_slot()
+    if addr is None:
+        logger.warning("FFCC: Artifact bag is full — cannot deliver artifact, will retry.")
+        return False
+    _write_short(addr, artifact_id)
+    return True
+
+
+def _apply_trap(ctx: FFCCContext, trap_name: str) -> None:
+    """Apply a trap effect to the player."""
+    if trap_name == "Frozen Trap":
+        _write_short(ADDR_FROZEN, 0x012c)       # ~3 seconds of frozen
+    elif trap_name == "Burned Trap":
+        _write_short(ADDR_BURNED, 0x012c)
+    elif trap_name == "Slowed Trap":
+        _write_short(ADDR_SLOWED, 0x012c)
+    elif trap_name == "Poisoned Trap":
+        _write_short(ADDR_POISONED, 0x012c)
+    elif trap_name == "Chalice Element Trap":
+        elements = [0x01, 0x02, 0x04, 0x08, 0x10]  # Fire,Water,Wind,Earth,Holy
+        current  = _read_byte(ADDR_CHALICE)
+        choices  = [e for e in elements if e != current] or elements
+        _write_byte(ADDR_CHALICE, random.choice(choices))
+    elif trap_name == "Bonus Set Trap":
+        # Randomize bonus set (0x01–0x18 = 24 possible bonuses)
+        _write_byte(ADDR_BONUS, random.randint(1, 0x18))
+    elif trap_name == "Food Preference Trap":
+        # Scramble all 8 food favorite values (2 bytes each, 0x00–0x64)
+        for i in range(8):
+            _write_short(ADDR_FOOD_BASE + i * 2, random.randint(0, 0x64))
+
+
+# ── Chest detection ────────────────────────────────────────────────────────────
+
+def _find_new_chest_locations(dungeon: str, cycle: int,
+                               prev: bytes, curr: bytes) -> List[str]:
+    """Return AP location names for chest bits that flipped 0→1."""
+    flags  = DUNGEON_FLAG_BITS.get(dungeon, [])
+    chests = DUNGEON_CHESTS.get(dungeon, {}).get(cycle, [])
+    count  = min(len(flags), len(chests))
+    found  = []
+    known  = set(flags)
+    for idx in range(count):
+        byte_off, bit_idx = flags[idx]
+        was_set = _get_bit(prev, byte_off, bit_idx)
+        now_set = _get_bit(curr, byte_off, bit_idx)
+        if not was_set and now_set:
+            loc_name = _BIT_INDEX_TO_LOCATION.get((dungeon, cycle, idx))
+            # Debug line: lets us verify that each flag bit matches the right chest.
+            # Enable DEBUG logging to see this (e.g. run client with --loglevel debug).
+            logger.info(f"FFCC: Chest flag (byte={byte_off}, bit={bit_idx}) → {loc_name!r}")
+            if loc_name and loc_name in LOCATION_TABLE:
+                found.append(loc_name)
+    # Catch any bit flips not yet in our mapping — helps during verification runs.
+    for byte_off in range(8):
+        for bit_idx in range(8):
+            if (byte_off, bit_idx) not in known:
+                if not _get_bit(prev, byte_off, bit_idx) and _get_bit(curr, byte_off, bit_idx):
+                    logger.info(f"FFCC: Unmapped chest flag bit flipped: "
+                                 f"byte={byte_off}, bit={bit_idx} in {dungeon!r}")
+    return found
+
+
+def _restore_sent_chest_bits(dungeon: str, cycle: int,
+                              checked_locs: Set[int]) -> None:
+    """Force chest bits for already-checked locations so chests appear open on re-entry."""
+    flags  = DUNGEON_FLAG_BITS.get(dungeon, [])
+    chests = DUNGEON_CHESTS.get(dungeon, {}).get(cycle, [])
+    count  = min(len(flags), len(chests))
+    for idx in range(count):
+        loc_name = _BIT_INDEX_TO_LOCATION.get((dungeon, cycle, idx))
+        if not loc_name:
+            continue
+        loc_data = LOCATION_TABLE.get(loc_name)
+        if not loc_data:
+            continue
+        ap_id = FFCCLocationData.code  # we need the apid, not raw code
+        from .locations import FFCCLocation
+        ap_id = FFCCLocation.get_apid(loc_data.code)
+        if ap_id in checked_locs:
+            byte_off, bit_idx = flags[idx]
+            _force_chest_flag(byte_off, bit_idx)
+
+
+# ── Death detection ────────────────────────────────────────────────────────────
+
+async def _check_death(ctx: FFCCContext) -> None:
+    if not ctx.slot or not _is_in_dungeon():
+        return
+    cur_hearts = _read_byte(ADDR_CUR_HEARTS)
+    if cur_hearts == 0:
+        if not ctx.has_sent_death:
+            ctx.has_sent_death = True
+            await ctx.send_death(f"{ctx.player_names[ctx.slot]} ran out of hearts.")
+    else:
+        ctx.has_sent_death = False
+
+
+# ── Main sync loop ─────────────────────────────────────────────────────────────
 
 async def dolphin_sync_task(ctx: FFCCContext) -> None:
-    """
-    The task loop for managing the connection to Dolphin.
-
-    While connected, read the emulator's memory to look for any relevant changes made by the player in the game.
-
-    :param ctx: The client context.
-    """
-    logger.info("Starting Dolphin connector. Use /dolphin for status information.")
-    sleep_time = 0.0
+    logger.info("FFCC: Starting Dolphin connector. Use /dolphin for status.")
     while not ctx.exit_event.is_set():
-        if sleep_time > 0.0:
-            try:
-                # ctx.watcher_event gets set when receiving ReceivedItems or LocationInfo, or when shutting down.
-                await asyncio.wait_for(ctx.watcher_event.wait(), sleep_time)
-            except asyncio.TimeoutError:
-                pass
-            sleep_time = 0.0
-        ctx.watcher_event.clear()
-
+        await asyncio.sleep(0.1)
         try:
-            if dolphin_memory_engine.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
-                if not check_ingame():
-                    # Reset the give item array while not in the game.
-                    dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, bytes([0xFF] * ctx.len_give_item_array))
-                    dolphin_memory_engine.write_bytes(GIVE_ITEM_ARRAY_ADDR, bytes([0xFF] * ctx.len_give_item_array))
-                    sleep_time = 0.1
+            if dme.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
+                # ── Connected — run game logic ────────────────────────────────
+                if ctx.slot is None:
                     continue
-                if ctx.slot is not None:
-                    if "DeathLink" in ctx.tags:
-                        await check_death(ctx)
 
-                    await give_items(ctx)
-                    await check_locations(ctx)
-                    await check_current_stage_changed(ctx)
-                else:
-                    if ctx.awaiting_rom:
-                        await ctx.server_auth()
-                sleep_time = 0.1
+                in_dungeon = _is_in_dungeon()
+
+                # Year advancement — monitor on world map and in dungeon.
+                # Year advances when the caravan returns home after filling the chalice,
+                # which happens on the world map. We check every tick so we don't miss it.
+                year = _read_byte(ADDR_CURRENT_YEAR)
+                if year != ctx.current_year:
+                    old_year = ctx.current_year
+                    ctx.current_year = year
+                    if old_year is not None and year > old_year:
+                        from .locations import FFCCLocation
+                        for y in range(old_year + 1, year + 1):
+                            year_loc_name = f"Year {y} Begins"
+                            year_loc_data = LOCATION_TABLE.get(year_loc_name)
+                            if year_loc_data:
+                                ap_id = FFCCLocation.get_apid(year_loc_data.code)
+                                if ap_id not in ctx.checked_locations:
+                                    await ctx.send_msgs([{"cmd": "LocationChecks",
+                                                          "locations": [ap_id]}])
+                                    logger.info(f"FFCC: Year advancement — Year {y} has begun")
+
+                if not in_dungeon:
+                    ctx.current_dungeon  = None
+                    ctx.prev_chest_flags = bytes(8)
+                    continue
+
+                map_id  = _get_map_id()
+                dungeon = MAP_ID_TO_DUNGEON.get(map_id)
+                if dungeon is None:
+                    continue
+
+                cycle = _get_dungeon_cycle(map_id)
+                if dungeon == "Mount Vellenge":
+                    cycle = 1  # single-cycle dungeon
+                elif dungeon == "Veo Lu Sluice":
+                    cycle = min(cycle, 2)  # only 2 distinct cycles; drained state persists after
+
+                just_entered = (dungeon != ctx.current_dungeon or cycle != ctx.current_cycle)
+                if just_entered:
+                    ctx.current_dungeon  = dungeon
+                    ctx.current_cycle    = cycle
+                    ctx.prev_chest_flags = bytes(8)
+                    _restore_sent_chest_bits(dungeon, cycle, ctx.checked_locations)
+                    logger.info(f"FFCC: Entered {dungeon} — Cycle {cycle}")
+                    if cycle >= 2:
+                        cycle_loc_name = f"{dungeon} - Cycle {cycle} Reached"
+                        cycle_loc_data = LOCATION_TABLE.get(cycle_loc_name)
+                        if cycle_loc_data:
+                            ap_id = 2326528 + cycle_loc_data.code
+                            if ap_id not in ctx.checked_locations:
+                                await ctx.send_msgs([{"cmd": "LocationChecks", "locations": [ap_id]}])
+                                logger.info(f"FFCC: Cycle advancement — {cycle_loc_name}")
+
+                # ── Check for newly opened chests ─────────────────────────────
+                curr_flags = _read_chest_flags()
+                new_locs   = _find_new_chest_locations(dungeon, cycle,
+                                                        ctx.prev_chest_flags, curr_flags)
+                ctx.prev_chest_flags = curr_flags
+
+                if new_locs:
+                    ap_ids = []
+                    for loc_name in new_locs:
+                        loc_data = LOCATION_TABLE.get(loc_name)
+                        if loc_data:
+                            from .locations import FFCCLocation
+                            ap_id = FFCCLocation.get_apid(loc_data.code)
+                            if ap_id not in ctx.checked_locations:
+                                ap_ids.append(ap_id)
+                                logger.info(f"FFCC: Chest opened — {loc_name}")
+                    if ap_ids:
+                        await ctx.send_msgs([{"cmd": "LocationChecks", "locations": ap_ids}])
+
+                # ── Process received items ────────────────────────────────────
+                if ctx.items_received:
+                    for idx in range(ctx.received_index, len(ctx.items_received)):
+                        network_item = ctx.items_received[idx]
+
+                        # Hybrid patch: item was physically placed in the chest and
+                        # given by the game engine on pickup — skip the memory-write.
+                        if network_item.location in ctx.physical_chest_ap_ids:
+                            ctx.received_index = idx + 1
+                            item_name = LOOKUP_ID_TO_NAME.get(network_item.item, "?")
+                            logger.info(f"FFCC: {item_name} already given by chest — skipping write")
+                            continue
+
+                        item_name = LOOKUP_ID_TO_NAME.get(network_item.item)
+                        if item_name:
+                            if _give_item(ctx, item_name):
+                                ctx.received_index = idx + 1
+                                item_data = ITEM_TABLE.get(item_name)
+                                if not item_data or item_data.type != "Placeholder":
+                                    logger.info(f"FFCC: Received {item_name}")
+                            else:
+                                break  # try again next tick
+
+                # ── DeathLink ─────────────────────────────────────────────────
+                if "DeathLink" in ctx.tags:
+                    await _check_death(ctx)
+
+                # ── Victory check ─────────────────────────────────────────────
+                if not ctx.finished_game:
+                    await _check_victory(ctx)
+
             else:
+                # ── Not connected — attempt to connect / reconnect ────────────
                 if ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
-                    logger.info("Connection to Dolphin lost, reconnecting...")
-                    ctx.dolphin_status = CONNECTION_LOST_STATUS
-                logger.info("Attempting to connect to Dolphin...")
-                dolphin_memory_engine.hook()
-                if dolphin_memory_engine.is_hooked():
-
-                    if dolphin_memory_engine.read_bytes(0x80000000, 6) != b"GGTE01":
-                        ctx.dolphin_status = CONNECTION_REFUSED_GAME_STATUS
-                        dolphin_memory_engine.un_hook()
-                        sleep_time = 5
-                    else:
-                        logger.info(CONNECTION_CONNECTED_STATUS)
-                        ctx.dolphin_status = CONNECTION_CONNECTED_STATUS
-                        ctx.locations_checked = set()
-
-                else:
-                    logger.info(ctx.dolphin_status)
-                    logger.info("Connection to Dolphin failed, attempting again in 5 seconds...")
-                    ctx.dolphin_status = CONNECTION_LOST_STATUS
-                    # reset_item_flag()
+                    logger.info("FFCC: Connection to Dolphin lost, reconnecting...")
+                    ctx.dolphin_status   = CONNECTION_LOST_STATUS
+                    ctx.current_dungeon  = None
+                    ctx.current_year     = None
+                    ctx.prev_chest_flags = bytes(8)
                     await ctx.disconnect()
-                    sleep_time = 5
+
+                dme.hook()
+                if not dme.is_hooked():
+                    logger.info("FFCC: Failed to connect to Dolphin, trying again in 5 seconds...")
+                    ctx.dolphin_status = CONNECTION_LOST_STATUS
+                    await ctx.disconnect()
+                    await asyncio.sleep(5)
                     continue
-        except Exception:
-            dolphin_memory_engine.un_hook()
-            logger.info("Connection to Dolphin failed, attempting again in 5 seconds...")
-            logger.error(traceback.format_exc())
-            ctx.dolphin_status = CONNECTION_LOST_STATUS
-            # reset_item_flag()
-            await ctx.disconnect()
-            sleep_time = 5
-            continue
 
-async def proxy(websocket, path: str = "/", ctx: FFCCContext = None):
-    ctx.endpoint = Endpoint(websocket)
-    try:
-        await on_client_connected(ctx)
-
-        if ctx.is_proxy_connected():
-            async for data in websocket:
-                if DEBUG:
-                    logger.info(f"Incoming message: {data}")
-
-                for msg in decode(data):
-                    if msg["cmd"] == "Connect":
-                        # Proxy is connecting, make sure it is valid
-                        if msg["game"] != "Chibi Robo":
-                            logger.info("Aborting proxy connection: game is not Chibi Robo")
-                            await ctx.disconnect_proxy()
+                # Verify game ID — retry a few times in case the game is still loading
+                game_id = None
+                for _attempt in range(5):
+                    try:
+                        game_id = _read_game_id()
+                        if game_id == GAME_ID:
                             break
+                    except Exception:
+                        game_id = None
+                    await asyncio.sleep(1)
+                if game_id != GAME_ID:
+                    logger.warning(
+                        f"FFCC: Wrong game loaded (read {game_id!r}, expected {GAME_ID!r}). "
+                        f"Please load FFCC NTSC-U in Dolphin."
+                    )
+                    ctx.dolphin_status = CONNECTION_REFUSED_STATUS
+                    dme.un_hook()
+                    await asyncio.sleep(5)
+                    continue
 
-                        if ctx.seed_name:
-                            seed_name = msg.get("seed_name", "")
-                            if seed_name != "" and seed_name != ctx.seed_name:
-                                logger.info("Aborting proxy connection: seed mismatch from save file")
-                                logger.info(f"Expected: {ctx.seed_name}, got: {seed_name}")
-                                text = encode([{"cmd": "PrintJSON",
-                                                "data": [{"text": "Connection aborted - save file to seed mismatch"}]}])
-                                await ctx.send_msgs_proxy(text)
-                                await ctx.disconnect_proxy()
-                                break
+                logger.info(CONNECTION_CONNECTED_STATUS)
+                ctx.dolphin_status   = CONNECTION_CONNECTED_STATUS
+                ctx.prev_chest_flags = bytes(8)
+                ctx.current_dungeon  = None
+                ctx.current_year     = None
 
-                        if ctx.auth:
-                            name = msg.get("name", "")
-                            if name != "" and name != ctx.auth:
-                                logger.info("Aborting proxy connection: player name mismatch from save file")
-                                logger.info(f"Expected: {ctx.auth}, got: {name}")
-                                text = encode([{"cmd": "PrintJSON",
-                                                "data": [{"text": "Connection aborted - player name mismatch"}]}])
-                                await ctx.send_msgs_proxy(text)
-                                await ctx.disconnect_proxy()
-                                break
-
-                        if ctx.connected_msg and ctx.is_connected():
-                            await ctx.send_msgs_proxy(ctx.connected_msg)
-                            ctx.update_items()
-                        continue
-
-                    if not ctx.is_proxy_connected():
-                        break
-
-                    await ctx.send_msgs([msg])
-
-    except Exception as e:
-        if not isinstance(e, websockets.WebSocketException):
-            logger.exception(e)
-    finally:
-        await ctx.disconnect_proxy()
+        except Exception:
+            logger.error(f"FFCC dolphin sync error:\n{traceback.format_exc()}")
+            if dme.is_hooked():
+                dme.un_hook()
+            ctx.dolphin_status   = CONNECTION_LOST_STATUS
+            ctx.current_dungeon  = None
+            ctx.current_year     = None
+            ctx.prev_chest_flags = bytes(8)
+            await ctx.disconnect()
+            await asyncio.sleep(5)
 
 
-async def on_client_connected(ctx: FFCCContext):
-    if ctx.room_info and ctx.is_connected():
-        await ctx.send_msgs_proxy(ctx.room_info)
-    else:
-        ctx.awaiting_info = True
+async def _check_victory(ctx: FFCCContext) -> None:
+    """Send goal completion when all Mount Vellenge locations are checked."""
+    mv_locs = [
+        name for name, data in LOCATION_TABLE.items()
+        if data.region == "Mount Vellenge"
+    ]
+    from .locations import FFCCLocation
+    mv_ap_ids = {FFCCLocation.get_apid(LOCATION_TABLE[n].code) for n in mv_locs}
+    if mv_ap_ids and mv_ap_ids.issubset(ctx.checked_locations):
+        await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+        ctx.finished_game = True
+        logger.info("FFCC: Goal complete — congratulations!")
 
 
-async def proxy_loop(ctx: FFCCContext):
-    try:
-        while not ctx.exit_event.is_set():
-            if len(ctx.server_msgs) > 0:
-                for msg in ctx.server_msgs:
-                    await ctx.send_msgs_proxy(msg)
+# ── Entry point ────────────────────────────────────────────────────────────────
 
-                ctx.server_msgs.clear()
-            await asyncio.sleep(0.1)
-    except Exception as e:
-        logger.exception(e)
-        logger.info("Aborting FFCC Proxy Client due to errors")
-
-
-def launch(*launch_args: str):
+def launch(*launch_args: str) -> None:
     async def main() -> None:
         parser = get_base_parser()
-        args = parser.parse_args(launch_args)
-
-        ctx = FFCCContext(args.connect, args.password)
-        logger.info("Starting Chibi Robo proxy server")
-        ctx.proxy = websockets.serve(functools.partial(proxy, ctx=ctx),
-                                     host="localhost", port=11311, ping_timeout=999999, ping_interval=999999)
-        ctx.proxy_task = asyncio.create_task(proxy_loop(ctx), name="ProxyLoop")
+        args   = parser.parse_args(launch_args)
+        ctx    = FFCCContext(args.connect, args.password)
 
         if gui_enabled:
             ctx.run_gui()
         ctx.run_cli()
 
         ctx.dolphin_sync_task = asyncio.create_task(dolphin_sync_task(ctx), name="DolphinSync")
-        ctx.watcher_event.set()
-        ctx.server_address = None
-        await ctx.shutdown()
+        await asyncio.gather(
+            ctx.dolphin_sync_task,
+            ctx.exit_event.wait(),
+        )
 
-        if ctx.dolphin_sync_task:
-            await ctx.dolphin_sync_task
-
-        await ctx.proxy
-        await ctx.proxy_task
-        await ctx.exit_event.wait()
-
-    Utils.init_logging("ChibiRoboClient")
-    # options = Utils.get_options()
-
+    Utils.init_logging("FFCCClient")
     import colorama
     colorama.just_fix_windows_console()
     asyncio.run(main())

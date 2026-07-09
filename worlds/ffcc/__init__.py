@@ -1,51 +1,48 @@
-# Python standard libraries
-import base64
 import io
-import logging
+import json
 import os
 import zipfile
-from base64 import b64encode
-from typing import List, Dict, Optional
-
-from typing import Any, ClassVar
-from logging import Logger
-import dolphin_memory_engine
-import yaml
-import json
+from typing import Any, ClassVar, Dict, List, Optional
 
 import Utils
-# Archipelago imports
+from BaseClasses import Item, ItemClassification, Tutorial, MultiWorld
 from worlds.AutoWorld import World, WebWorld
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths
-from BaseClasses import Item, ItemClassification, Tutorial, CollectionState, MultiWorld
-from .regions import create_regions, connect_entrances
-from .items import FFCCItem, ITEM_TABLE, item_name_groups, FFCCItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE
-from .locations import FFCCLocation, LOCATION_TABLE, location_groups, FFCCLocationData
-from .options import FFCCGameOptions, FFCC_option_groups
-from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
+
+from .game_id import game_name
+from .regions import create_regions, connect_entrances
+from .items import (FFCCItem, FFCCItemData, ITEM_TABLE, FILLER_ITEM_TABLE, TRAP_ITEMS,
+                    ITEM_TABLE_DESC, LOOKUP_ID_TO_NAME, item_name_groups,
+                    PROGRESSIVE_ARTIFACT_NAME, PROGRESSIVE_ARTIFACT_CODE, _ARTIFACTS,
+                    CYCLE_PLACEHOLDER_ITEM, YEAR_PLACEHOLDER_ITEM)
+from .locations import FFCCLocation, LOCATION_TABLE, location_groups
+from .options import FFCCGameOptions, FFCC_option_groups
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (0, 0, 0)
+VERSION: tuple = (0, 1, 0)
+
+IC = ItemClassification
+
 
 def launch_client():
     from . import client
     launch_subprocess(client.launch, name="FFCCClient")
 
 
-components.append(Component("Final Fantasy Crystal Chronicles Client",
-                            func=launch_client,
-                            component_type=Type.CLIENT,
-                            icon="FFCC_icon"))
+components.append(Component(
+    "Final Fantasy Crystal Chronicles Client",
+    func=launch_client,
+    component_type=Type.CLIENT,
+    icon="FFCC_icon",
+))
 
 icon_paths["FFCC_icon"] = f"ap:{__name__}/icons/FFCC_icon.png"
 
 class FFCCWebWorld(WebWorld):
     theme = "dirt"
-
     item_descriptions = ITEM_TABLE_DESC
-
-    bug_report_page = "https://github.com/EverydaySimpleDev/Archipelago",
+    bug_report_page = "https://github.com/EverydaySimpleDev/Archipelago"
 
     setup_en = Tutorial(
         tutorial_name="Start Guide",
@@ -53,95 +50,49 @@ class FFCCWebWorld(WebWorld):
         language="English",
         file_name="guide_en.md",
         link="guide/en",
-        authors=["EverydaySimpleDev"]
+        authors=["EverydaySimpleDev"],
     )
-
     tutorials = [setup_en]
-
     option_groups = FFCC_option_groups
 
-class FFCCContainer(APPlayerContainer):
-    """
-    This class defines the container file
-    """
 
-    game: str = "Final Fantasy Crystal Chronicles"
+class FFCCContainer(APPlayerContainer):
+    game: str = game_name
     patch_file_ending: str = ".zip"
 
-    def __init__(self, patch_data: Dict[str, str] | io.BytesIO, base_path: str = "", output_directory: str = "",
-                 player: Optional[int] = None, player_name: str = "", server: str = ""):
+    def __init__(self, patch_data: Dict[str, str], base_path: str = "",
+                 output_directory: str = "", player: Optional[int] = None,
+                 player_name: str = "", server: str = ""):
         self.patch_data = patch_data
         self.file_path = base_path
         container_path = os.path.join(output_directory, base_path + ".zip")
         super().__init__(container_path, player, player_name, server)
 
     def write_contents(self, opened_zipfile: zipfile.ZipFile) -> None:
-        for filename, yml in self.patch_data.items():
-            opened_zipfile.writestr(filename, yml)
+        for filename, content in self.patch_data.items():
+            opened_zipfile.writestr(filename, content)
         super().write_contents(opened_zipfile)
 
 
 class FFCCWorld(World):
-    dolphin: dolphin_memory_engine
-    logger: Logger
-
     game = "Final Fantasy Crystal Chronicles"
-    web = FFCCWebWorld()
-    # options_dataclass = FFCCGameOptions
-    # options: FFCCGameOptions
+    web  = FFCCWebWorld()
+    options_dataclass = FFCCGameOptions
+    options: FFCCGameOptions
     topology_present = True
 
-    plando_locations: Dict[str, str]
-
-    item_name_to_id: ClassVar[dict[str, int]] = {
-        name: FFCCItem.get_apid(data.code) for name, data in ITEM_TABLE.items() if data.code is not None
+    item_name_to_id: ClassVar[dict] = {
+        name: FFCCItem.get_apid(data.code)
+        for name, data in ITEM_TABLE.items()
+        if data.code is not None
     }
-
-    location_name_to_id: ClassVar[dict[str, int]] = {
-        name: FFCCLocation.get_apid(data.code) for name, data in LOCATION_TABLE.items() if data.code is not None
+    location_name_to_id: ClassVar[dict] = {
+        name: FFCCLocation.get_apid(data.code)
+        for name, data in LOCATION_TABLE.items()
+        if data.code is not None
     }
-
-    item_name_groups: ClassVar[dict[str, set[str]]] = item_name_groups
-    location_name_groups: ClassVar[dict[str, set[str]]] = location_groups
-
-    @staticmethod
-    def _get_classification_name(classification: IC) -> str:
-        """
-        Return a string representation of the item's highest-order classification.
-
-        :param classification: The item's classification.
-        :return: A string representation of the item's highest classification.
-        """
-
-        if IC.progression in classification:
-            return "progression"
-        elif IC.useful in classification:
-            return "useful"
-        else:
-            return "filler"
-
-    @staticmethod
-    def _get_object_name(name: str, self, item_for_player) -> str:
-        """
-        Return the items object name
-        """
-
-        if name in ITEM_TABLE and self == item_for_player:
-            return ITEM_TABLE[name].object_name
-        else:
-            return "archipelago_item"
-        # raise KeyError(f"Invalid item name: {name}")
-
-    @staticmethod
-    def _get_location_object_id(name: str) -> int:
-        """
-        Return the items object name
-        """
-
-        if name in LOCATION_TABLE:
-            return LOCATION_TABLE[name].object_id
-
-        raise KeyError(f"Could not find location id")
+    item_name_groups:    ClassVar[dict] = item_name_groups
+    location_name_groups: ClassVar[dict] = location_groups
 
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
@@ -151,133 +102,165 @@ class FFCCWorld(World):
         set_rules(self)
 
     def get_filler_item_name(self) -> str:
-        filler = list(FILLER_ITEM_TABLE.keys())
-        return self.multiworld.random.choice(filler)
-
+        return self.random.choice(list(FILLER_ITEM_TABLE.keys()))
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        return self.options.as_dict( "victory_goal")
-
-    def generate_output(self, output_directory: str) -> None:
-        """
-        Create the output file that is used to randomize the ISO.
-        """
-        multiworld = self.multiworld
-        player = self.player
-
-        output_data = {
-            "Version": list(VERSION),
-            "Seed": multiworld.seed_name,
-            "Slot": player,
-            "Name": self.player_name,
-            "Locations": {}
-        }
-
-         # Output which item has been placed at each location.
-        output_locations = output_data["Locations"]
-        for location in multiworld.get_locations(player):
-
-            if location.item:
-                item_info = {
-                    "player": multiworld.player_name[location.item.player],
-                    "name": location.item.name,
-                    # "game": location.item.game,
-                    "classification": self._get_classification_name(location.item.classification),
-                    "object": self._get_object_name(location.item.name, self.player, location.item.player),
-                    "location_id": self._get_location_object_id(location.name),
-                }
-            else:
-                item_info = {"name": "Nothing", "game": "Final Fantasy Crystal Chronicles", "classification": "filler"}
-            output_locations[location.name] = item_info
-
-        output_data.update(self.options.as_dict( "victory_goal"))
-
-        mod_name = f"AP-{self.multiworld.seed_name}-P{self.player}-{self.multiworld.get_file_safe_player_name(self.player)}"
-        mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
-
-        files = {
-            f"AP-{multiworld.seed_name}-P{player}-{multiworld.get_file_safe_player_name(player)}.ffcc": json.dumps(output_data),
-        }
-
-        ffcc = FFCCContainer(
-            files,
-            mod_dir,
-            output_directory,
-            self.player,
-            self.multiworld.get_file_safe_player_name(self.player)
+        data = self.options.as_dict(
+            "victory_goal", "progressive_artifacts", "include_traps",
+            "frozen_trap_weight", "burned_trap_weight", "slowed_trap_weight",
+            "poisoned_trap_weight", "chalice_element_trap_weight",
+            "bonus_set_trap_weight", "food_preference_trap_weight", "death_link",
         )
-        ffcc.write()
 
-    def generate_early(self) -> None:
-        self.plando_locations = dict()
+        # Locations where the item was placed physically in the chest (hybrid patch).
+        # These are own-player items with a real in-game ID; the client skips the
+        # memory-write for them to avoid giving the item a second time.
+        physical: List[int] = []
+        for location in self.multiworld.get_locations(self.player):
+            if not location.item or location.item.player != self.player:
+                continue
+            item_data = ITEM_TABLE.get(location.item.name)
+            if item_data and item_data.item_id is not None:
+                loc_data = LOCATION_TABLE.get(location.name)
+                if loc_data and not loc_data.is_event:
+                    physical.append(FFCCLocation.get_apid(loc_data.code))
+        data["physical_chest_ap_ids"] = physical
 
-
-    def get_pre_fill_items(self) -> List[Item]:
-        return [self.create_item(item)
-                for item in [*self.plando_locations.keys()]]
-
-    def pre_fill(self):
-        for location, item in self.plando_locations.items():
-            self.multiworld.get_location(location, self.player).place_locked_item(self.create_item(item))
+        return data
 
     def create_item(self, name: str) -> FFCCItem:
-        """
-        Create an item for this world type and player.
-
-        :param name: The name of the item to create.
-        :raises KeyError: If an invalid item name is provided.
-        """
-
         if name in ITEM_TABLE:
             return FFCCItem(name, self.player, ITEM_TABLE[name])
+        raise KeyError(f"Unknown FFCC item: {name!r}")
 
-        elif name in FILLER_ITEM_TABLE:
-            return FFCCItem(name, self.player, FILLER_ITEM_TABLE[name])
+    def create_items(self) -> None:
+        cycle_placeholder = ITEM_TABLE[CYCLE_PLACEHOLDER_ITEM]
+        year_placeholder  = ITEM_TABLE[YEAR_PLACEHOLDER_ITEM]
+        for name, loc_data in LOCATION_TABLE.items():
+            if not loc_data.is_event:
+                continue
+            loc = self.multiworld.get_location(name, self.player)
+            if loc_data.region == "Menu":
+                if not self.options.year_location_checks:
+                    loc.place_locked_item(
+                        FFCCItem(YEAR_PLACEHOLDER_ITEM, self.player, year_placeholder))
+            else:
+                if not self.options.cycle_location_checks:
+                    loc.place_locked_item(
+                        FFCCItem(CYCLE_PLACEHOLDER_ITEM, self.player, cycle_placeholder))
+        self.multiworld.itempool += _create_item_pool(self)
 
-        raise KeyError(f"Invalid item name: {name}")
+    def generate_output(self, output_directory: str) -> None:
+        multiworld = self.multiworld
+        player     = self.player
 
-    def create_items(self):
-      self.multiworld.itempool += create_itempool(self)
+        # Location → item placement data for the client / patcher
+        locations_out = {}
+        for location in multiworld.get_locations(player):
+            if location.item:
+                loc_data  = LOCATION_TABLE[location.name]
+                if loc_data.is_event:
+                    continue  # no physical chest — skip patcher output
+                item_data = ITEM_TABLE.get(location.item.name)
+                locations_out[location.name] = {
+                    "player":      multiworld.player_name[location.item.player],
+                    "item":        location.item.name,
+                    "item_id":     item_data.item_id if item_data else None,
+                    "class":       _cls_name(location.item.classification),
+                    "dungeon":     loc_data.region,
+                    "cycle":       loc_data.cycle,
+                    "game8_chest": loc_data.chest,
+                }
+
+        output_data = {
+            "version":  list(VERSION),
+            "seed":     multiworld.seed_name,
+            "slot":     player,
+            "player":   self.player_name,
+            "settings": self.options.as_dict(
+                "victory_goal", "progressive_artifacts", "include_traps",
+                "frozen_trap_weight", "burned_trap_weight", "slowed_trap_weight",
+                "poisoned_trap_weight", "chalice_element_trap_weight",
+                "bonus_set_trap_weight", "food_preference_trap_weight", "death_link",
+            ),
+            "locations": locations_out,
+        }
+
+        mod_name = (
+            f"AP-{multiworld.seed_name}"
+            f"-P{player}"
+            f"-{multiworld.get_file_safe_player_name(player)}"
+        )
+        mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
+        filename = f"{mod_name}.ffcc"
+
+        container = FFCCContainer(
+            {filename: json.dumps(output_data, indent=2)},
+            mod_dir,
+            output_directory,
+            player,
+            multiworld.get_file_safe_player_name(player),
+        )
+        container.write()
+
+def _cls_name(classification: IC) -> str:
+    if IC.progression in classification:
+        return "progression"
+    if IC.useful in classification:
+        return "useful"
+    if IC.trap in classification:
+        return "trap"
+    return "filler"
 
 
-    def collect(self, state: CollectionState, item: FFCCItem) -> bool:
-        change = super().collect(state, item)
-        return change
+def _create_item_pool(world: "FFCCWorld") -> List[Item]:
+    pool: List[Item] = []
+    use_progressive = bool(world.options.progressive_artifacts)
+    use_traps       = bool(world.options.include_traps)
 
-    def remove(self, state: CollectionState, item: FFCCItem) -> bool:
-        change = super().remove(state, item)
-        return change
+    for name, data in ITEM_TABLE.items():
+        if data.type in ("Trap", "Progressive Artifact", "Placeholder"):
+            continue  # handled separately below; Placeholders are pre-placed at event locs
+        if data.type == "Artifact" and use_progressive:
+            continue  # replaced by 73 × Progressive Artifact below
+        pool.append(FFCCItem(name, world.player, data))
 
-def create_itempool(world: "FFCCWorld") -> List[Item]:
-    itempool: List[Item] = []
+    # Add 73 copies of Progressive Artifact when that option is on
+    if use_progressive:
+        pa_data = ITEM_TABLE[PROGRESSIVE_ARTIFACT_NAME]
+        for _ in range(len(_ARTIFACTS)):
+            pool.append(FFCCItem(PROGRESSIVE_ARTIFACT_NAME, world.player, pa_data))
 
-    # total_locations = len(world.multiworld.get_unfilled_locations(world.player))
+    # Pad remaining slots with weighted filler (traps if enabled, food/phoenix otherwise)
+    unfilled = len(world.multiworld.get_unfilled_locations(world.player)) - len(pool)
+    if unfilled > 0:
+        filler_pool = _build_filler_choices(world, use_traps)
+        for _ in range(unfilled):
+            name = world.random.choice(filler_pool)
+            pool.append(FFCCItem(name, world.player, ITEM_TABLE[name]))
 
-    for name in ITEM_TABLE.keys():
-        item_type: ItemClassification = ITEM_TABLE.get(name).classification
-        itempool += create_multiple_items(world, name, 1, item_type)
+    return pool
 
-    for name in FILLER_ITEM_TABLE.keys():
-        item_type: ItemClassification = FILLER_ITEM_TABLE.get(name).classification
-        itempool += create_multiple_items(world, name, 1, item_type)
 
-    unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
+def _build_filler_choices(world: "FFCCWorld", use_traps: bool) -> list:
+    """Return a weighted list of filler item names for random.choice()."""
+    opts = world.options
+    choices = []
 
-    while len(itempool) < unfilled_locations:
-        rand_item = world.random.choice(list(FILLER_ITEM_TABLE.keys()))
-        itempool += create_multiple_items(world, rand_item, 1, IC.filler)
+    # Base filler (materials, food, phoenix down, most recipes — weight 1 each)
+    choices.extend(list(FILLER_ITEM_TABLE.keys()))
 
-    return itempool
+    if use_traps:
+        trap_weights = {
+            "Frozen Trap":          opts.frozen_trap_weight.value,
+            "Burned Trap":          opts.burned_trap_weight.value,
+            "Slowed Trap":          opts.slowed_trap_weight.value,
+            "Poisoned Trap":        opts.poisoned_trap_weight.value,
+            "Chalice Element Trap": opts.chalice_element_trap_weight.value,
+            "Bonus Set Trap":       opts.bonus_set_trap_weight.value,
+            "Food Preference Trap": opts.food_preference_trap_weight.value,
+        }
+        for trap_name, weight in trap_weights.items():
+            choices.extend([trap_name] * weight)
 
-def create_multiple_items(world: "FFCCWorld", name: str, count: int = 1,
-                              item_type: ItemClassification = ItemClassification.progression) -> List[Item]:
-
-    if name in ITEM_TABLE:
-        data = ITEM_TABLE[name]
-        
-    itemlist: List[Item] = []
-
-    for i in range(count):
-            itemlist += [FFCCItem(name, world.player, data, item_type)]
-
-    return itemlist
+    return choices
