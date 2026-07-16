@@ -435,6 +435,29 @@ class LogicSetting(Choice):
 
     default = 1
 
+class PanDropTraps(Toggle):
+    """
+    Include the "Pan Drop Trap" filler item in the item pool. When received, it causes a
+    wash-tub to drop on your head - purely cosmetic/annoyance, no lasting effect.
+
+    Off by default - turn this on to allow Pan Drop Traps to be placed at all.
+    """
+    display_name = "Pan Drop Traps"
+    default = 0
+
+class PanDropTrapWeight(Range):
+    """
+    Only used when Pan Drop Traps is on. The percentage chance that each randomly-filled
+    junk/filler slot becomes a Pan Drop Trap, instead of a normal filler item (Candy Wrapper,
+    Candy Bag, Cookie Box, Max Battery Increase). The remaining chance is split evenly among
+    those other filler items. There is no guaranteed minimum - a low weight can still roll a
+    seed with zero Pan Drop Traps.
+    """
+    display_name = "Pan Drop Trap Weight"
+    default = 25
+    range_start = 0
+    range_end = 100
+
 class PjSuiteStyle(Choice):
     """
     PJ Suite Style
@@ -455,6 +478,8 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
     open_upstairs: OpenUpstairs
     chibi_vision_off: ChibiVisionOff
     password_rando: PasswordRando
+    pan_drop_traps: PanDropTraps
+    pan_drop_trap_weight: PanDropTrapWeight
     death_link: DeathLink
     battery_drain_idle: BatteryDrainIdle
     battery_drain_walk: BatteryDrainWalk
@@ -512,6 +537,10 @@ chibi_robo_option_groups = [
     OptionGroup("Misc", [
         ChibiVisionOff,
         LogicSetting
+    ]),
+    OptionGroup("Traps", [
+        PanDropTraps,
+        PanDropTrapWeight,
     ]),
     OptionGroup("Battery Drain (Use at your own risk!!)", [
         BatteryDrainIdle,

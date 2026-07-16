@@ -5,7 +5,7 @@ import logging
 import os
 import zipfile
 from base64 import b64encode
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Tuple
 
 from typing import Any, ClassVar
 from logging import Logger
@@ -23,12 +23,12 @@ from .regions import create_regions, connect_entrances
 from .game_id import game_name
 from .items import ChibiRoboItem, ITEM_TABLE, item_name_groups, ChibiRoboItemData, ITEM_TABLE_DESC, FILLER_ITEM_TABLE
 from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, ChibiRoboLocationData
-from .options import ChibiRoboGameOptions, chibi_robo_option_groups, STICKER_NAMES
+from .options import ChibiRoboGameOptions, chibi_robo_option_groups, STICKER_NAMES, VictoryGoal
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 2, 4)
+VERSION: tuple[int, int, int] = (1, 2, 5)
 
 def launch_client():
     from . import client
@@ -188,11 +188,11 @@ class ChibiRoboWorld(World):
         if name in ITEM_TABLE and player == item_for_player:
 
             if name == "Old Clothes":
-                if player_option.pj_suit_style.option_old_boxers:
+                if player_option.pj_suit_style.value == player_option.pj_suit_style.option_old_boxers:
                     return "item_pajama_kiji_2"
-                if  player_option.pj_suit_style.option_outdated_scarf:
+                if player_option.pj_suit_style.value == player_option.pj_suit_style.option_outdated_scarf:
                     return "item_pajama_kiji_3"
-                if  player_option.pj_suit_style.option_small_handkerchief:
+                if player_option.pj_suit_style.value == player_option.pj_suit_style.option_small_handkerchief:
                     return "item_pajama_kiji"
 
             return ITEM_TABLE[name].object_name
@@ -222,8 +222,8 @@ class ChibiRoboWorld(World):
             set_rules(self)
 
     def get_filler_item_name(self) -> str:
-        filler = list(FILLER_ITEM_TABLE.keys())
-        return self.multiworld.random.choice(filler)
+        names, weights = get_weighted_filler_choices(self)
+        return self.multiworld.random.choices(names, weights=weights, k=1)[0]
 
 
     def fill_slot_data(self) -> Dict[str, Any]:
@@ -367,24 +367,56 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
 
     # total_locations = len(world.multiworld.get_unfilled_locations(world.player))
 
+    frog_ring_goal_active = (
+        world.options.victory_goal.value == VictoryGoal.option_stickers
+        and "Frog Ring" in world.options.required_stickers.value
+    )
+
     for name in ITEM_TABLE.keys():
+        if name == "Pan Drop Trap":
+            continue
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
+        if frog_ring_goal_active and name in item_name_groups["Frog Rings"]:
+            item_type = IC.progression
         itempool += create_multiple_items(world, name, 1, item_type)
 
     for x in range(8):
         itempool += create_multiple_items(world, "Giga Battery Charge", 1, IC.filler)
 
-    for name in FILLER_ITEM_TABLE.keys():
+    # Pan Drop Trap is excluded from the "1 guaranteed copy of every filler item" pass - it's
+    # opt-in (pan_drop_traps option) and purely governed by the weighted random fill below, with
+    # no forced minimum even when enabled.
+    for name in non_trap_filler_names():
         item_type: ItemClassification = FILLER_ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
 
     unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
 
+    fill_names, fill_weights = get_weighted_filler_choices(world)
+
     while len(itempool) < unfilled_locations:
-        rand_item = world.random.choice(list(FILLER_ITEM_TABLE.keys()))
-        itempool += create_multiple_items(world, rand_item, 1, IC.filler)
+        rand_item = world.random.choices(fill_names, weights=fill_weights, k=1)[0]
+        item_type = FILLER_ITEM_TABLE.get(rand_item).classification
+        itempool += create_multiple_items(world, rand_item, 1, item_type)
 
     return itempool
+
+def non_trap_filler_names() -> List[str]:
+    return [name for name in FILLER_ITEM_TABLE.keys() if name != "Pan Drop Trap"]
+
+def get_weighted_filler_choices(world: "ChibiRoboWorld") -> Tuple[List[str], List[float]]:
+    """
+    Builds the (names, weights) pair used to randomly pick a filler item
+    """
+    other_names = non_trap_filler_names()
+    trap_weight = world.options.pan_drop_trap_weight.value if world.options.pan_drop_traps.value else 0
+
+    if trap_weight > 0 and other_names:
+        remaining_weight = 100 - trap_weight
+        per_other_weight = remaining_weight / len(other_names)
+        return other_names + ["Pan Drop Trap"], [per_other_weight] * len(other_names) + [trap_weight]
+
+    return other_names, [1] * len(other_names)
 
 def create_multiple_items(world: "ChibiRoboWorld", name: str, count: int = 1,
                               item_type: ItemClassification = ItemClassification.progression) -> List[Item]:

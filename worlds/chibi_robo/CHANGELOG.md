@@ -1,4 +1,16 @@
 # Chibi Robo - Changelog
+
+## v1.2.5
+
+- New Options for wash pan trap :)
+- New Keys / doors for the backyard / basement areas
+- New commands to open these new doors just in case something goes wrong
+- Fixed foyer teleport not working
+- Fixed ghost suit location not giving item correctly
+- Fixed client item handling issues
+- Updated logic rules
+- Added basic world tests
+
 ## v1.2.3.1
 
 - Removed living room - foyer extra check for talking to drake redcrest

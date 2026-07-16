@@ -133,9 +133,12 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Living Room - Foyer Key": ChibiRoboItemData("Item", IC.progression, 79, None, "archipelago_item", 1, True),
     # "Kitchen - Sink Drain Key": ChibiRoboItemData("Item", IC.progression, 82, None, "archipelago_item", 1, True),
     "Kitchen - Foyer Key": ChibiRoboItemData("Item", IC.progression, 83, None, "archipelago_item", 1, True),
-    # "Foyer - Basement Key": ChibiRoboItemData("Item", IC.progression, 84, None, "archipelago_item", 1, True),
+    "Foyer - Basement Key": ChibiRoboItemData("Item", IC.progression, 84, None, "archipelago_item", 1, True),
     "Foyer - Jenny's Room Key": ChibiRoboItemData("Item", IC.progression, 85, None, "archipelago_item", 1, True),
     "Foyer - Bedroom Key": ChibiRoboItemData("Item", IC.progression, 86, None, "archipelago_item", 1, True),
+    "Living Room - Backyard Key": ChibiRoboItemData("Item", IC.progression, 87, None, "archipelago_item", 1, True),
+
+    "Pan Drop Trap": ChibiRoboItemData("Trap", IC.trap, 89, None, "archipelago_item", 1, True),
 
 }
 
@@ -144,6 +147,7 @@ FILLER_ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 55, 0x89, "item_okasi_gomi_1", 1),
     "Cookie Box": ChibiRoboItemData("Item", IC.filler, 56, 0x8a, "item_okasi_gomi_2", 1),
     "Max Battery Increase": ChibiRoboItemData("Item", IC.useful, 77, 0x8038f74a, "archipelago_item", 1, True),
+    "Pan Drop Trap": ChibiRoboItemData("Trap", IC.trap, 88, None, "archipelago_item", 1, True),
 }
 
 ITEM_TABLE_DESC: dict[str, str] = {
@@ -246,7 +250,7 @@ item_name_groups = {
     "Keys": {
         "Living Room - Kitchen Key",
         "Living Room - Foyer Key",
-        # "Kitchen - Sink Drain Key",
+        "Living Room - Backyard Key",
         "Kitchen - Foyer Key",
         "Foyer - Basement Key",
         "Foyer - Jenny's Room Key",
@@ -275,6 +279,9 @@ item_name_groups = {
         "D Battery",
         "Free Rangers Photo",
     },
+    "Traps": {
+        "Pan Drop Trap",
+    },
 }
 _simple_groups = {
     ("Frog Rings", "Frog Ring"),
@@ -284,6 +291,7 @@ _simple_groups = {
     ("Battery's", "Battery"),
     ("Bricks", "Brick"),
     ("Suits", "Suit"),
+    ("Traps", "Trap"),
 }
 
 for basename, substring in _simple_groups:

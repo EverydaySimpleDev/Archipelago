@@ -52,6 +52,10 @@ CURR_GAME_STATE = 0x8025df17
 # This address is used to check/set the player's battery
 CURR_BATTERY_ADDR = 0x8038f748
 
+# var(1874.d) pending "Pan Drop Trap" count. 0x8036973e (var 1860's confirmed address) +
+# (1874-1860)*4 = 0x80369774 - cross-checked against var(1872)'s 0x8036976e + 2*4, same answer.
+PAN_DROP_TRAP_VAR_ADDR = 0x80369774
+
 GC_GAME_ID_ADDRESS = 0x80000000
 
 MOOLAH_ADDR = 0x8038f752
@@ -253,6 +257,7 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         if isinstance(self.ctx, ChibiRoboContext):
             write_short(0x80369766, 1) # Living Room -> Kitchen
             write_short(0x8036973e, 1) # Kitchen -> Living Room
+            logger.info("Kitchen doors unlocked")
             return
 
     def _cmd_unlock_foyer(self) -> None:
@@ -264,6 +269,9 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
             write_short(0x80369746, 1) # Foyer -> Kitchen
             write_short(0x80369752, 1) # Kitchen -> Foyer
             write_short(0x80369762, 1) # Living Room -> Foyer
+
+            logger.info("Foyer doors unlocked")
+
             return
 
     def _cmd_unlock_jenny(self) -> None:
@@ -273,6 +281,9 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         if isinstance(self.ctx, ChibiRoboContext):
             write_short(0x80369742, 1) # Foyer -> Jenny's Room
             write_short(0x80369756, 1) # Jenny's Room -> Foyer
+
+            logger.info("Jenny doors unlocked")
+
             return
 
     def _cmd_unlock_bedroom(self) -> None:
@@ -282,6 +293,29 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         if isinstance(self.ctx, ChibiRoboContext):
             write_short(0x8036975e, 1) # Bedroom -> Foyer
             write_short(0x8036974e, 1) # Foyer -> Bedroom
+
+            logger.info("Bedroom doors unlocked")
+            return
+
+    def _cmd_unlock_backyard(self) -> None:
+        """
+        Unlocks Backyard
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            write_short(0x8036976a, 1) # living -> backyard
+            write_short(0x80369770, 1) # backyard -> living
+
+            logger.info("Backyard doors unlocked")
+            return
+
+    def _cmd_unlock_basement(self) -> None:
+        """
+        Unlocks Backyard
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            write_short(0x8036976e, 1) # Foyer -> Basement
+
+            logger.info("Backyard doors unlocked")
             return
 
     def _cmd_dolphin(self) -> None:
@@ -541,7 +575,7 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
     :return: Whether the item was successfully given.
     """
 
-    if not check_ingame() or dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) == b"\x00\x00\x00\x0e":
+    if not check_ingame() or dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 1) == b"\x0e":
         return False
 
     item_id = ITEM_TABLE[item_name].item_id
@@ -606,6 +640,33 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
 
             return True
 
+        elif item_name == "Living Room - Backyard Key":
+
+            write_short(0x8036976a, 1)  # Living -> Backyard
+            write_short(0x80369770, 1)  # Backyard -> Living
+
+            return True
+
+        elif item_name == "Foyer - Basement Key":
+
+            write_short(0x8036976e, 1) # Foyer -> Basement
+
+            return True
+
+        elif item_name == "Pan Drop Trap":
+
+            if player != ctx.slot:
+                # Self-found Pan Drop Traps already play the animation instantly at pickup via
+                # Form1.cs's injected .interact code (see project_pan_drop_trap memory) - only
+                # queue here for traps found by OTHER players and delivered to us asynchronously.
+                # Matches this function's existing convention for self-found items (see the
+                # `ctx.slot == player` check below, for the same reason).
+                cur_pending = read_4byte_short(PAN_DROP_TRAP_VAR_ADDR)
+                write_4byte_short(PAN_DROP_TRAP_VAR_ADDR, cur_pending + 1)
+                # logger.info(f"Pan Drop Trap: pending count {cur_pending} -> {cur_pending + 1} (addr {hex(PAN_DROP_TRAP_VAR_ADDR)}, stage {stage_hex_to_name()})")
+
+            return True
+
 
         if is_special:
             dolphin_memory_engine.write_byte(item_id, 1)
@@ -652,7 +713,7 @@ def check_ingame() -> bool:
     # there is a timing gap between the is_hooked and this read_bytes that can cause a client crash
     # try catch to retry if client has that crash happen instead of just crashing
     try:
-        return dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1) not in ["" , '\x00', '\x40', '\x07']
+        return dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1) not in [b"", b'\x00', b'\x40', b'\x07']
     except RuntimeError:
         return False
 
@@ -664,21 +725,35 @@ async def give_items(ctx: ChibiRoboContext) -> None:
 
     """
 
-    if check_ingame() and dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 4) != b"\x00\x00\x00\x0e":
+    if check_ingame() and dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 1) != b"\x0e":
         expected_idx = read_short(EXPECTED_INDEX_ADDR)
 
         # Check if there are new items.
         received_items = ctx.items_received
+        # logger.info(f"give_items: expected_idx={expected_idx}, total received={len(received_items)}")
         if len(received_items) <= expected_idx:
             # There are no new items.
             return
+
         # Loop through items to give.
         for idx, item in enumerate(received_items[expected_idx:], start=expected_idx):
 
             received_player = received_items[idx][2]
 
+            item_name = LOOKUP_ID_TO_NAME.get(item.item)
+            if item_name is None:
+                # Unmapped item id - a raw LOOKUP_ID_TO_NAME[item.item] here would raise KeyError,
+                # which propagates uncaught out of this function and gets treated as a Dolphin
+                # connection failure by dolphin_sync_task (disconnect + reconnect loop), silently
+                # stalling every item queued after this one forever. Log and stop this pass instead
+                # so expected_idx doesn't advance past a name we don't understand.
+                # logger.info(f"give_items: item id {item.item} at idx {idx} has no ITEM_TABLE/LOOKUP_ID_TO_NAME entry - not giving it, stopping this pass")
+                return
+
+            # logger.info(f"give_items: giving '{item_name}' (item id {item.item}, idx {idx})")
+
             # Attempt to give the item and increment the expected index.
-            while not _give_item(ctx, LOOKUP_ID_TO_NAME[item.item], received_player):
+            while not _give_item(ctx, item_name, received_player):
                 await asyncio.sleep(0.01)
 
             # Increment the expected index.
@@ -912,9 +987,13 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
         try:
             if dolphin_memory_engine.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
                 if not check_ingame():
-                    # Reset the give item array while not in the game.
-                    dolphin_memory_engine.write_bytes(EXPECTED_INDEX_ADDR, bytes([0xFF] * ctx.len_give_item_array))
-                    dolphin_memory_engine.write_bytes(GIVE_ITEM_ARRAY_ADDR, bytes([0xFF] * ctx.len_give_item_array))
+                    # Do NOT reset GIVE_ITEM_ARRAY_ADDR here. check_ingame() also returns false
+                    # during a completely normal level/room transition (a brief loading state),
+                    # not just at boot/menu - 0xFF is the "empty slot" marker read elsewhere
+                    # (`if item_slot == b'\xff\xff':`), so filling the whole array with it wiped
+                    # every currently-held item on every single level change. Just skip processing
+                    # this iteration; give_items() safely resumes from expected_idx once back
+                    # in-game, with nothing needing to be pre-emptively cleared.
                     sleep_time = 0.1
                     continue
                 if ctx.slot is not None:

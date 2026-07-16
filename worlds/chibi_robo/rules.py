@@ -3,6 +3,8 @@ from Utils import visualize_regions
 from worlds.chibi_robo import ChibiRoboItem, ChibiRoboItemData
 from worlds.generic.Rules import add_rule, set_rule, forbid_item, add_item_rule, allow_self_locking_items
 from rule_builder.rules import Has, HasAll, Rule, HasAllCounts, CanReachRegion
+from .items import item_name_groups
+from .options import VictoryGoal
 
 blaster = "Chibi-Blaster Chibi-Gear"
 mug = "Mug Chibi-Gear"
@@ -21,6 +23,7 @@ def set_rules(self) -> None:
     kitchen_to_living  = multiworld.get_entrance("Kitchen - Living Room", player)
     kitchen_to_foyer   = multiworld.get_entrance("Kitchen - Foyer", player)
     living_to_kitchen  = multiworld.get_entrance("Living Room - Kitchen", player)
+    backyard_to_living  = multiworld.get_entrance("Backyard - Living Room", player)
     foyer_to_kitchen   = multiworld.get_entrance("Foyer - Kitchen", player)
     living_to_backyard = multiworld.get_entrance("Living Room - Backyard", player)
     living_to_foyer    = multiworld.get_entrance("Living Room - Foyer", player)
@@ -33,11 +36,11 @@ def set_rules(self) -> None:
     jenny_to_foyer     = multiworld.get_entrance("Jenny's Room - Foyer", player)
     living_to_spider   = multiworld.get_entrance("Living Room - Mother Spider", player)
 
-    reach_second_floor = HasAll("Foyer Ladder", copter, mug, tooth_brush, "Drake Redcrest Suit") | HasAll("Foyer Teleport", mug, tooth_brush, "Drake Redcrest Suit")
+    reach_second_floor = HasAll("Foyer Ladder", copter, mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key") | HasAll("Foyer Teleport", mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key")
 
     can_enter_basement = HasAll(tooth_brush, mug, "Drake Redcrest Suit")
 
-    can_enter_backyard = Has(blaster)
+    can_enter_backyard = Has(blaster) | Has("Living Room - Backyard Key")
 
     # Living Room <-> Kitchen
     self.set_rule(living_to_kitchen,  Has("Living Room - Kitchen Key"))
@@ -48,15 +51,16 @@ def set_rules(self) -> None:
     self.set_rule(foyer_to_living,    Has("Living Room - Foyer Key"))
 
     # Living Room <-> Backyard
-    self.set_rule(living_to_backyard, can_enter_backyard)
+    self.set_rule(living_to_backyard, can_enter_backyard )
+    self.set_rule(backyard_to_living, Has("Living Room - Backyard Key") )
 
     # Kitchen <-> Foyer
     self.set_rule(kitchen_to_foyer,   can_enter_basement & Has("Kitchen - Foyer Key"))
     self.set_rule(foyer_to_kitchen,   Has("Kitchen - Foyer Key"))
 
     # Foyer <-> Basement
-    # self.set_rule(foyer_to_basement,  Has("Foyer - Basement Key"))
-    # self.set_rule(basement_to_foyer,  Has("Foyer - Basement Key"))
+    self.set_rule(foyer_to_basement,  Has("Foyer - Basement Key"))
+    self.set_rule(basement_to_foyer,  Has("Foyer - Basement Key"))
 
     # Foyer <-> Jenny's Room
     self.set_rule(foyer_to_jenny,     reach_second_floor & Has("Foyer - Jenny's Room Key"))
@@ -68,9 +72,17 @@ def set_rules(self) -> None:
 
     has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery",
                            "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder",
-                           "Foyer Teleport", "Drake Redcrest Suit", "Frog Suit", "Trauma Suit", "Old Clothes")
+                           "Foyer Teleport", "Drake Redcrest Suit", "Frog Suit", "Trauma Suit", "Old Clothes",
+                           "Foyer - Basement Key", "Living Room - Backyard Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
+                           "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key")
 
-    self.set_rule(living_to_spider, has_all_items)
+    mother_spider_rule = has_all_items
+
+    if (self.options.victory_goal.value == VictoryGoal.option_stickers
+            and "Frog Ring" in self.options.required_stickers.value):
+        mother_spider_rule = mother_spider_rule & HasAll(*item_name_groups["Frog Rings"])
+
+    self.set_rule(living_to_spider, mother_spider_rule)
 
     self.set_completion_rule(CanReachRegion("Staff Credits"))
 
