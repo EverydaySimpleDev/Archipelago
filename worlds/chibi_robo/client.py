@@ -67,30 +67,30 @@ HAPPY_POINTS_ADDR = 0x8038f73e
 # Sticker completion flags: name -> (address, 16-bit bitmask).
 # A sticker is earned when (read_short(address) & bitmask) == bitmask.
 STICKER_FLAGS = {
-    "Giga-Robo":          (0x8036781c, 0x0008),
-    "Telly Vision":       (0x8036789a, 0x0100),
-    "Chibi - Door":       (0x803678ac, 0x2000),
-    "Utilibot":           (0x80367846, 0x0002),
-    "Frog Ring":          (0x803678e6, 0x1000),
-    "Frog":               (0x8036786c, 0x0800),
-    "Bluebird":           (0x803678a0, 0x0800),
-    "Mr. Prongs":         (0x803678a6, 0x0004),
-    "Drake Redcrest":     (0x803678e4, 0x0002),
-    "Sophie":             (0x803678d8, 0x0008),
-    "Free Rangers":       (0x80367892, 0x0100),
-    "Captain Plankbeard": (0x803678d8, 0x0400),
-    "The Great Peekoe":   (0x803678a2, 0x8000),
-    "Sunshine":           (0x803678da, 0x0020),
-    "Mort & Princess":    (0x80367882, 0x8000),
-    "Dinah":              (0x803678a0, 0x2000),
-    "Funky Phil":         (0x803678a0, 0x1000),
-    "Queen Spydor":       (0x8036781c, 0x0002),
-    "Hot Rod":            (0x803678b6, 0x0200),
-    "Space Scrambler":    (0x803678b6, 0x0400),
-    "Cooking":            (0x803678b6, 0x0800),
-    "Kid Eggplant":       (0x803678e6, 0x8000),
-    "Primopuel":          (0x803678e4, 0x0004),
-    "Tamagotchi":         (0x803678e4, 0x0008),
+    "Giga-Robo Sticker":          (0x8036781c, 0x0008),
+    "Telly Vision Sticker":       (0x8036789a, 0x0100),
+    "Chibi - Door Sticker":       (0x803678ac, 0x2000),
+    "Utilibot Sticker":           (0x80367846, 0x0002),
+    "Frog Ring Sticker":          (0x803678e6, 0x1000),
+    "Frog Sticker":               (0x8036786c, 0x0800),
+    "Bluebird Sticker":           (0x803678a0, 0x0800),
+    "Mr. Prongs Sticker":         (0x803678a6, 0x0004),
+    "Drake Redcrest Sticker":     (0x803678e4, 0x0002),
+    "Sophie Sticker":             (0x803678d8, 0x0008),
+    "Free Rangers Sticker":       (0x80367892, 0x0100),
+    "Captain Plankbeard Sticker": (0x803678d8, 0x0400),
+    "The Great Peekoe Sticker":   (0x803678a2, 0x8000),
+    "Sunshine Sticker":           (0x803678da, 0x0020),
+    "Mort & Princess Sticker":    (0x80367882, 0x8000),
+    "Dinah Sticker":              (0x803678a0, 0x2000),
+    "Funky Phil Sticker":         (0x803678a0, 0x1000),
+    "Queen Spydor Sticker":       (0x8036781c, 0x0002),
+    "Hot Rod Sticker":            (0x803678b6, 0x0200),
+    "Space Scrambler Sticker":    (0x803678b6, 0x0400),
+    "Cooking Sticker":            (0x803678b6, 0x0800),
+    "Kid Eggplant Sticker":       (0x803678e6, 0x8000),
+    "Primopuel Sticker":          (0x803678e4, 0x0004),
+    "Tamagotchi Sticker":         (0x803678e4, 0x0008),
 }
 
 class ChibiRoboJSONToTextParser(JSONtoTextParser):
@@ -325,6 +325,21 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         if isinstance(self.ctx, ChibiRoboContext):
             logger.info(f"Dolphin Status: {self.ctx.dolphin_status}")
             return
+    def _cmd_give_sticker(self, sticker) -> None:
+        """
+        Gives Sticker Make sure to use the exact name. Example "Telly Vision Sticker"
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            give_sticker(sticker)
+            return
+
+    def _cmd_remove_sticker(self, sticker) -> None:
+        """
+        Removes Sticker Make sure to use the exact name. Example "Telly Vision Sticker"
+        """
+        if isinstance(self.ctx, ChibiRoboContext):
+            remove_sticker(sticker)
+            return
 
 
 class ChibiRoboContext(SuperContext):
@@ -430,8 +445,8 @@ class ChibiRoboContext(SuperContext):
                 json["slot_info"] = {}
                 ctx.victory = args["slot_data"]["victory_goal"]
                 ctx.required_stickers = args["slot_data"].get("_chibi_stickers") or args["slot_data"].get("required_stickers", [])
-            if "death_link" in args["slot_data"]:
-                Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"])))
+            if "death_link" + "group_death_link" in args["slot_data"]:
+                Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"]['group_death_link'])))
             if "players" in json.keys():
                 me: NetworkPlayer
                 for n in json["players"]:
@@ -587,6 +602,10 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
 
         item_slot = dolphin_memory_engine.read_bytes(GIVE_ITEM_ARRAY_ADDR + idx, 2)
         current_item = dolphin_memory_engine.read_byte((GIVE_ITEM_ARRAY_ADDR + idx) + 1)
+
+        if item_name.__contains__("Sticker"):
+            give_sticker(item_name)
+            return True
 
         if item_name == "Giga Battery Charge":
             # Make sure the giga battery doesn't go over 9000 otherwise player can't pick up the maxed battery
@@ -810,6 +829,61 @@ def is_sticker_complete(name: str) -> bool:
     address, mask = flag
     return (read_short(address) & mask) == mask
 
+def give_sticker(name: str) -> bool:
+
+    flag = STICKER_FLAGS.get(name)
+    if flag is None:
+        logger.info(f"Unknown sticker {name}")
+        return False
+
+    address, mask = flag
+
+    modify_memory_bitmask(address, mask, operation="SET")
+
+    return True
+
+def remove_sticker(name: str) -> bool:
+
+    flag = STICKER_FLAGS.get(name)
+    if flag is None:
+        logger.info(f"Unknown sticker {name}")
+        return False
+
+    address, mask = flag
+
+    modify_memory_bitmask(address, mask, operation="CLEAR")
+
+    return True
+
+
+def modify_memory_bitmask(address, mask, operation="SET"):
+    """
+    Modifies specific bits at a memory address using a bitmask.
+
+    Operations:
+      "SET"   : Turn target bits ON (Bitwise OR)
+      "CLEAR" : Turn target bits OFF (Bitwise AND with inverted mask)
+      "FLIP"  : Toggle target bits (Bitwise XOR)
+    """
+
+    # 1. Read the current 4-byte unsigned integer value from RAM
+    current_value = read_short(address)
+
+    # 2. Apply the bitmask logic based on your objective
+    if operation.upper() == "SET":
+        new_value = current_value | mask
+    elif operation.upper() == "CLEAR":
+        new_value = current_value & ~mask
+    elif operation.upper() == "FLIP":
+        new_value = current_value ^ mask
+    else:
+        raise ValueError("Invalid operation. Use 'SET', 'CLEAR', or 'FLIP'.")
+
+    # 3. Write the modified value back to Dolphin memory
+    write_short(address, new_value)
+    print(f"Address {hex(address)} updated: {bin(current_value)} -> {bin(new_value)}")
+
+
 def check_location(ctx: ChibiRoboContext, curr_stage_id: int, name: str, data: ChibiRoboLocationData) -> bool:
     """
     Check that the player has checked a given location.
@@ -997,7 +1071,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                     sleep_time = 0.1
                     continue
                 if ctx.slot is not None:
-                    if "DeathLink" in ctx.tags:
+                    if "DeathLink" + "group_death_link" in ctx.tags:
                         await check_death(ctx)
 
                     await give_items(ctx)

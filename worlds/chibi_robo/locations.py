@@ -231,6 +231,9 @@ LOCATION_TABLE: dict[str, ChibiRoboLocationData] = {
     "Bedroom - Shelf Candy Wrapper": ChibiRoboLocationData(213, "Bedroom", 0x06, 7, 0x8037de20, 292),
     "Bedroom - Vanity Candy Bag": ChibiRoboLocationData(214, "Bedroom", 0x06, 8, 0x8037de26, 293),
 
+    "Mother Spider - Frog Ring": ChibiRoboLocationData(246, "Mother Spider", 14, 0, None, 40),
+    "Mother Spider - Left Leg": ChibiRoboLocationData(247, "Mother Spider", 14, 0, None, 41),
+
     "Living Room - Drake Redcrest Suit": ChibiRoboLocationData(215, "Living Room", 0x07, 8, 0x803684b2, None),
     "Backyard - Frog Suit": ChibiRoboLocationData(216, "Backyard", 0x08, 8, 0x803684b6, None),
     "Chibi House - Trauma Suit": ChibiRoboLocationData(217, "Chibi House", 0x05, 8, 0x803684be, None),
@@ -248,4 +251,5 @@ location_groups = {
     "Backyard": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Backyard"],
     "Jenny's Room": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Jenny's Room"],
     "Bedroom": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Bedroom"],
+    "Mother Spider": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Mother Spider"],
 }

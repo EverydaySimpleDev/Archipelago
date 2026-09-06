@@ -225,6 +225,10 @@ def create_regions(multiworld: MultiWorld, player: int, options):
 
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - Pajama Suit")
 
+    # Mother Spider - 2 Locations
+    chibi_robo_regions["Mother Spider"].locations.append("Mother Spider - Frog Ring")
+    chibi_robo_regions["Mother Spider"].locations.append("Mother Spider - Left Leg")
+
     # Set up the regions correctly.
     for name, data in chibi_robo_regions.items():
         multiworld.regions.append(create_region(multiworld, player, name, data))

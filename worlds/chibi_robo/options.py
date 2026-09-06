@@ -1,14 +1,23 @@
 from dataclasses import dataclass
 
-from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup, OptionSet
+from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup, OptionSet, \
+    FreeText
 
 STICKER_NAMES = frozenset({
-    "Giga-Robo", "Telly Vision", "Chibi - Door", "Utilibot","Frog Ring",
-    "Frog", "Bluebird", "Mr. Prongs", "Drake Redcrest", "Sophie",
-    "Free Rangers", "Captain Plankbeard", "The Great Peekoe", "Sunshine",
-    "Mort & Princess", "Dinah", "Funky Phil", "Queen Spydor", "Hot Rod",
-    "Space Scrambler", "Cooking", "Kid Eggplant", "Primopuel", "Tamagotchi",
+    "Giga-Robo Sticker", "Telly Vision Sticker", "Chibi - Door Sticker", "Utilibot Sticker","Frog Ring Sticker",
+    "Frog Sticker", "Mr. Prongs Sticker", "Drake Redcrest Sticker", "Sophie Sticker",
+    "Free Rangers Sticker", "Captain Plankbeard Sticker", "The Great Peekoe Sticker", "Sunshine Sticker",
+    "Mort & Princess Sticker", "Dinah Sticker", "Funky Phil Sticker", "Queen Spydor Sticker", "Hot Rod Sticker",
+    "Space Scrambler Sticker", "Cooking Sticker", "Kid Eggplant Sticker", "Primopuel Sticker", "Tamagotchi Sticker",
 })
+
+class GroupDeathLink(FreeText):
+    """
+    Enable group deathlink
+    """
+    display_name = "Group DeathLink Name"
+    default = ""
+
 class OpenUpstairs(Toggle):
     """
     Opens Upstairs
@@ -481,6 +490,7 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
     pan_drop_traps: PanDropTraps
     pan_drop_trap_weight: PanDropTrapWeight
     death_link: DeathLink
+    group_death_link: GroupDeathLink
     battery_drain_idle: BatteryDrainIdle
     battery_drain_walk: BatteryDrainWalk
     battery_drain_jog: BatteryDrainJog
@@ -532,7 +542,8 @@ chibi_robo_option_groups = [
     OptionGroup("Quality Of Life Changes", [
         PjSuiteStyle,
         FavoriteCharacterVoice,
-        DeathLink
+        DeathLink,
+        GroupDeathLink
     ]),
     OptionGroup("Misc", [
         ChibiVisionOff,

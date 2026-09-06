@@ -1,4 +1,7 @@
 # Chibi Robo - Changelog
+## v1.2.5.1
+- Updated Gen Logic / Rules
+- Removed Chibi Battery from item pool (item would end up in floor and impossible to collect in most seeds)
 
 ## v1.2.5
 

@@ -92,7 +92,7 @@ class GoalAccessTest(ChibiRoboTestBase):
 
 
 class FrogRingStickerGoalAccessTest(ChibiRoboTestBase):
-    """When the stickers goal includes the Frog Ring sticker, all nine Frog Ring items are additionally
+    """When the stickers goal includes the Frog Ring sticker, all ten Frog Ring items are additionally
     required to reach the goal, on top of the usual full-gear requirement, and those items become
     progression so the fill algorithm guarantees they're placed reachably."""
 
@@ -111,6 +111,7 @@ class FrogRingStickerGoalAccessTest(ChibiRoboTestBase):
         "Living Room Frog Ring (Shelf)",
         "Kitchen Frog Ring (Table)",
         "Sink Drain Frog Ring",
+        "Mother Spider Frog Ring",
     ]
 
     def _can_reach_credits(self, items) -> bool:

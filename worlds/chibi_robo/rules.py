@@ -40,7 +40,7 @@ def set_rules(self) -> None:
 
     can_enter_basement = HasAll(tooth_brush, mug, "Drake Redcrest Suit")
 
-    can_enter_backyard = Has(blaster) | Has("Living Room - Backyard Key")
+    can_enter_backyard = Has("Living Room - Backyard Key")
 
     # Living Room <-> Kitchen
     self.set_rule(living_to_kitchen,  Has("Living Room - Kitchen Key"))
@@ -70,7 +70,7 @@ def set_rules(self) -> None:
     self.set_rule(foyer_to_bedroom,   reach_second_floor & Has("Foyer - Bedroom Key"))
     self.set_rule(bedroom_to_foyer,   Has("Foyer - Bedroom Key"))
 
-    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery",
+    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, spoon, "Alien Ear Chip", "Giga-Battery",
                            "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder",
                            "Foyer Teleport", "Drake Redcrest Suit", "Frog Suit", "Trauma Suit", "Old Clothes",
                            "Foyer - Basement Key", "Living Room - Backyard Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
@@ -185,15 +185,12 @@ def set_location_rules(self) -> None:
     self.set_rule(sink_frog_ring, has_blaster_copter)
 
     #  Foyer
-    has_copter_f_ladder_blaster = HasAll(copter, "Foyer Ladder", blaster) | HasAll(copter, "Foyer Teleport", blaster)
+    has_copter_f_ladder_blaster = HasAll(copter, "Foyer Ladder", blaster, "Foyer - Basement Key", mug) | HasAll(copter, "Foyer Teleport", blaster, "Foyer - Basement Key", mug)
 
     foyer_frog_ring = multiworld.get_location("Foyer - Waterfall Frog Ring", player)
     self.set_rule(foyer_frog_ring, has_copter_f_ladder_blaster)
 
-    has_copter_f_ladder = HasAll(copter, "Foyer Ladder") | HasAll(copter, "Foyer Teleport")
-
-    foyer_red_block = multiworld.get_location("Foyer - Red Block", player)
-    self.set_rule(foyer_red_block, has_copter_f_ladder)
+    has_copter_f_ladder = HasAll(copter, "Foyer Ladder", "Foyer - Basement Key", mug) | HasAll(copter, "Foyer Teleport", "Foyer - Basement Key", mug)
 
     foyer_red_block = multiworld.get_location("Foyer - Red Block", player)
     self.set_rule(foyer_red_block, has_copter_f_ladder)
@@ -252,10 +249,18 @@ def set_location_rules(self) -> None:
     foyer_candy_wrapper_on_lower_shelf = multiworld.get_location("Foyer - Candy Wrapper on Lower Shelf by Entrance", player)
     self.set_rule(foyer_candy_wrapper_on_lower_shelf, has_copter_f_ladder)
 
-    can_get_toa_suit = HasAll("Dog Tags", mug, tooth_brush)
+    can_get_toa_suit = HasAll("Dog Tags", mug, tooth_brush, "Foyer Ladder", blaster)
 
     foyer_toa_suit = multiworld.get_location("Foyer - Tao Suit", player)
     self.set_rule(foyer_toa_suit, can_get_toa_suit)
+
+    reach_second_floor = HasAll("Foyer Ladder", copter, mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key") | HasAll("Foyer Teleport", mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key")
+
+    foyer_candy_wrapper_by_entrance = multiworld.get_location("Foyer - Candy Wrapper by Entrance", player)
+    self.set_rule(foyer_candy_wrapper_by_entrance, reach_second_floor)
+
+    foyer_free_ranger_photo = multiworld.get_location("Foyer - Free Rangers Photo", player)
+    self.set_rule(foyer_free_ranger_photo, reach_second_floor)
 
     #  Basement
     basement_giga_charger = multiworld.get_location("Basement - Giga Charger", player)
