@@ -215,7 +215,6 @@ ITEM_TABLE_DESC: dict[str, str] = {
     "Kitchen Frog Ring (Table)": "Return all ten to Jenny and you'll get the Frog Ring Sticker.",
     "Sink Drain Frog Ring": "Return all ten to Jenny and you'll get the Frog Ring Sticker.",
     "Mother Spider Frog Ring": "Return all ten to Jenny and you'll get the Frog Ring Sticker.",
-    "Mother Spider Left Leg": "Chibi-Robo's own leg, reclaimed after defeating Mother Spider.",
     "Green Brick": "Give all the blocks to Dinah to get the Block Layout.",
     "White Brick": "Give all the blocks to Dinah to get the Block Layout.",
     "Yellow Brick": "Give all the blocks to Dinah to get the Block Layout.",
