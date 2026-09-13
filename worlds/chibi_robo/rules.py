@@ -74,13 +74,19 @@ def set_rules(self) -> None:
                            "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder",
                            "Foyer Teleport", "Drake Redcrest Suit", "Frog Suit", "Trauma Suit", "Old Clothes",
                            "Foyer - Basement Key", "Living Room - Backyard Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
-                           "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key")
+                           "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key", "Dinahs Teeth", "Passed-out Frog", "Toy Receipt")
 
     mother_spider_rule = has_all_items
 
     if (self.options.victory_goal.value == VictoryGoal.option_stickers
             and "Frog Ring" in self.options.required_stickers.value):
         mother_spider_rule = mother_spider_rule & HasAll(*item_name_groups["Frog Rings"])
+
+    if self.options.victory_goal.value == VictoryGoal.option_divorce:
+        mother_spider_rule =  HasAll(
+                tooth_brush, mug, copter, "Foyer Teleport", "Drake Redcrest Suit",
+                           "Foyer - Basement Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
+                           "Kitchen - Foyer Key", "Foyer - Bedroom Key", "Toy Receipt")
 
     self.set_rule(living_to_spider, mother_spider_rule)
 

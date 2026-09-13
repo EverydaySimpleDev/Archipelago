@@ -418,6 +418,7 @@ class VictoryGoal(Choice):
     option_credits = 0
     option_activate_giga_robo = 1
     option_stickers = 2
+    option_divorce = 3
 
     default = 1
 

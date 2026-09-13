@@ -11,6 +11,7 @@ from typing import List, Any, Iterable, Any, Optional
 from NetUtils import decode, encode, JSONtoTextParser, JSONMessagePart, NetworkItem, NetworkPlayer, ClientStatus
 from MultiServer import Endpoint
 from CommonClient import gui_enabled, ClientCommandProcessor, logger, get_base_parser
+from ..stardew_valley.stardew_rule import false_
 
 tracker_loaded = False
 try:
@@ -800,6 +801,9 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
             goal_reached = bool(required) and all(
                 is_sticker_complete(name) for name in required
             )
+        elif ctx.victory == 3:  # DIVORCE
+            goal_reached = read_4byte_short(0x803684ca) == 65536
+            
         else:  # Credits (victory == 0)
             goal_reached = curr_stage_id == 9
 

@@ -1,4 +1,9 @@
 # Chibi Robo - Changelog
+## v1.2.6
+- Updated Gen Logic / Rules / Bug Fixes
+- New Victory Goal (Let's Go Divorce)
+- Added Spider Queen Left Leg / Frog Ring Locations
+
 ## v1.2.5.1
 - Updated Gen Logic / Rules
 - Removed Chibi Battery from item pool (item would end up in floor and impossible to collect in most seeds)

@@ -231,8 +231,8 @@ LOCATION_TABLE: dict[str, ChibiRoboLocationData] = {
     "Bedroom - Shelf Candy Wrapper": ChibiRoboLocationData(213, "Bedroom", 0x06, 7, 0x8037de20, 292),
     "Bedroom - Vanity Candy Bag": ChibiRoboLocationData(214, "Bedroom", 0x06, 8, 0x8037de26, 293),
 
-    "Mother Spider - Frog Ring": ChibiRoboLocationData(246, "Mother Spider", 14, 0, None, 40),
-    "Mother Spider - Left Leg": ChibiRoboLocationData(247, "Mother Spider", 14, 0, None, 41),
+    "Mother Spider - Frog Ring": ChibiRoboLocationData(246, "Mother Spider", 14, 9, 0x8037df30, 40),
+    "Mother Spider - Left Leg": ChibiRoboLocationData(247, "Mother Spider", 14, 10, 0x8037df30, 41),
 
     "Living Room - Drake Redcrest Suit": ChibiRoboLocationData(215, "Living Room", 0x07, 8, 0x803684b2, None),
     "Backyard - Frog Suit": ChibiRoboLocationData(216, "Backyard", 0x08, 8, 0x803684b6, None),
