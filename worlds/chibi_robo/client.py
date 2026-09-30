@@ -11,7 +11,6 @@ from typing import List, Any, Iterable, Any, Optional
 from NetUtils import decode, encode, JSONtoTextParser, JSONMessagePart, NetworkItem, NetworkPlayer, ClientStatus
 from MultiServer import Endpoint
 from CommonClient import gui_enabled, ClientCommandProcessor, logger, get_base_parser
-from ..stardew_valley.stardew_rule import false_
 
 tracker_loaded = False
 try:
@@ -57,6 +56,37 @@ CURR_BATTERY_ADDR = 0x8038f748
 # (1874-1860)*4 = 0x80369774 - cross-checked against var(1872)'s 0x8036976e + 2*4, same answer.
 PAN_DROP_TRAP_VAR_ADDR = 0x80369774
 
+# Script variables: var(N) is the 32-bit word at SCRIPT_VAR_BASE + N*4 (decomp lbl_80367A2C,
+# 0x2010 bytes, saved with the game). Write the whole word - the engine only keeps the low
+# 16 bits when it reads a var, so writing 2 bytes at the word's start sets the wrong half.
+SCRIPT_VAR_BASE = 0x80367a2c
+
+# Door vars each key opens (initialised to 0 in the randomizer's stage05.us sub_576).
+KEY_DOOR_VARS = {
+    "Living Room - Kitchen Key":  (1870, 1860),  # Living Room -> Kitchen, Kitchen -> Living Room
+    "Living Room - Foyer Key":    (1863, 1869),  # Foyer -> Living Room, Living Room -> Foyer
+    "Kitchen - Foyer Key":        (1862, 1865),  # Foyer -> Kitchen, Kitchen -> Foyer
+    "Foyer - Jenny's Room Key":   (1861, 1866),  # Foyer -> Jenny's Room, Jenny's Room -> Foyer
+    "Foyer - Bedroom Key":        (1864, 1868),  # Foyer -> Bedroom, Bedroom -> Foyer
+    "Living Room - Backyard Key": (1871, 1873),  # Living Room -> Backyard, Backyard -> Living Room
+    "Foyer - Basement Key":       (1872,),       # Foyer -> Basement
+}
+
+# Utilibot vars: 0 = not built, 1 = built (what the vanilla scripts set; rooms show the
+# utilibot when >= 1), 2 = built and used once (set by the game). The addresses in items.py
+# are byte writes that land in the wrong part of the 32-bit var - for Foyer Teleport
+# (0x8036852c = top byte of var(704)) the game reads 0, so it never appeared.
+UTILIBOT_VARS = {
+    "Living Room Ladder": 701,
+    "Kitchen Ladder":     702,
+    "Foyer Ladder":       703,
+    "Foyer Teleport":     704,
+    "Living Room Bridge": 705,
+    "Kitchen Bridge":     706,
+    "Bedroom Bridge":     707,
+    "Basement Teleport":  708,
+}
+
 GC_GAME_ID_ADDRESS = 0x80000000
 
 MOOLAH_ADDR = 0x8038f752
@@ -64,6 +94,33 @@ MOOLAH_ADDR = 0x8038f752
 SCRAP_ADDR = 0X8038f756
 
 HAPPY_POINTS_ADDR = 0x8038f73e
+
+GBA_MESSAGE = 0x80672300
+
+# ---- GBA link cable popups ---------------------------------------------------------------------
+# The GBA link patch (randomizer option / apworld option gba_link) puts a mailbox at GBA_MESSAGE.
+# Writing a message there makes the game show it as a popup on a GBA plugged into port 2-4; the
+# player closes it with A/B on the GameCube controller or A on the GBA. The mailbox holds ONE
+# message at a time - the game copies it into its own queue (up to 6) and sets ack = post, usually
+# within a frame. Layout (big-endian) is documented in chibi-mini-gba gc/source/messages.h.
+GBA_MB_MAGIC = b"CLMB"
+GBA_MB_POST = 0x08           # u32, we bump this after filling in the message
+GBA_MB_ACK = 0x0C            # u32, game sets = post once it has queued the message
+GBA_MB_ICON = 0x10           # u8 icon, u8 reserved, u16 duration in frames (0 = until closed)
+GBA_MB_TITLE = 0x14          # 16 bytes, NUL terminated
+GBA_MB_TEXT = 0x24           # 96 bytes, NUL terminated, "\n" = line break
+GBA_MB_LINK_STATE = 0x84     # u32, 0 = no GBA, 1 = connecting, 2 = linked
+GBA_MB_LAST_CLOSED = 0x88    # u32, sequence number of the last popup the player closed
+GBA_TITLE_MAX = 15           # characters (+ NUL)
+GBA_TEXT_MAX = 95
+
+# Icons available on the GBA (match CL_ICON_* in chibi_link_protocol.h)
+GBA_ICON_BATTERY = 0
+GBA_ICON_COIN = 1
+GBA_ICON_HEART = 2
+GBA_ICON_HOUSE = 3
+GBA_ICON_CLOCK = 4
+GBA_ICON_PLUG = 5
 
 # Sticker completion flags: name -> (address, 16-bit bitmask).
 # A sticker is earned when (read_short(address) & bitmask) == bitmask.
@@ -115,6 +172,22 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         if isinstance(self.ctx, ChibiRoboContext) and check_ingame():
             write_short(0x8038f75a, 1)
             return
+
+    def _cmd_gba(self, *text: str) -> None:
+        """
+        Show a popup message on the linked GBA (needs the GBA link option). Example: /gba Hello!
+        """
+        if not isinstance(self.ctx, ChibiRoboContext) or not dolphin_memory_engine.is_hooked():
+            logger.info("Not connected to Dolphin.")
+            return
+        if not gba_link_available():
+            logger.info("This ISO doesn't have the GBA link patch (gba_link option).")
+            return
+        if not gba_link_connected():
+            logger.info("No GBA is linked right now.")
+            return
+        queue_gba_message(self.ctx, "Message", " ".join(text) or "Hello from the Archipelago client!")
+        logger.info("Sent to the GBA.")
 
     def _cmd_equip_blaster(self) -> None:
         """
@@ -256,8 +329,7 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         Unlocks Kitchen
         """
         if isinstance(self.ctx, ChibiRoboContext):
-            write_short(0x80369766, 1) # Living Room -> Kitchen
-            write_short(0x8036973e, 1) # Kitchen -> Living Room
+            unlock_key_doors("Living Room - Kitchen Key")
             logger.info("Kitchen doors unlocked")
             return
 
@@ -266,10 +338,8 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         Unlocks Foyer
         """
         if isinstance(self.ctx, ChibiRoboContext):
-            write_short(0x8036974a, 1) # Foyer -> Living Room
-            write_short(0x80369746, 1) # Foyer -> Kitchen
-            write_short(0x80369752, 1) # Kitchen -> Foyer
-            write_short(0x80369762, 1) # Living Room -> Foyer
+            unlock_key_doors("Living Room - Foyer Key")
+            unlock_key_doors("Kitchen - Foyer Key")
 
             logger.info("Foyer doors unlocked")
 
@@ -280,8 +350,7 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         Unlocks Jenny's Room
         """
         if isinstance(self.ctx, ChibiRoboContext):
-            write_short(0x80369742, 1) # Foyer -> Jenny's Room
-            write_short(0x80369756, 1) # Jenny's Room -> Foyer
+            unlock_key_doors("Foyer - Jenny's Room Key")
 
             logger.info("Jenny doors unlocked")
 
@@ -292,8 +361,7 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         Unlocks Bedroom
         """
         if isinstance(self.ctx, ChibiRoboContext):
-            write_short(0x8036975e, 1) # Bedroom -> Foyer
-            write_short(0x8036974e, 1) # Foyer -> Bedroom
+            unlock_key_doors("Foyer - Bedroom Key")
 
             logger.info("Bedroom doors unlocked")
             return
@@ -303,20 +371,19 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         Unlocks Backyard
         """
         if isinstance(self.ctx, ChibiRoboContext):
-            write_short(0x8036976a, 1) # living -> backyard
-            write_short(0x80369770, 1) # backyard -> living
+            unlock_key_doors("Living Room - Backyard Key")
 
             logger.info("Backyard doors unlocked")
             return
 
     def _cmd_unlock_basement(self) -> None:
         """
-        Unlocks Backyard
+        Unlocks Basement
         """
         if isinstance(self.ctx, ChibiRoboContext):
-            write_short(0x8036976e, 1) # Foyer -> Basement
+            unlock_key_doors("Foyer - Basement Key")
 
-            logger.info("Backyard doors unlocked")
+            logger.info("Basement door unlocked")
             return
 
     def _cmd_dolphin(self) -> None:
@@ -326,6 +393,7 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
         if isinstance(self.ctx, ChibiRoboContext):
             logger.info(f"Dolphin Status: {self.ctx.dolphin_status}")
             return
+
     def _cmd_give_sticker(self, sticker) -> None:
         """
         Gives Sticker Make sure to use the exact name. Example "Telly Vision Sticker"
@@ -346,7 +414,8 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
 class ChibiRoboContext(SuperContext):
     command_processor = ChibiRoboCommandProcessor
     game = "Chibi Robo"
-    items_handling: int = 0b111
+    items_handling: int = 0b111 # Items get sent to us including starting inventory
+    # items_handling: int = 0b101 # Items get sent to us including starting inventory but our own items are not sent to us
     len_give_item_array: int = 0x272
     items_received = []
     victory: int
@@ -376,6 +445,8 @@ class ChibiRoboContext(SuperContext):
         self.curr_stage_pickup: int = 0
         self.victory: int = 0
         self.required_stickers: List[str] = []
+        # (title, text, icon, duration) popups waiting for the GBA mailbox, see queue_gba_message
+        self.gba_message_queue: List[Any] = []
 
 
     async def server_auth(self, password_requested: bool = True) -> None:
@@ -582,6 +653,51 @@ async def check_death(ctx: ChibiRoboContext) -> None:
         else:
             ctx.has_send_death = False
 
+def script_var_addr(var: int) -> int:
+    """Address of script variable var(N) (a 32-bit word)."""
+    return SCRIPT_VAR_BASE + var * 4
+
+
+def unlock_key_doors(item_name: str) -> None:
+    """Set every door var opened by `item_name` (one of KEY_DOOR_VARS) to 1."""
+    for var in KEY_DOOR_VARS[item_name]:
+        if read_4byte_short(script_var_addr(var)) != 1:
+            write_4byte_short(script_var_addr(var), 1)
+
+
+def sync_key_doors(ctx: ChibiRoboContext) -> None:
+    """
+    Re-open the doors for every key the player has received. Door state lives in script vars,
+    and stage05's sub_576 (first Chibi-House load after the party) resets them all to 0 - so a
+    key given before that point (start inventory, or items sent while the player was still in the
+    intro) was wiped, and give_items() never gives it again because the expected index already
+    moved past it. Deriving the vars from the received items every pass makes that self-healing,
+    and also repairs saves where var(1873) got the old wrong-half write. A door's open/closed
+    model is set when its room loads, so the player may need to re-enter the room once.
+    """
+    if dolphin_memory_engine.read_bytes(CURR_STAGE_ID_ADDR, 1) == b"\x0e":
+        return
+    received = {LOOKUP_ID_TO_NAME.get(item.item) for item in ctx.items_received}
+    for item_name in KEY_DOOR_VARS:
+        if item_name in received:
+            unlock_key_doors(item_name)
+    for item_name in UTILIBOT_VARS:
+        if item_name in received:
+            build_utilibot(item_name)
+
+
+def build_utilibot(item_name: str) -> None:
+    """
+    Make the utilibot `item_name` (one of UTILIBOT_VARS) built. Only writes when the game would
+    read it as not built (low 16 bits 0), so a used one (2) - or an old-client value like 256,
+    which already counts as built - is left alone, while the old Foyer Teleport write
+    (0x01000000, read as 0) gets repaired.
+    """
+    addr = script_var_addr(UTILIBOT_VARS[item_name])
+    if read_4byte_short(addr) & 0xFFFF == 0:
+        write_4byte_short(addr, 1)
+
+
 def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
     """
     Give an item to the player in-game.
@@ -624,52 +740,17 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
 
             return True
 
-        elif item_name == "Living Room - Kitchen Key":
+        elif item_name in KEY_DOOR_VARS:
 
-            write_short(0x80369766, 1) # Living Room -> Kitchen
-            write_short(0x8036973e, 1) # Kitchen -> Living Room
-
-            return True
-
-        elif item_name == "Living Room - Foyer Key":
-
-            write_short(0x8036974a, 1)  # Foyer -> Living Room
-            write_short(0x80369762, 1)  # Living Room -> Foyer
-
+            # sync_key_doors() keeps re-applying this afterwards, see its docstring.
+            unlock_key_doors(item_name)
 
             return True
 
-        elif item_name == "Kitchen - Foyer Key":
+        elif item_name in UTILIBOT_VARS:
 
-            write_short(0x80369746, 1) # Foyer -> Kitchen
-            write_short(0x80369752, 1) # Kitchen -> Foyer
-
-            return True
-
-        elif item_name == "Foyer - Jenny's Room Key":
-
-            write_short(0x80369742, 1) # Foyer -> Jenny's Room
-            write_short(0x80369756, 1) # Jenny's Room -> Foyer
-
-            return True
-
-        elif item_name == "Foyer - Bedroom Key":
-
-            write_short(0x8036975e, 1) # Bedroom -> Foyer
-            write_short(0x8036974e, 1) # Foyer -> Bedroom
-
-            return True
-
-        elif item_name == "Living Room - Backyard Key":
-
-            write_short(0x8036976a, 1)  # Living -> Backyard
-            write_short(0x80369770, 1)  # Backyard -> Living
-
-            return True
-
-        elif item_name == "Foyer - Basement Key":
-
-            write_short(0x8036976e, 1) # Foyer -> Basement
+            # sync_key_doors() keeps re-applying this afterwards, like the keys.
+            build_utilibot(item_name)
 
             return True
 
@@ -721,6 +802,125 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
     # If unable to place the item in the array, return `False`.
     return False
 
+
+def gba_link_available() -> bool:
+    """
+    `True` if this ISO has the GBA link patch. Without it GBA_MESSAGE is ordinary game heap, so
+    nothing may be written there.
+    """
+    try:
+        return dolphin_memory_engine.read_bytes(GBA_MESSAGE, 4) == GBA_MB_MAGIC
+    except RuntimeError:
+        return False
+
+
+def gba_link_connected() -> bool:
+    """`True` if the patch is present and a GBA is currently linked and running the program."""
+    return gba_link_available() and read_4byte_short(GBA_MESSAGE + GBA_MB_LINK_STATE) == 2
+
+
+def _gba_text(text: str, max_len: int) -> bytes:
+    # The GBA font is plain ASCII: swap common typographic characters, drop anything else.
+    replacements = {"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-",
+                    "…": "...", "é": "e", "è": "e", "à": "a", "ö": "o", "ü": "u"}
+    text = "".join(replacements.get(c, c) for c in text)
+    data = text.encode("ascii", errors="ignore")
+    data = bytes(b for b in data if b == 0x0A or 0x20 <= b < 0x7F)
+    return data[:max_len].ljust(max_len + 1, b"\0")
+
+
+def send_gba_message(title: str, text: str, icon: int = GBA_ICON_PLUG, duration: int = 0,
+                     require_link: bool = True) -> bool:
+    """
+    Show any popup message on the player's GBA.
+
+    :param title: Title line, up to 15 characters.
+    :param text: Message body, up to 95 characters, word-wrapped by the GBA ("\\n" forces a break).
+    :param icon: One of the GBA_ICON_* constants.
+    :param duration: Frames (60 per second) until it closes by itself; 0 = until the player closes it.
+    :param require_link: Only send while a GBA is linked (otherwise messages would pile up in the game).
+    :return: `True` if the game accepted it. `False` means try again later: the ISO has no GBA
+             patch, no GBA is linked, or the previous message hasn't been picked up yet.
+    """
+    if not gba_link_available():
+        return False
+    if require_link and read_4byte_short(GBA_MESSAGE + GBA_MB_LINK_STATE) != 2:
+        return False
+
+    post = read_4byte_short(GBA_MESSAGE + GBA_MB_POST)
+    ack = read_4byte_short(GBA_MESSAGE + GBA_MB_ACK)
+    if post != ack:
+        return False  # the game hasn't copied the last message yet (or its queue is full)
+
+    dolphin_memory_engine.write_bytes(GBA_MESSAGE + GBA_MB_ICON,
+                                      bytes([icon & 0xFF, 0]) + (duration & 0xFFFF).to_bytes(2, "big"))
+    dolphin_memory_engine.write_bytes(GBA_MESSAGE + GBA_MB_TITLE, _gba_text(title, GBA_TITLE_MAX))
+    dolphin_memory_engine.write_bytes(GBA_MESSAGE + GBA_MB_TEXT, _gba_text(text, GBA_TEXT_MAX))
+    # Bump `post` last: that's what tells the game a complete message is waiting.
+    write_4byte_short(GBA_MESSAGE + GBA_MB_POST, (ack + 1) & 0xFFFFFFFF)
+    return True
+
+
+def _gba_item_icon(item_name: str) -> int:
+    name = item_name.lower()
+    if "moolah" in name or "coin" in name:
+        return GBA_ICON_COIN
+    if "happy" in name or "sticker" in name:
+        return GBA_ICON_HEART
+    if "battery" in name or "charge" in name:
+        return GBA_ICON_BATTERY
+    return GBA_ICON_PLUG
+
+
+def _gba_item_text(item_name: str, from_player: Optional[str]) -> str:
+    if from_player:
+        return f"Received {item_name} from {from_player}!"
+    return f"You found your {item_name}!"
+
+
+def send_gba_item_message(item_name: str, from_player: Optional[str] = None) -> bool:
+    """
+    Show a "received item" popup on the player's GBA right away.
+
+    :param item_name: Name of the item received.
+    :param from_player: Name of the player who found it, or `None` if the player found it themselves.
+    :return: Same as `send_gba_message` (`False` = not sent, try again later).
+    """
+    return send_gba_message("Archipelago", _gba_item_text(item_name, from_player), _gba_item_icon(item_name))
+
+
+def queue_gba_message(ctx: "ChibiRoboContext", title: str, text: str, icon: int = GBA_ICON_PLUG,
+                      duration: int = 0) -> None:
+    """
+    Queue any popup for the GBA. Queued messages go out one at a time from `flush_gba_messages`
+    (called by the Dolphin sync loop), so a burst of items can't overwrite the mailbox. Nothing is
+    queued if the ISO has no GBA patch or no GBA is linked.
+    """
+    if not gba_link_connected():
+        return
+    if len(ctx.gba_message_queue) < 32:
+        ctx.gba_message_queue.append((title, text, icon, duration))
+
+
+def queue_gba_item_message(ctx: "ChibiRoboContext", item_name: str, sending_player: int) -> None:
+    """Queue a "received item" popup; `sending_player` is the slot number of whoever found it."""
+    from_player = None
+    if sending_player != ctx.slot:
+        from_player = ctx.player_names.get(sending_player, f"Player {sending_player}")
+    queue_gba_message(ctx, "Archipelago", _gba_item_text(item_name, from_player), _gba_item_icon(item_name))
+
+
+def flush_gba_messages(ctx: "ChibiRoboContext") -> None:
+    """Send the next queued GBA popup if the mailbox is free. Call once per sync-loop pass."""
+    if not ctx.gba_message_queue:
+        return
+    if not gba_link_connected():
+        ctx.gba_message_queue.clear()  # GBA unplugged: drop them rather than show stale popups later
+        return
+    title, text, icon, duration = ctx.gba_message_queue[0]
+    if send_gba_message(title, text, icon, duration):
+        ctx.gba_message_queue.pop(0)
+
 def check_ingame() -> bool:
     """
     Check if the player is currently in-game.
@@ -736,6 +936,14 @@ def check_ingame() -> bool:
         return dolphin_memory_engine.read_bytes(CURR_GAME_STATE, 1) not in [b"", b'\x00', b'\x40', b'\x07']
     except RuntimeError:
         return False
+
+
+def change_max_items() -> None:
+    dolphin_memory_engine.write_byte(0x800D1273, 99)
+    dolphin_memory_engine.write_byte(0x800D1773, 99)
+    dolphin_memory_engine.write_byte(0x800DCD07, 99)
+    dolphin_memory_engine.write_byte(0x800DCD0F, 99)
+    dolphin_memory_engine.write_byte(0x800DCD13, 246)
 
 async def give_items(ctx: ChibiRoboContext) -> None:
     """
@@ -779,6 +987,9 @@ async def give_items(ctx: ChibiRoboContext) -> None:
             # Increment the expected index.
             write_short(EXPECTED_INDEX_ADDR, idx + 1)
 
+            # Popup on the GBA, if the GBA link patch is in this ISO and a GBA is linked.
+            queue_gba_item_message(ctx, item_name, received_player)
+
 async def check_locations(ctx: ChibiRoboContext) -> None:
     """
     Iterate through all locations and check whether the player has checked each location.
@@ -811,6 +1022,7 @@ async def check_locations(ctx: ChibiRoboContext) -> None:
             await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
             ctx.finished_game = True
             logger.info("Congratulations, you have completed the game!")
+            send_gba_message("Archipelago", "I hope you had fun playing!", GBA_ICON_HEART)
 
     for location, data in LOCATION_TABLE.items():
 
@@ -1078,7 +1290,10 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                     if "DeathLink" + "group_death_link" in ctx.tags:
                         await check_death(ctx)
 
+                    # change_max_items()
                     await give_items(ctx)
+                    sync_key_doors(ctx)
+                    flush_gba_messages(ctx)
                     await check_locations(ctx)
                     await check_current_stage_changed(ctx)
                 else:

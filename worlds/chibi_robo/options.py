@@ -39,6 +39,15 @@ class PasswordRando(Toggle):
     display_name = "Randomizes Passwords For Left Foot And Case"
     default = 0
 
+class GbaLink(Toggle):
+    """
+    Adds Game Boy Advance link cable support. Plug a GBA (no cartridge) into controller
+    port 2, 3 or 4 and the game sends it a companion screen with a house map, Chibi-Robo's
+    battery / moolah / happy points and popup messages.
+    """
+    display_name = "GBA Link Cable"
+    default = 0
+
 class BatteryDrainIdle(Range):
     """
     Battery Drain Idle
@@ -488,6 +497,7 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
     open_upstairs: OpenUpstairs
     chibi_vision_off: ChibiVisionOff
     password_rando: PasswordRando
+    gba_link: GbaLink
     pan_drop_traps: PanDropTraps
     pan_drop_trap_weight: PanDropTrapWeight
     death_link: DeathLink
@@ -548,7 +558,8 @@ chibi_robo_option_groups = [
     ]),
     OptionGroup("Misc", [
         ChibiVisionOff,
-        LogicSetting
+        LogicSetting,
+        GbaLink
     ]),
     OptionGroup("Traps", [
         PanDropTraps,

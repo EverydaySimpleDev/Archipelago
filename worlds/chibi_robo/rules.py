@@ -191,7 +191,7 @@ def set_location_rules(self) -> None:
     self.set_rule(sink_frog_ring, has_blaster_copter)
 
     #  Foyer
-    has_copter_f_ladder_blaster = HasAll(copter, "Foyer Ladder", blaster, "Foyer - Basement Key", mug) | HasAll(copter, "Foyer Teleport", blaster, "Foyer - Basement Key", mug)
+    has_copter_f_ladder_blaster = HasAll(copter, "Foyer Ladder", blaster, "Foyer - Basement Key", mug, "Foyer - Bedroom Key") | HasAll(copter, "Foyer Teleport", blaster, "Foyer - Basement Key", mug, "Foyer - Bedroom Key")
 
     foyer_frog_ring = multiworld.get_location("Foyer - Waterfall Frog Ring", player)
     self.set_rule(foyer_frog_ring, has_copter_f_ladder_blaster)

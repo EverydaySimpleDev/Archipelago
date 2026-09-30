@@ -1,4 +1,8 @@
 # Chibi Robo - Changelog
+## v1.3
+- New GBA Link Cable Option!
+- Changed how key items like door keys, chibi gear, etc are handled.
+
 ## v1.2.6
 - Updated Gen Logic / Rules / Bug Fixes
 - New Victory Goal (Let's Go Divorce)
