@@ -68,11 +68,12 @@ class GoalAccessTest(ChibiRoboTestBase):
     (matching rules.py's has_all_items/mother_spider_rule exactly)."""
 
     required_items = [
-        tooth_brush, blaster, charge_chip, squirter, mug, "Alien Ear Chip", "Giga-Battery",
+        tooth_brush, blaster, charge_chip, squirter, mug, "Spoon Chibi-Gear", "Alien Ear Chip", "Giga-Battery",
         "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder",
         "Foyer Teleport", drake_suit, "Frog Suit", "Trauma Suit", "Old Clothes",
         "Foyer - Basement Key", "Living Room - Backyard Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
-        "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key",
+        "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key", "Dinahs Teeth", "Passed-out Frog",
+        "Toy Receipt",
     ]
 
     def _can_reach_credits(self, items) -> bool:

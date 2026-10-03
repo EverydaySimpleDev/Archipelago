@@ -133,7 +133,7 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
 
     "Living Room - Kitchen Key": ChibiRoboItemData("Item", IC.progression, 78, None, "archipelago_item", 1, True),
     "Living Room - Foyer Key": ChibiRoboItemData("Item", IC.progression, 79, None, "archipelago_item", 1, True),
-    # "Kitchen - Sink Drain Key": ChibiRoboItemData("Item", IC.progression, 82, None, "archipelago_item", 1, True),
+    # "Kitchen - Sink Drain Key": ChibiRoboItemData("Item", IC.progression, 82, None, "archipelago_item", 1, True), Maybe add a drain plug? Not used currently
     "Kitchen - Foyer Key": ChibiRoboItemData("Item", IC.progression, 83, None, "archipelago_item", 1, True),
     "Foyer - Basement Key": ChibiRoboItemData("Item", IC.progression, 84, None, "archipelago_item", 1, True),
     "Foyer - Jenny's Room Key": ChibiRoboItemData("Item", IC.progression, 85, None, "archipelago_item", 1, True),

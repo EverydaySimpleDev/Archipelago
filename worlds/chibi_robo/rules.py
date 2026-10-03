@@ -1,8 +1,4 @@
-from BaseClasses import ItemClassification as IC, CollectionState
-from Utils import visualize_regions
-from worlds.chibi_robo import ChibiRoboItem, ChibiRoboItemData
-from worlds.generic.Rules import add_rule, set_rule, forbid_item, add_item_rule, allow_self_locking_items
-from rule_builder.rules import Has, HasAll, Rule, HasAllCounts, CanReachRegion
+from rule_builder.rules import Has, HasAll, CanReachRegion
 from .items import item_name_groups
 from .options import VictoryGoal
 

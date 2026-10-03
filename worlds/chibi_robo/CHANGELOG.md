@@ -1,4 +1,9 @@
 # Chibi Robo - Changelog
+## v1.3.1
+- Utilibot sticker should now be given to player if they have all the bots
+- Fixed front door model so users can't leave the map (Stay inside Chibi!)
+- Code clean up / GBA connection removed due to AI usage
+
 ## v1.3
 - New GBA Link Cable Option!
 - Changed how key items like door keys, chibi gear, etc are handled.
