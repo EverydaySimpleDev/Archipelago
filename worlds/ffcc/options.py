@@ -5,7 +5,7 @@ from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle
 class VictoryGoal(Choice):
     """What is required to send the victory condition."""
     display_name = "Victory Goal"
-    option_all_myrrh  = 0   # collect all 13 Myrrh drops (normal ending)
+    option_all_myrrh  = 0   # collect all 13 Myrrh drops
     option_final_boss = 1   # defeat the final boss (Mount Vellenge)
     default = 0
 
@@ -28,6 +28,66 @@ class YearLocationChecks(DefaultOnToggle):
     """When enabled, each year advancement counts as a location check with a random item reward.
     When disabled, year advancement still auto-tracks on the map tracker but gives no item reward."""
     display_name = "Year Location Checks"
+
+
+class StageKeys(Toggle):
+    """Every dungeon except River Belle Path needs its own key to enter.
+    The 13 keys are shuffled into the item pool."""
+    display_name = "Stage Keys"
+
+
+class ShuffleLoadingZones(Toggle):
+    """Shuffle which dungeon each world-map spot leads to (12 dungeons; Mount Kilanda
+    and Mount Vellenge stay where they are). Each spot keeps its own Miasma Stream and
+    shows the building of the dungeon it now leads to. Only layouts that can be
+    finished year by year are used."""
+    display_name = "Shuffle Loading Zones"
+
+
+class GoblinWallYearOne(Toggle):
+    """Goblin Wall's spot on the world map is open from Year 1 instead of Year 2."""
+    display_name = "Goblin Wall in Year 1"
+
+
+class RandomizeMiasmaStreams(Toggle):
+    """Shuffle which element each Miasma Stream asks for, every year. Also opens
+    Goblin Wall in Year 1, so every element can be found from the start."""
+    display_name = "Randomize Miasma Streams"
+
+
+class MogNeverTired(Toggle):
+    """Mog never gets tired while carrying the chalice."""
+    display_name = "Mog Never Tired"
+
+
+class SkipIntroCutscene(Toggle):
+    """Skip the opening cutscene of a new game."""
+    display_name = "Skip Intro Cutscene"
+
+
+class SkipMioQuestions(Toggle):
+    """Skip Mio's questions at the start of a new game."""
+    display_name = "Skip Mio's Questions"
+
+
+class TrapVisuals(DefaultOnToggle):
+    """Status traps show the game's own effects (ice, flames, poison, paralysis, slow)."""
+    display_name = "Trap Visuals"
+
+
+class RandomizeShops(Toggle):
+    """Shuffle what each shop sells. Does not currently have location checks so may break things currently"""
+    display_name = "Randomize Shops"
+
+
+class RandomizeShopPrices(Toggle):
+    """Shuffle shop prices."""
+    display_name = "Randomize Shop Prices"
+
+
+class RandomizeBonusPools(Toggle):
+    """Shuffle the end-of-dungeon bonus rewards."""
+    display_name = "Randomize Bonus Pools"
 
 
 class IncludeTraps(DefaultOnToggle):
@@ -72,7 +132,7 @@ class ChaliceElementTrapWeight(Range):
     display_name = "Chalice Element Trap Weight"
     range_start = 0
     range_end = 10
-    default = 1
+    default = 0
 
 
 class BonusSetTrapWeight(Range):
@@ -80,7 +140,7 @@ class BonusSetTrapWeight(Range):
     display_name = "Bonus Set Reset Trap Weight"
     range_start = 0
     range_end = 10
-    default = 1
+    default = 0
 
 
 class FoodPreferenceTrapWeight(Range):
@@ -97,6 +157,17 @@ class FFCCGameOptions(PerGameCommonOptions):
     progressive_artifacts:       ProgressiveArtifacts
     cycle_location_checks:       CycleLocationChecks
     year_location_checks:        YearLocationChecks
+    stage_keys:                  StageKeys
+    shuffle_loading_zones:       ShuffleLoadingZones
+    randomize_miasma_streams:    RandomizeMiasmaStreams
+    goblin_wall_year_one:        GoblinWallYearOne
+    mog_never_tired:             MogNeverTired
+    skip_intro_cutscene:         SkipIntroCutscene
+    skip_mio_questions:          SkipMioQuestions
+    trap_visuals:                TrapVisuals
+    randomize_shops:             RandomizeShops
+    randomize_shop_prices:       RandomizeShopPrices
+    randomize_bonus_pools:       RandomizeBonusPools
     include_traps:               IncludeTraps
     frozen_trap_weight:          FrozenTrapWeight
     burned_trap_weight:          BurnedTrapWeight
@@ -110,6 +181,9 @@ class FFCCGameOptions(PerGameCommonOptions):
 
 FFCC_option_groups = [
     OptionGroup("General", [VictoryGoal, ProgressiveArtifacts, CycleLocationChecks, YearLocationChecks]),
+    OptionGroup("Progression", [StageKeys, ShuffleLoadingZones, RandomizeMiasmaStreams, GoblinWallYearOne]),
+    OptionGroup("Gameplay", [MogNeverTired, SkipIntroCutscene, SkipMioQuestions, TrapVisuals,
+                             RandomizeShops, RandomizeShopPrices, RandomizeBonusPools]),
     OptionGroup("Traps", [
         IncludeTraps, FrozenTrapWeight, BurnedTrapWeight, SlowedTrapWeight,
         PoisonedTrapWeight, ChaliceElementTrapWeight, BonusSetTrapWeight, FoodPreferenceTrapWeight,

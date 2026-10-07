@@ -18,7 +18,10 @@ from .items import (FFCCItem, FFCCItemData, ITEM_TABLE, FILLER_ITEM_TABLE, TRAP_
                     CYCLE_PLACEHOLDER_ITEM, YEAR_PLACEHOLDER_ITEM)
 from .locations import FFCCLocation, LOCATION_TABLE, location_groups
 from .options import FFCCGameOptions, FFCC_option_groups
-from .rules import set_rules, set_location_rules
+from .rules import (set_rules, set_location_rules, layout_is_beatable, first_year_dungeons,
+                    stage_key, SPOT_AREA)
+from .regions import MYRRH_DUNGEONS, myrrh_location
+from .items import MYRRH_DROP, MYRRH_DROP_DATA
 
 VERSION: tuple = (0, 1, 0)
 
@@ -97,6 +100,46 @@ class FFCCWorld(World):
     def create_regions(self) -> None:
         create_regions(self.multiworld, self.player, self.options)
 
+    # Dungeons the loading-zone shuffle moves (Mount Kilanda stays put; Mount
+    # Vellenge isn't a world-map spot of its own).
+    SHUFFLED_SPOTS = [spot for spot in SPOT_AREA if spot != "Mount Kilanda"]
+
+    VANILLA_GATES = [[2, 8, 4, 1], [1, 2, 8, 4], [4, 1, 2, 8], [8, 4, 1, 2]]
+
+    def generate_early(self) -> None:
+        keys = bool(self.options.stage_keys)
+        shuffle_zones = bool(self.options.shuffle_loading_zones)
+        shuffle_gates = bool(self.options.randomize_miasma_streams)
+        # A shuffled Miasma Stream can ask for any element in Year 1; Goblin Wall's
+        # Fire and Earth in Year 1 is what keeps every element within reach.
+        self.goblin_year1 = bool(self.options.goblin_wall_year_one) or shuffle_gates
+
+        # Miasma Stream elements [year % 4 row][gate slot] and the world-map
+        # layout {spot: dungeon}; shuffled ones are kept only if every year can
+        # be finished (rules.layout_is_beatable).
+        vanilla_plan = {spot: spot for spot in SPOT_AREA}
+        self.gate_table, self.zone_plan = self.VANILLA_GATES, vanilla_plan
+        for _ in range(10000):
+            gates = self.VANILLA_GATES
+            if shuffle_gates:
+                gates = [self.random.sample(row, 4) for row in self.VANILLA_GATES]
+            plan = vanilla_plan
+            if shuffle_zones:
+                dungeons = self.SHUFFLED_SPOTS[:]
+                self.random.shuffle(dungeons)
+                plan = dict(vanilla_plan, **dict(zip(self.SHUFFLED_SPOTS, dungeons)))
+            if layout_is_beatable(plan, gates, keys, self.goblin_year1):
+                self.gate_table, self.zone_plan = gates, plan
+                break
+
+        if keys:
+            # Year 1 needs three Myrrh trees: River Belle Path plus two dungeons
+            # whose keys must turn up early, along with the Year 2 Key.
+            early = self.multiworld.local_early_items[self.player]
+            for dungeon in first_year_dungeons(self.zone_plan, self.gate_table, self.goblin_year1):
+                early[stage_key(dungeon)] = 1
+            early["Year 2 Key"] = 1
+
     def set_rules(self) -> None:
         set_location_rules(self)
         set_rules(self)
@@ -134,6 +177,9 @@ class FFCCWorld(World):
         raise KeyError(f"Unknown FFCC item: {name!r}")
 
     def create_items(self) -> None:
+        for dungeon in MYRRH_DUNGEONS:
+            self.multiworld.get_location(myrrh_location(dungeon), self.player).place_locked_item(
+                FFCCItem(MYRRH_DROP, self.player, MYRRH_DROP_DATA))
         cycle_placeholder = ITEM_TABLE[CYCLE_PLACEHOLDER_ITEM]
         year_placeholder  = ITEM_TABLE[YEAR_PLACEHOLDER_ITEM]
         for name, loc_data in LOCATION_TABLE.items():
@@ -158,9 +204,9 @@ class FFCCWorld(World):
         locations_out = {}
         for location in multiworld.get_locations(player):
             if location.item:
-                loc_data  = LOCATION_TABLE[location.name]
-                if loc_data.is_event:
-                    continue  # no physical chest — skip patcher output
+                loc_data  = LOCATION_TABLE.get(location.name)
+                if loc_data is None or loc_data.is_event:
+                    continue  # no physical chest (Myrrh trees, cycle/year events) — skip patcher output
                 item_data = ITEM_TABLE.get(location.item.name)
                 locations_out[location.name] = {
                     "player":      multiworld.player_name[location.item.player],
@@ -169,7 +215,7 @@ class FFCCWorld(World):
                     "class":       _cls_name(location.item.classification),
                     "dungeon":     loc_data.region,
                     "cycle":       loc_data.cycle,
-                    "game8_chest": loc_data.chest,
+                    "chest":       loc_data.chest,   # game-order chest number (chest_table.py)
                 }
 
         output_data = {
@@ -182,7 +228,15 @@ class FFCCWorld(World):
                 "frozen_trap_weight", "burned_trap_weight", "slowed_trap_weight",
                 "poisoned_trap_weight", "chalice_element_trap_weight",
                 "bonus_set_trap_weight", "food_preference_trap_weight", "death_link",
+                "stage_keys", "shuffle_loading_zones", "randomize_miasma_streams",
+                "goblin_wall_year_one", "mog_never_tired", "skip_intro_cutscene",
+                "skip_mio_questions", "trap_visuals", "randomize_shops",
+                "randomize_shop_prices", "randomize_bonus_pools",
             ),
+            # {spot: dungeon} for the patcher (same names the randomizer's JSON uses)
+            "world_zones": self.zone_plan,
+            # Miasma Stream table the logic used (only sent when shuffled)
+            "miasma_elements": self.gate_table if self.options.randomize_miasma_streams else None,
             "locations": locations_out,
         }
 
@@ -221,6 +275,8 @@ def _create_item_pool(world: "FFCCWorld") -> List[Item]:
     for name, data in ITEM_TABLE.items():
         if data.type in ("Trap", "Progressive Artifact", "Placeholder"):
             continue  # handled separately below; Placeholders are pre-placed at event locs
+        if data.type == "Stage Key" and not world.options.stage_keys:
+            continue
         if data.type == "Artifact" and use_progressive:
             continue  # replaced by 73 × Progressive Artifact below
         pool.append(FFCCItem(name, world.player, data))

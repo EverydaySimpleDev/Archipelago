@@ -17,20 +17,20 @@ except ImportError:
     logger.warning("dolphin_memory_engine not installed — FFCC client will not function.")
 
 from .game_id import game_name
-from .items import ITEM_TABLE, LOOKUP_ID_TO_NAME, PROGRESSIVE_ARTIFACT_ORDER, PROGRESSIVE_ARTIFACT_NAME
+from .items import ITEM_TABLE, LOOKUP_ID_TO_NAME, PROGRESSIVE_ARTIFACT_ORDER, PROGRESSIVE_ARTIFACT_NAME, STAGE_KEYS
 from .locations import LOCATION_TABLE, FFCCLocationData
 
-# ── Expected game ID ───────────────────────────────────────────────────────────
+# Expected game ID
 GAME_ID      = b"GCCE"     # FFCC NTSC-U 4-byte game code
 GAME_ID_ADDR = 0x80000000
 
-# ── Connection status strings ─────────────────────────────────────────────────
+# Connection status strings
 CONNECTION_INITIAL_STATUS   = "Dolphin connection has not been initiated."
 CONNECTION_CONNECTED_STATUS = "Dolphin connected successfully."
 CONNECTION_REFUSED_STATUS   = "Dolphin refused: wrong game loaded. Please load FFCC NTSC-U."
 CONNECTION_LOST_STATUS      = "Dolphin connection was lost. Please restart your emulator and ensure FFCC is running."
 
-# ── World / dungeon state ──────────────────────────────────────────────────────
+# World / dungeon state
 ADDR_MAP_ID      = 0x8021de9b   # 1 byte: 0x00-0x0d = dungeon, others = not in dungeon
 ADDR_CURRENT_YEAR = 0x8021de93  # 1 byte: current caravan year (1=Year1, 2=Year2, ...)
 ADDR_WORLD_MAP   = 0x8021f25a   # 1 byte: 0x01 = on world map
@@ -39,18 +39,18 @@ ADDR_PAUSED      = 0x8021f25b   # 1 byte: 0x01 = paused
 # Per-dungeon cycle address: map_id 0 → 0x8021deb3, map_id 1 → +4, etc.
 ADDR_CYCLE_BASE = 0x8021deb3   # 0x00=Cycle1, 0x01=Cycle2, 0x02=Cycle3
 
-# ── Player stats ───────────────────────────────────────────────────────────────
+# Player stats
 ADDR_MAX_HEARTS = 0x8021f28b   # 1 byte
 ADDR_CUR_HEARTS = 0x8021f28d   # 1 byte (1 heart = 2 units; 0 = dead)
 
-# ── Status effects (2 bytes each; write any nonzero value to apply) ────────────
+# Status effects (2 bytes each; write any nonzero value to apply)
 ADDR_FROZEN     = 0x8021f2ae
 ADDR_BURNED     = 0x8021f2b0
 ADDR_POISONED   = 0x8021f2b2
 ADDR_PARALYZED  = 0x8021f2b6
 ADDR_SLOWED     = 0x8021f2be
 
-# ── Inventory / items ──────────────────────────────────────────────────────────
+# Inventory / items
 ADDR_ITEM_BAG   = 0x8021f33a   # material bag start (2 bytes per slot)
 ADDR_ARTIFACT   = 0x8021f3a6   # artifact bag start (2 bytes per slot)
 ADDR_GIL        = 0x8021f470   # 4 bytes BE
@@ -61,15 +61,46 @@ ITEM_BAG_SLOTS      = (ADDR_ARTIFACT - ADDR_ITEM_BAG) // 2   # = 54
 ARTIFACT_BAG_SLOTS  = (ADDR_GIL - ADDR_ARTIFACT) // 2        # = 101
 ITEM_SLOT_EMPTY = 0xffff  # sentinel for an empty inventory slot (confirmed via memory view)
 
-# ── Chalice / bonus / food ─────────────────────────────────────────────────────
-ADDR_CHALICE    = 0x8021ef3e   # 1 byte: bit0=Fire,bit1=Water,bit2=Wind,bit3=Earth,bit4=Holy
+# Chalice / bonus / food
+ADDR_CHALICE    = 0x8021ef3f   # low byte of the chalice element: 1=Fire,2=Water,4=Wind,8=Earth,16=Unknown
+CHALICE_ELEMENTS = {"fire": 0x01, "water": 0x02, "wind": 0x04, "earth": 0x08, "unknown": 0x10}
+ADDR_CHALICE_FILL = 0x8021de97  # 1 byte: Myrrh drops in the chalice this year (0-3, 3 = full)
+
+# Myrrh tree state, one byte per dungeon at ADDR_MYRRH_TREE + 4 * n (n = the
+# dungeon's order below): 100 = has Myrrh, 0 = just harvested, 25/50/75 = regrowing.
+ADDR_MYRRH_TREE = 0x8021deef
+MYRRH_TREE_READY = 100
+MYRRH_TREE_DUNGEONS = [
+    "River Belle Path", "Goblin Wall", "The Mine of Cathuriges", "The Mushroom Forest",
+    "Tida", "Moschet Manor", "Mount Kilanda", "Daemon's Court", "Selepation Cave",
+    "Veo Lu Sluice", "Lynari Desert", "Conall Curach", "Rebena Te Ra",
+]
 ADDR_BONUS      = 0x8021fe14   # 1 byte: 0x01–0x18
 ADDR_FOOD_BASE  = 0x8021f629   # 2 bytes × 8 foods (Striped Apple, Cherry Cluster, …)
 
-# ── Chest bit flags (8 bytes, shared/reused per dungeon, cleared on dungeon exit) ─
+# Chest bit flags (8 bytes, shared/reused per dungeon, cleared on dungeon exit)
 ADDR_CHEST_BASE = 0x80926000
 
-# ── Map ID → dungeon name ──────────────────────────────────────────────────────
+# Trap Setup
+
+ADDR_TRAP_HOOK    = 0x80111a48   # 48 09 82 61 when the randomizer's trap-visuals patch is installed
+ADDR_TRAP_PENDING = 0x801a9d28   # u16 per status: 0 freeze, 1 burn, 2 poison, 4 paralysis, 8 slow
+TRAP_STATUS_INDEX = {"Frozen Trap": 0, "Burned Trap": 1, "Poisoned Trap": 2,"Paralyzed Trap": 4, "Slowed Trap": 8}
+TRAP_TIMER_ADDR   = {"Frozen Trap": ADDR_FROZEN, "Burned Trap": ADDR_BURNED,
+                     "Poisoned Trap": ADDR_POISONED,"Paralyzed Trap": ADDR_PARALYZED, "Slowed Trap": ADDR_SLOWED}
+
+# Myrrh / Stages flags
+ADDR_MYRRH_COLLECTED = 0x8021ef6d  # 2 bytes: bit n of (byte0 | byte1<<8) = dungeon n cleared
+                                   # (event flags 200+n). Confirmed live for River (bit 0) and Goblin Wall (bit 1).
+MYRRH_DUNGEONS = 13                # River Belle Path (0) .. Rebena Te Ra (12); Mount Vellenge has no tree
+ALL_MYRRH_MASK = (1 << MYRRH_DUNGEONS) - 1
+
+# Credits Victory Setup
+
+ADDR_SCRIPT_NAME_ID = 0x80299780   # chars 3-6 of the loaded stage script's name
+ENDING_IDS = (0x34345F32, 0x34345F33)  # "44_2" = ending (ff44_2), "44_3" = credits (ff44_3)
+
+# Map ID → dungeon name
 MAP_ID_TO_DUNGEON: Dict[int, str] = {
     0x00: "River Belle Path",
     0x01: "Goblin Wall",
@@ -87,122 +118,29 @@ MAP_ID_TO_DUNGEON: Dict[int, str] = {
     0x0d: "Mount Vellenge",
 }
 
-# ── Chest bit flag positions per dungeon ───────────────────────────────────────
-# List of (byte_offset, bit_index) relative to ADDR_CHEST_BASE.
-# Order matches game8 chest number order for that dungeon.
-# NOTE: mapping is tentative — requires in-game testing to verify.
-# Dungeon flag-bit counts may not equal game8 chest counts; only the first
-# min(len(flags), len(chests)) pairs are used for AP location detection.
-DUNGEON_FLAG_BITS: Dict[str, List[Tuple[int, int]]] = {
-    "River Belle Path":       [(3,1),(3,3),(3,4),(3,6),(3,7),(3,5),(2,0)],  # re-verified in-game 2026-07-08 (previous order was wrong: 2/3/4/5/6 checks fired mismatched)
-    "Goblin Wall":            [(1,0),(2,1),(2,2),(2,3),(2,6),(2,7),(3,0),(3,1),(3,2),(3,3),(3,4)],
-    "The Mine of Cathuriges": [(1,4),(1,5),(1,6),(2,1),(2,2),(2,3),(2,4),(2,5),(2,6),(3,1),(3,2),(3,3),(3,4),(3,5)],
-    "The Mushroom Forest":    [(2,1),(3,1),(3,2),(3,3),(3,4)],
-    "Tida":                   [(1,0),(2,3),(2,4),(2,5),(2,7),(3,0),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
-    "Moschet Manor":          [(0,0),(1,3),(2,1),(2,6),(3,0),(3,1),(3,4)],
-    "Mount Kilanda":          [(2,2),(2,3),(2,4),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5)],
-    "Daemon's Court":         [(2,0),(2,1),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
-    "Selepation Cave":        [(2,2),(2,3),(2,4),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5),(3,6)],
-    "Veo Lu Sluice":          [(2,0),(2,1),(2,2),(2,3),(2,4),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
-    "Lynari Desert":          [(1,4),(1,5),(2,0),(2,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
-    "Conall Curach":          [(0,7),(1,0),(1,1),(1,2),(1,3),(1,4),(1,5),
-                               (2,3),(2,4),(2,5),(2,6),(2,7),
-                               (3,1),(3,4),(3,5),(3,6),(3,7),
-                               (7,0),(7,1),(7,2),(7,3),(7,4)],
-    "Rebena Te Ra":           [(0,6),(0,7),(1,4),(2,1),(2,2),(2,3),(2,4),
-                               (3,0),(3,1),(3,2),(7,0),(7,1),(7,2),(7,3),(7,4)],
-    "Mount Vellenge":         [(0,1),(0,2),(1,4),(1,6),(1,7),(2,0),
-                               (3,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7)],
+#  Chest flags per dungeon
+# From chest_table.py (generated from the game files): each chest's
+# "opened" flag(s). Flag n = bit n of the big-endian u32 words at
+# ADDR_CHEST_BASE: byte 4*(n//32) + 3 - (n%32)//8, bit n%8. The same table
+# numbers the AP locations and drives the patcher, so a flag always reports
+# the chest the item was put in.
+from .chest_table import CHESTS
+
+
+def _flag_pos(n: int) -> Tuple[int, int]:
+    return 4 * (n // 32) + 3 - (n % 32) // 8, n % 8
+
+# dungeon -> {(byte, bit): (chest, cycles)}
+CHEST_FLAGS: Dict[str, Dict[Tuple[int, int], Tuple[int, Tuple[int, ...]]]] = {
+    dungeon: {_flag_pos(f): (chest, cycles) for chest, cycles, flags in rows for f in flags}
+    for dungeon, rows in CHESTS.items()
 }
 
-# game8 chest numbers per dungeon, per cycle (same identifiers as
-# locations._DUNGEON_CHESTS_BY_CYCLE — must be kept in sync with that table,
-# since these are used to reconstruct the exact AP location name strings).
-# Chest sets are NOT uniform across cycles for most dungeons; Mount Vellenge
-# has only one cycle and Veo Lu Sluice only has two.
-# NOTE: flag-bit order below is still tentative/unverified for every dungeon
-# except River Belle Path — expanding a dungeon's chest count here does not
-# mean the extra chests have verified flag-bit positions yet (see
-# DUNGEON_FLAG_BITS' `min(len(flags), len(chests))` truncation below).
-DUNGEON_CHESTS: Dict[str, Dict[int, List]] = {
-    "River Belle Path": {  # re-verified 2026-07-08 against DUNGEON_FLAG_BITS above
-        1: [1, 2, 3, 4, 5, 6, 7],
-        2: [1, 2, 3, 4, 5, 6, 7],
-        3: [1, 2, 3, 4, 5, 6, 7],
-    },
-    "Goblin Wall": {
-        1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14],
-        2: list(range(1, 15)),
-        3: list(range(1, 15)),
-    },
-    "The Mine of Cathuriges": {
-        1: [1, 2, 3, 4, 5, 12, 13, 14],
-        2: list(range(1, 15)),
-        3: list(range(1, 15)),
-    },
-    "The Mushroom Forest": {
-        1: [3, 5, 6, 7, 8],
-        2: list(range(1, 10)),
-        3: list(range(1, 10)),
-    },
-    "Moschet Manor": {
-        1: list(range(1, 8)),
-        2: list(range(1, 8)),
-        3: list(range(1, 8)),
-    },
-    "Veo Lu Sluice": {
-        1: [1, 2, 3, 4, 5],
-        2: list(range(1, 19)),
-    },
-    "Daemon's Court": {
-        1: list(range(1, 11)),
-        2: list(range(1, 11)),
-        3: list(range(1, 11)),
-    },
-    "Selepation Cave": {
-        1: list(range(1, 11)),
-        2: list(range(1, 11)),
-        3: list(range(1, 11)),
-    },
-    "Conall Curach": {
-        1: list(range(1, 23)),
-        2: list(range(1, 23)),
-        3: list(range(1, 23)),
-    },
-    "Rebena Te Ra": {
-        1: list(range(1, 16)),
-        2: list(range(1, 16)),
-        3: list(range(1, 16)),
-    },
-    "Mount Vellenge": {
-        1: list(range(1, 15)),
-    },
-    "Lynari Desert": {
-        1: list(range(1, 11)),
-        2: list(range(1, 11)),
-        3: list(range(1, 11)),
-    },
-    "Tida": {
-        1: list(range(1, 14)),
-        2: list(range(1, 14)),
-        3: list(range(1, 14)),
-    },
-    "Mount Kilanda": {
-        1: ["1/8", "2/5", 3, 4, "6/9", 7],
-        2: ["1/8", "2/5", 3, 4, "6/9", 7],
-        3: ["1/8", "2/5", 3, 4, "6/9", 7],
-    },
-}
 
-# Precompute: (dungeon, cycle, chest_index) → AP location name for fast lookup
-_BIT_INDEX_TO_LOCATION: Dict[Tuple[str, int, int], str] = {}
-for _dungeon, _cycles in DUNGEON_CHESTS.items():
-    for _cycle, _chests in _cycles.items():
-        for _idx, _chest in enumerate(_chests):
-            _loc_name = f"{_dungeon} - Cycle {_cycle} - Chest {_chest}"
-            _BIT_INDEX_TO_LOCATION[(_dungeon, _cycle, _idx)] = _loc_name
+def _chest_location(dungeon: str, cycle: int, chest: int) -> str:
+    return f"{dungeon} - Cycle {cycle} - Chest {chest}"
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# Helpers
 
 def _read_byte(addr: int) -> int:
     return dme.read_bytes(addr, 1)[0]
@@ -262,7 +200,7 @@ def _find_free_artifact_slot() -> Optional[int]:
             return addr
     return None
 
-# ── Command processor ──────────────────────────────────────────────────────────
+# Command processor
 
 class FFCCCommandProcessor(ClientCommandProcessor):
     def _cmd_dolphin(self) -> None:
@@ -270,13 +208,115 @@ class FFCCCommandProcessor(ClientCommandProcessor):
         if isinstance(self.ctx, FFCCContext):
             logger.info(f"Dolphin status: {self.ctx.dolphin_status}")
 
+    def _cmd_element(self, element: str = "") -> bool:
+        """Set the chalice element: /element fire|water|wind|earth|unknown.
+        Without a name, shows the current element. Unknown crosses every
+        Miasma Stream, so only use it if you are stuck."""
+        if not dme.is_hooked():
+            logger.info("Dolphin isn't connected.")
+            return False
+        names = {v: k.capitalize() for k, v in CHALICE_ELEMENTS.items()}
+        if not element:
+            current = _read_byte(ADDR_CHALICE)
+            logger.info(f"Chalice element: {names.get(current, f'none ({current})')}")
+            return True
+        value = CHALICE_ELEMENTS.get("unknown" if element.lower() == "holy" else element.lower())
+        if value is None:
+            logger.info(f"Unknown element {element!r}. Use one of: {', '.join(CHALICE_ELEMENTS)}")
+            return False
+        _write_byte(ADDR_CHALICE, value)
+        logger.info(f"Chalice element set to {names[value]}.")
+        return True
 
-# ── Client context ─────────────────────────────────────────────────────────────
+    def _cmd_stagekeys(self, mode: str = "") -> bool:
+        """Turn the stage-key locks off or back on: /stagekeys off|on.
+        "off" puts every dungeon's key in your artifact bag so all dungeons
+        open (handy if you're stuck; dungeons may then be out of logic).
+        "on" takes back the keys you haven't received from the multiworld.
+        Without on/off, shows which keys you have."""
+        if not isinstance(self.ctx, FFCCContext) or not dme.is_hooked():
+            logger.info("Dolphin isn't connected.")
+            return False
+        received = _received_stage_keys(self.ctx)
+        in_bag = _stage_keys_in_bag()
+        mode = mode.lower()
+        if mode == "off":
+            added = 0
+            for name, key_id in STAGE_KEYS:
+                if key_id not in in_bag:
+                    if not _give_artifact(key_id):
+                        logger.info("Your artifact bag is full - free a slot and try again.")
+                        return False
+                    added += 1
+            logger.info(f"Stage keys off: {added} key(s) added, every dungeon is open. "
+                        f"Use /stagekeys on to undo.")
+            return True
+        if mode == "on":
+            removed = _remove_stage_keys(keep=received)
+            logger.info(f"Stage keys on: {removed} key(s) you haven't received were taken back.")
+            return True
+        if mode:
+            logger.info("Use /stagekeys off or /stagekeys on.")
+            return False
+        extra = in_bag - received
+        logger.info(f"Stage keys received: {len(received)}/{len(STAGE_KEYS)}"
+                    + (f" - locks are off ({len(extra)} extra key(s) in your bag)" if extra else ""))
+        return True
+
+    def _cmd_tree(self, *name: str) -> bool:
+        """Show every dungeon's Myrrh tree, or restore one so its Myrrh can be
+        collected again: /tree river (any unique part of the dungeon name)."""
+        if not dme.is_hooked():
+            logger.info("Dolphin isn't connected.")
+            return False
+        query = " ".join(name).lower().strip()
+        if not query:
+            for n, dungeon in enumerate(MYRRH_TREE_DUNGEONS):
+                state = _read_byte(ADDR_MYRRH_TREE + 4 * n)
+                text = "ready" if state >= MYRRH_TREE_READY else f"regrowing ({state}%)"
+                logger.info(f"{dungeon}: {text}")
+            return True
+        matches = [n for n, d in enumerate(MYRRH_TREE_DUNGEONS) if query in d.lower()]
+        if len(matches) != 1:
+            logger.info(f"Name one dungeon: {', '.join(MYRRH_TREE_DUNGEONS)}")
+            return False
+        n = matches[0]
+        _write_byte(ADDR_MYRRH_TREE + 4 * n, MYRRH_TREE_READY)
+        logger.info(f"{MYRRH_TREE_DUNGEONS[n]}'s Myrrh tree is ready again.")
+        return True
+
+    def _cmd_status(self) -> bool:
+        """Show the year, where you are, the chalice element, Myrrh trees
+        collected and the stage keys you have."""
+        if not isinstance(self.ctx, FFCCContext) or not dme.is_hooked():
+            logger.info("Dolphin isn't connected.")
+            return False
+        ctx = self.ctx
+        names = {v: k.capitalize() for k, v in CHALICE_ELEMENTS.items()}
+        logger.info(f"Year: {_read_byte(ADDR_CURRENT_YEAR)}")
+        if _is_in_dungeon():
+            dungeon = MAP_ID_TO_DUNGEON.get(_get_map_id(), "a dungeon")
+            logger.info(f"In {dungeon} (cycle {ctx.current_cycle})")
+        else:
+            logger.info("On the world map or in a town")
+        element = _read_byte(ADDR_CHALICE)
+        logger.info(f"Chalice element: {names.get(element, f'none ({element})')}")
+        logger.info(f"Myrrh in the chalice this year: {_read_byte(ADDR_CHALICE_FILL)}/3")
+        if ctx.slot is not None:
+            trees = ctx.stored_data.get(_myrrh_key(ctx)) or 0
+            trees |= _read_myrrh_mask()
+            logger.info(f"Myrrh trees collected: {bin(trees).count('1')}/{MYRRH_DUNGEONS}")
+        keys = sorted({LOOKUP_ID_TO_NAME.get(i.item, "") for i in ctx.items_received
+                       if ITEM_TABLE.get(LOOKUP_ID_TO_NAME.get(i.item, "")) is not None
+                       and ITEM_TABLE[LOOKUP_ID_TO_NAME[i.item]].type == "Stage Key"})
+        logger.info("Stage keys: " + (", ".join(keys) if keys else "none yet"))
+        return True
 
 class FFCCContext(CommonContext):
     command_processor = FFCCCommandProcessor
     game              = game_name
     items_handling    = 0b111  # full remote items
+    victory: int
 
     def __init__(self, server_address: Optional[str], password: Optional[str]) -> None:
         super().__init__(server_address, password)
@@ -290,6 +330,7 @@ class FFCCContext(CommonContext):
         self.current_year:     Optional[int] = None
         self.prev_chest_flags: bytes = bytes(8)
         self.received_index:   int = 0  # items processed so far
+        self.victory: int = 0
 
         # Settings loaded from slot_data
         self.progressive_artifacts: bool = False
@@ -323,6 +364,9 @@ class FFCCContext(CommonContext):
                 "Bonus Set Trap":       slot_data.get("bonus_set_trap_weight", 1),
                 "Food Preference Trap": slot_data.get("food_preference_trap_weight", 1),
             }
+            self.set_notify(_myrrh_key(self))
+            if slot_data.get("victory_goal"):
+                self.victory = args["slot_data"]["victory_goal"]
             if slot_data.get("death_link"):
                 Utils.async_start(self.update_death_link(True))
             self.physical_chest_ap_ids = set(slot_data.get("physical_chest_ap_ids", []))
@@ -348,7 +392,7 @@ class FFCCContext(CommonContext):
         self.ui_task = asyncio.create_task(self.ui.async_run(), name="UI")
 
 
-# ── Item giving ────────────────────────────────────────────────────────────────
+# Item giving
 
 def _give_item(ctx: FFCCContext, item_name: str) -> bool:
     """Write an item to game memory. Returns True on success."""
@@ -375,7 +419,7 @@ def _give_item(ctx: FFCCContext, item_name: str) -> bool:
     if data.item_id is None:
         return True
 
-    if data.type == "Artifact":
+    if data.type in ("Artifact", "Stage Key"):
         return _give_artifact(data.item_id)  # False if bag full → retry
 
     # Materials, Food, Recipes, Magicite, Phoenix Down — find a free bag slot.
@@ -386,6 +430,36 @@ def _give_item(ctx: FFCCContext, item_name: str) -> bool:
         return False  # retry on next tick
     _write_short(addr, data.item_id)
     return True
+
+
+def _received_stage_keys(ctx: "FFCCContext") -> Set[int]:
+    """In-game IDs of the stage keys received from the multiworld."""
+    ids = {ITEM_TABLE[name].item_id for name, _ in STAGE_KEYS}
+    out = set()
+    for net_item in ctx.items_received:
+        data = ITEM_TABLE.get(LOOKUP_ID_TO_NAME.get(net_item.item, ""))
+        if data is not None and data.item_id in ids:
+            out.add(data.item_id)
+    return out
+
+
+def _stage_keys_in_bag() -> Set[int]:
+    """In-game IDs of the stage keys currently in the artifact bag."""
+    ids = {key_id for _, key_id in STAGE_KEYS}
+    return {v for v in (_read_short(ADDR_ARTIFACT + i * 2) for i in range(ARTIFACT_BAG_SLOTS)) if v in ids}
+
+
+def _remove_stage_keys(keep: Set[int]) -> int:
+    """Empty the artifact bag slots holding stage keys not in `keep`."""
+    ids = {key_id for _, key_id in STAGE_KEYS}
+    removed = 0
+    for i in range(ARTIFACT_BAG_SLOTS):
+        addr = ADDR_ARTIFACT + i * 2
+        v = _read_short(addr)
+        if v in ids and v not in keep:
+            _write_short(addr, ITEM_SLOT_EMPTY)
+            removed += 1
+    return removed
 
 
 def _give_artifact(artifact_id: int) -> bool:
@@ -401,16 +475,10 @@ def _give_artifact(artifact_id: int) -> bool:
 
 def _apply_trap(ctx: FFCCContext, trap_name: str) -> None:
     """Apply a trap effect to the player."""
-    if trap_name == "Frozen Trap":
-        _write_short(ADDR_FROZEN, 0x012c)       # ~3 seconds of frozen
-    elif trap_name == "Burned Trap":
-        _write_short(ADDR_BURNED, 0x012c)
-    elif trap_name == "Slowed Trap":
-        _write_short(ADDR_SLOWED, 0x012c)
-    elif trap_name == "Poisoned Trap":
-        _write_short(ADDR_POISONED, 0x012c)
+    if trap_name in TRAP_STATUS_INDEX:
+        _apply_status_trap(trap_name)
     elif trap_name == "Chalice Element Trap":
-        elements = [0x01, 0x02, 0x04, 0x08, 0x10]  # Fire,Water,Wind,Earth,Holy
+        elements = [0x01, 0x02, 0x04, 0x08]  # Fire, Water, Wind, Earth (never the Unknown element)
         current  = _read_byte(ADDR_CHALICE)
         choices  = [e for e in elements if e != current] or elements
         _write_byte(ADDR_CHALICE, random.choice(choices))
@@ -423,59 +491,41 @@ def _apply_trap(ctx: FFCCContext, trap_name: str) -> None:
             _write_short(ADDR_FOOD_BASE + i * 2, random.randint(0, 0x64))
 
 
-# ── Chest detection ────────────────────────────────────────────────────────────
+# Chest detection
 
 def _find_new_chest_locations(dungeon: str, cycle: int,
                                prev: bytes, curr: bytes) -> List[str]:
     """Return AP location names for chest bits that flipped 0→1."""
-    flags  = DUNGEON_FLAG_BITS.get(dungeon, [])
-    chests = DUNGEON_CHESTS.get(dungeon, {}).get(cycle, [])
-    count  = min(len(flags), len(chests))
-    found  = []
-    known  = set(flags)
-    for idx in range(count):
-        byte_off, bit_idx = flags[idx]
-        was_set = _get_bit(prev, byte_off, bit_idx)
-        now_set = _get_bit(curr, byte_off, bit_idx)
-        if not was_set and now_set:
-            loc_name = _BIT_INDEX_TO_LOCATION.get((dungeon, cycle, idx))
-            # Debug line: lets us verify that each flag bit matches the right chest.
-            # Enable DEBUG logging to see this (e.g. run client with --loglevel debug).
-            logger.info(f"FFCC: Chest flag (byte={byte_off}, bit={bit_idx}) → {loc_name!r}")
-            if loc_name and loc_name in LOCATION_TABLE:
-                found.append(loc_name)
-    # Catch any bit flips not yet in our mapping — helps during verification runs.
+    flags = CHEST_FLAGS.get(dungeon, {})
+    found = []
     for byte_off in range(8):
         for bit_idx in range(8):
-            if (byte_off, bit_idx) not in known:
-                if not _get_bit(prev, byte_off, bit_idx) and _get_bit(curr, byte_off, bit_idx):
-                    logger.info(f"FFCC: Unmapped chest flag bit flipped: "
-                                 f"byte={byte_off}, bit={bit_idx} in {dungeon!r}")
+            if _get_bit(prev, byte_off, bit_idx) or not _get_bit(curr, byte_off, bit_idx):
+                continue
+            hit = flags.get((byte_off, bit_idx))
+            if hit is None:
+                # gil-only chests and anything not in the table
+                logger.info(f"FFCC: Unmapped chest flag byte={byte_off}, bit={bit_idx} in {dungeon!r}")
+                continue
+            chest, cycles = hit
+            loc_name = _chest_location(dungeon, cycle, chest)
+            logger.info(f"FFCC: Chest flag (byte={byte_off}, bit={bit_idx}) → {loc_name!r}")
+            if cycle in cycles and loc_name in LOCATION_TABLE and loc_name not in found:
+                found.append(loc_name)
     return found
 
 
 def _restore_sent_chest_bits(dungeon: str, cycle: int,
                               checked_locs: Set[int]) -> None:
     """Force chest bits for already-checked locations so chests appear open on re-entry."""
-    flags  = DUNGEON_FLAG_BITS.get(dungeon, [])
-    chests = DUNGEON_CHESTS.get(dungeon, {}).get(cycle, [])
-    count  = min(len(flags), len(chests))
-    for idx in range(count):
-        loc_name = _BIT_INDEX_TO_LOCATION.get((dungeon, cycle, idx))
-        if not loc_name:
-            continue
-        loc_data = LOCATION_TABLE.get(loc_name)
-        if not loc_data:
-            continue
-        ap_id = FFCCLocationData.code  # we need the apid, not raw code
-        from .locations import FFCCLocation
-        ap_id = FFCCLocation.get_apid(loc_data.code)
-        if ap_id in checked_locs:
-            byte_off, bit_idx = flags[idx]
+    from .locations import FFCCLocation
+    for (byte_off, bit_idx), (chest, cycles) in CHEST_FLAGS.get(dungeon, {}).items():
+        loc_data = LOCATION_TABLE.get(_chest_location(dungeon, cycle, chest))
+        if loc_data and FFCCLocation.get_apid(loc_data.code) in checked_locs:
             _force_chest_flag(byte_off, bit_idx)
 
 
-# ── Death detection ────────────────────────────────────────────────────────────
+# Death detection
 
 async def _check_death(ctx: FFCCContext) -> None:
     if not ctx.slot or not _is_in_dungeon():
@@ -489,7 +539,7 @@ async def _check_death(ctx: FFCCContext) -> None:
         ctx.has_sent_death = False
 
 
-# ── Main sync loop ─────────────────────────────────────────────────────────────
+# Main sync loop
 
 async def dolphin_sync_task(ctx: FFCCContext) -> None:
     logger.info("FFCC: Starting Dolphin connector. Use /dolphin for status.")
@@ -497,13 +547,13 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
         await asyncio.sleep(0.1)
         try:
             if dme.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
-                # ── Connected — run game logic ────────────────────────────────
+                # Connected — run game logic
                 if ctx.slot is None:
                     continue
 
                 in_dungeon = _is_in_dungeon()
 
-                # Year advancement — monitor on world map and in dungeon.
+                # Year advancement - monitor on world map and in dungeon.
                 # Year advances when the caravan returns home after filling the chalice,
                 # which happens on the world map. We check every tick so we don't miss it.
                 year = _read_byte(ADDR_CURRENT_YEAR)
@@ -521,6 +571,9 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                                     await ctx.send_msgs([{"cmd": "LocationChecks",
                                                           "locations": [ap_id]}])
                                     logger.info(f"FFCC: Year advancement — Year {y} has begun")
+                # Check victory
+                if not ctx.finished_game:
+                    await _check_victory(ctx)
 
                 if not in_dungeon:
                     ctx.current_dungeon  = None
@@ -535,8 +588,6 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                 cycle = _get_dungeon_cycle(map_id)
                 if dungeon == "Mount Vellenge":
                     cycle = 1  # single-cycle dungeon
-                elif dungeon == "Veo Lu Sluice":
-                    cycle = min(cycle, 2)  # only 2 distinct cycles; drained state persists after
 
                 just_entered = (dungeon != ctx.current_dungeon or cycle != ctx.current_cycle)
                 if just_entered:
@@ -554,7 +605,7 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                                 await ctx.send_msgs([{"cmd": "LocationChecks", "locations": [ap_id]}])
                                 logger.info(f"FFCC: Cycle advancement — {cycle_loc_name}")
 
-                # ── Check for newly opened chests ─────────────────────────────
+                # Check for newly opened chests
                 curr_flags = _read_chest_flags()
                 new_locs   = _find_new_chest_locations(dungeon, cycle,
                                                         ctx.prev_chest_flags, curr_flags)
@@ -573,7 +624,7 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                     if ap_ids:
                         await ctx.send_msgs([{"cmd": "LocationChecks", "locations": ap_ids}])
 
-                # ── Process received items ────────────────────────────────────
+                # Process received items
                 if ctx.items_received:
                     for idx in range(ctx.received_index, len(ctx.items_received)):
                         network_item = ctx.items_received[idx]
@@ -596,16 +647,12 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                             else:
                                 break  # try again next tick
 
-                # ── DeathLink ─────────────────────────────────────────────────
+                # DeathLink
                 if "DeathLink" in ctx.tags:
                     await _check_death(ctx)
 
-                # ── Victory check ─────────────────────────────────────────────
-                if not ctx.finished_game:
-                    await _check_victory(ctx)
-
             else:
-                # ── Not connected — attempt to connect / reconnect ────────────
+                # Not connected - attempt to connect / reconnect
                 if ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
                     logger.info("FFCC: Connection to Dolphin lost, reconnecting...")
                     ctx.dolphin_status   = CONNECTION_LOST_STATUS
@@ -661,20 +708,42 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
 
 
 async def _check_victory(ctx: FFCCContext) -> None:
-    """Send goal completion when all Mount Vellenge locations are checked."""
-    mv_locs = [
-        name for name, data in LOCATION_TABLE.items()
-        if data.region == "Mount Vellenge"
-    ]
-    from .locations import FFCCLocation
-    mv_ap_ids = {FFCCLocation.get_apid(LOCATION_TABLE[n].code) for n in mv_locs}
-    if mv_ap_ids and mv_ap_ids.issubset(ctx.checked_locations):
-        await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-        ctx.finished_game = True
-        logger.info("FFCC: Goal complete — congratulations!")
+    """Send goal completion when victory goal is finished"""
+    if ctx.victory == 0:  # collect all 13 Myrrh drops
+        key    = _myrrh_key(ctx)
+        stored = ctx.stored_data.get(key) or 0
+        mask   = _read_myrrh_mask()
+        if mask & ~stored:
+            # Bits reset each year, so remember every dungeon ever seen on the server.
+            await ctx.send_msgs([{"cmd": "Set", "key": key, "default": 0, "want_reply": True,
+                                  "operations": [{"operation": "or", "value": mask}]}])
+            stored |= mask
+            ctx.stored_data[key] = stored
+            logger.info(f"FFCC: Myrrh trees harvested: {bin(stored).count('1')}/{MYRRH_DUNGEONS}")
 
+        if stored & ALL_MYRRH_MASK == ALL_MYRRH_MASK:
+            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+            ctx.finished_game = True
+            logger.info("FFCC: Goal complete — congratulations!")
 
-# ── Entry point ────────────────────────────────────────────────────────────────
+    elif ctx.victory == 1:  # defeat the final boss (Mount Vellenge) and enter credits / end screen
+        if _read_int(ADDR_SCRIPT_NAME_ID) in ENDING_IDS:
+            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+            ctx.finished_game = True
+            logger.info("FFCC: Goal complete — congratulations!")
+
+def _read_myrrh_mask() -> int:
+    raw = dme.read_bytes(ADDR_MYRRH_COLLECTED, 2)
+    return (raw[0] | (raw[1] << 8)) & ALL_MYRRH_MASK
+
+def _myrrh_key(ctx: "FFCCContext") -> str:
+    return f"ffcc_myrrh_{ctx.team}_{ctx.slot}"
+
+def _apply_status_trap(trap_name: str, frames: int = 0x012c) -> None:   # 300 frames = ~5 s
+    if dme.read_bytes(ADDR_TRAP_HOOK, 4) == bytes.fromhex("48098261"):
+        _write_short(ADDR_TRAP_PENDING + 2 * TRAP_STATUS_INDEX[trap_name], frames)  # game applies it + visual
+    else:
+        _write_short(TRAP_TIMER_ADDR[trap_name], frames)                            # unpatched ISO: no visual
 
 def launch(*launch_args: str) -> None:
     async def main() -> None:

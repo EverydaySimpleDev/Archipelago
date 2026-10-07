@@ -3,6 +3,18 @@ from BaseClasses import MultiWorld, Region, Entrance
 from .locations import FFCCLocation, LOCATION_TABLE, location_groups
 
 
+# The 13 dungeons with a Myrrh tree (Mount Vellenge has none).
+MYRRH_DUNGEONS = [
+    "River Belle Path", "Goblin Wall", "The Mine of Cathuriges", "The Mushroom Forest",
+    "Tida", "Moschet Manor", "Mount Kilanda", "Daemon's Court", "Selepation Cave",
+    "Veo Lu Sluice", "Lynari Desert", "Conall Curach", "Rebena Te Ra",
+]
+
+
+def myrrh_location(dungeon: str) -> str:
+    return f"{dungeon} Myrrh"
+
+
 class FFCCRegionData(NamedTuple):
     locations:    List[str]
     region_exits: List[str]
@@ -25,6 +37,9 @@ def create_regions(multiworld: MultiWorld, player: int, options) -> None:
 
     for name, data in region_data.items():
         region = _create_region(multiworld, player, name, data)
+        if name in MYRRH_DUNGEONS:
+            # event: this dungeon's Myrrh tree (holds a "Myrrh Drop")
+            region.locations.append(FFCCLocation(player, myrrh_location(name), region))
         multiworld.regions.append(region)
 
     connect_entrances(multiworld, player, dungeon_names)

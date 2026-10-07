@@ -36,7 +36,7 @@ class FFCCItem(Item):
         return 2322432 + code
 
 
-# ── Artifacts (in-game IDs 0x9f–0xe7) ─────────────────────────────────────────
+# Artifacts (in-game IDs 0x9f–0xe7)
 _ARTIFACTS = [
     ("Shuriken", 0x9f), ("Maneater", 0xa0), ("Double Axe", 0xa1), ("Ashura", 0xa2),
     ("Kaiser Knuckles", 0xa3), ("Flametongue", 0xa4), ("Ice Brand", 0xa5),
@@ -63,7 +63,7 @@ _ARTIFACTS = [
     ("Moon Pendant", 0xe5), ("Star Pendant", 0xe6), ("Sun Pendant", 0xe7),
 ]
 
-# ── Spell Rings (permanent magic slots — always in pool, gate dungeon rules) ───
+# Spell Rings (permanent magic slots — always in pool, gate dungeon rules)
 # Separated from _ARTIFACTS so they're never replaced by Progressive Artifacts.
 _SPELL_RINGS = [
     ("Ring of Fire",     0xdf),  # gates Tida (ivy) and Rebena Te Ra (fire switch)
@@ -72,7 +72,7 @@ _SPELL_RINGS = [
     ("Ring of Life",     0xe3),  # gates Lynari Desert / Mount Vellenge (Holy = Life + element)
 ]
 
-# ── Valid Magicite (spells that appear in dungeon chests) ──────────────────────
+# Valid Magicite (spells that appear in dungeon chests)
 _MAGICITE = [
     ("Stone of Fire",     0x100),
     ("Stone of Blizzard", 0x101),
@@ -82,10 +82,10 @@ _MAGICITE = [
     ("Stone of Life",     0x107),
 ]
 
-# ── Phoenix Down ───────────────────────────────────────────────────────────────
+# Phoenix Down
 _PHOENIX_DOWN = [("Phoenix Down", 0x125)]
 
-# ── Crafting Materials (0x126–0x161) ──────────────────────────────────────────
+# Crafting Materials (0x126–0x161)
 _MATERIALS = [
     ("Bronze", 0x126), ("Iron", 0x127), ("Mythril", 0x128), ("Orichalcum", 0x129),
     ("Diamond Ore", 0x12a), ("Gold", 0x12b), ("Silver", 0x12c),
@@ -109,7 +109,7 @@ _MATERIALS = [
     ("Devil's Mask", 0x161),
 ]
 
-# ── Food (0x17d–0x18e) ─────────────────────────────────────────────────────────
+# Food (0x17d–0x18e)
 _FOOD = [
     ("Striped Apple", 0x17d), ("Cherry Cluster", 0x17e), ("Rainbow Grapes", 0x17f),
     ("Star Carrot", 0x180), ("Gourd Potato", 0x181), ("Round Corn", 0x182),
@@ -117,7 +117,7 @@ _FOOD = [
     ("Milk", 0x187), ("Strange Liquid", 0x188), ("Wheat", 0x18d), ("Flour", 0x18e),
 ]
 
-# ── Recipes / Scrolls (0x191–0x1ed) ───────────────────────────────────────────
+# Recipes / Scrolls (0x191–0x1ed)
 _RECIPES = [
     ("Novice's Weapon", 0x191), ("Warrior's Weapon", 0x192), ("Valiant Weapon", 0x193),
     ("Mighty Weapon", 0x194), ("Victorious Weapon", 0x195), ("Master's Weapon", 0x196),
@@ -156,7 +156,7 @@ _RECIPES = [
 # Recipes that are useful (needed for the best end-game crafting)
 _USEFUL_RECIPE_IDS = {0x1e7, 0x1e8, 0x1ec, 0x1ed}
 
-# ── Cycle advancement placeholder (used when cycle_location_checks option is off) ─
+# Cycle advancement placeholder (used when cycle_location_checks option is off)
 # Placed at cycle event locations so they don't consume the random item pool.
 # item_id=None means the client receives it but writes nothing to game memory.
 CYCLE_PLACEHOLDER_ITEM = "Cycle Advance"
@@ -164,13 +164,39 @@ _CYCLE_PLACEHOLDER_CODE = 0x208
 YEAR_PLACEHOLDER_ITEM = "Year Advance"
 _YEAR_PLACEHOLDER_CODE = 0x209
 
-# ── Year progression keys (pre-placed at Year N Begins pseudo-locations) ─────
+# Year progression keys (pre-placed at Year N Begins pseudo-locations)
 # IC.progression so AP treats them as sphere gates; item_id=None means no
 # in-game write (the client silently acknowledges them).
 YEAR_KEY_NAMES = ["Year 2 Key", "Year 3 Key", "Year 4 Key", "Year 5 Key"]
 _YEAR_KEY_CODES = [0x20a, 0x20b, 0x20c, 0x20d]
 
-# ── Trap items (no in-game ID — client handles them via memory writes) ─────────
+# Stage keys (option Stage Keys)
+# Artifacts the patcher adds to the game; each opens one dungeon.
+# River Belle Path is always open, so it has no key.
+STAGE_KEYS = [
+    ("Goblin Wall Key",            0xe9),
+    ("The Mine of Cathuriges Key", 0xea),
+    ("The Mushroom Forest Key",    0xeb),
+    ("Tida Key",                   0xec),
+    ("Moschet Manor Key",          0xed),
+    ("Mount Kilanda Key",          0xee),
+    ("Daemon's Court Key",         0xef),
+    ("Selepation Cave Key",        0xf0),
+    ("Veo Lu Sluice Key",          0xf1),
+    ("Lynari Desert Key",          0xf2),
+    ("Conall Curach Key",          0xf3),
+    ("Rebena Te Ra Key",           0xf4),
+    ("Mount Vellenge Key",         0xf5),
+]
+_STAGE_KEY_CODES = range(0x210, 0x210 + len(STAGE_KEYS))
+
+#  Myrrh Drop (event)
+# Collected at each dungeon's Myrrh tree; the rules count them to know how
+# many years the chalice can be filled.
+MYRRH_DROP = "Myrrh Drop"
+MYRRH_DROP_DATA = FFCCItemData("Event", IC.progression, None, None)
+
+# Trap items (no in-game ID - client handles them via memory writes)
 # Codes are above all valid in-game item IDs.
 _TRAPS = [
     ("Frozen Trap",          0x200),
@@ -182,7 +208,7 @@ _TRAPS = [
     ("Food Preference Trap", 0x206),
 ]
 
-# ── Progressive Artifact ───────────────────────────────────────────────────────
+# Progressive Artifact
 PROGRESSIVE_ARTIFACT_CODE = 0x207
 PROGRESSIVE_ARTIFACT_NAME = "Progressive Artifact"
 
@@ -196,7 +222,7 @@ PROGRESSIVE_ARTIFACT_ORDER = [iid for _, iid in _ARTIFACTS]
 _NON_PHYSICAL_IDS = {0x156, 0x160, 0x161, 0x18d, 0x18e}
 
 
-# ── Build the master item table ────────────────────────────────────────────────
+# Build the master item table
 def _build_item_table() -> dict:
     table = {}
     for name, iid in _ARTIFACTS:
@@ -227,6 +253,8 @@ def _build_item_table() -> dict:
     )
     for name, code in zip(YEAR_KEY_NAMES, _YEAR_KEY_CODES):
         table[name] = FFCCItemData("Year Key", IC.progression, code, None)
+    for (name, iid), code in zip(STAGE_KEYS, _STAGE_KEY_CODES):
+        table[name] = FFCCItemData("Stage Key", IC.progression, code, iid)
     return table
 
 
@@ -259,4 +287,5 @@ item_name_groups: dict[str, set] = {
     "Food":       {n for n, d in ITEM_TABLE.items() if d.type == "Food"},
     "Recipes":    {n for n, d in ITEM_TABLE.items() if d.type == "Recipe"},
     "Traps":      {n for n, d in ITEM_TABLE.items() if d.type == "Trap"},
+    "Stage Keys": {n for n, d in ITEM_TABLE.items() if d.type == "Stage Key"},
 }
