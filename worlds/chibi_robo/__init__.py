@@ -26,18 +26,20 @@ from .locations import ChibiRoboLocation, LOCATION_TABLE, location_groups, Chibi
 from .options import ChibiRoboGameOptions, chibi_robo_option_groups, STICKER_NAMES, VictoryGoal
 from BaseClasses import ItemClassification as IC
 from worlds.Files import APPlayerContainer
+from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths, SuffixIdentifier
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 3, 1)
+VERSION: tuple[int, int, int] = (1, 3, 2)
 
-def launch_client():
+def launch_client(*args: str):
     from . import client
-    launch_subprocess(client.launch, name="ChibiRoboClient")
+    launch_subprocess(client.launch, name="ChibiRoboClient", args=args)
 
 
 components.append(Component("Chibi Robo Client",
                             func=launch_client,
                             component_type=Type.CLIENT,
+                            file_identifier=SuffixIdentifier(".apcr"),
                             icon="chibi_body_icon"))
 
 icon_paths["chibi_body_icon"] = f"ap:{__name__}/icons/chibi_body_icon.png"
@@ -72,24 +74,23 @@ class ChibiRoboWebWorld(WebWorld):
 
 class ChibiRoboContainer(APPlayerContainer):
     """
-    This class defines the container file
+    The .apcr file: a zip holding data.json (the randomizer settings) and archipelago.json
     """
 
     game: str = game_name
-    patch_file_ending: str = ".zip"
+    patch_file_ending: str = ".apcr"
 
     def __init__(self, patch_data: Dict[str, str] | io.BytesIO, base_path: str = "", output_directory: str = "",
                  player: Optional[int] = None, player_name: str = "", server: str = ""):
         self.patch_data = patch_data
         self.file_path = base_path
-        container_path = os.path.join(output_directory, base_path + ".zip")
+        container_path = os.path.join(output_directory, base_path + self.patch_file_ending)
         super().__init__(container_path, player, player_name, server)
 
     def write_contents(self, opened_zipfile: zipfile.ZipFile) -> None:
-        for filename, yml in self.patch_data.items():
-            opened_zipfile.writestr(filename, yml)
+        for filename, text in self.patch_data.items():
+            opened_zipfile.writestr(filename, text)
         super().write_contents(opened_zipfile)
-
 
 def _chibi_robo_map_index(stage_id) -> int:
     """Convert a stage_hex_to_id() integer to an index in the EmoTracker maps.json.
@@ -271,19 +272,13 @@ class ChibiRoboWorld(World):
 
         output_data.update(self.options.as_dict( "victory_goal","required_stickers", "pj_suit_style", "open_upstairs","password_rando", "chibi_vision_off", "favorite_character_voice", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray"))
 
-        mod_name = f"AP-{self.multiworld.seed_name}-P{self.player}-{self.multiworld.get_file_safe_player_name(self.player)}"
-        mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
-
-        files = {
-            f"AP-{multiworld.seed_name}-P{player}-{multiworld.get_file_safe_player_name(player)}.apcr": json.dumps(output_data),
-        }
-
+        # AP_<seed>_P<slot>_<name>.apcr - the standard AP name
         apcr = ChibiRoboContainer(
-            files,
-            mod_dir,
+            {"data.json": json.dumps(output_data)},
+            multiworld.get_out_file_name_base(player),
             output_directory,
-            self.player,
-            self.multiworld.get_file_safe_player_name(self.player)
+            player,
+            multiworld.get_file_safe_player_name(player)
         )
         apcr.write()
 
@@ -327,10 +322,13 @@ class ChibiRoboWorld(World):
         self.multiworld.local_early_items[self.player]["Mug Chibi-Gear"] = 1
         self.multiworld.local_early_items[self.player]["Drake Redcrest Suit"] = 1
 
+        # Fixed flags mismatch
+        self.plando_locations["Kitchen - Flower Cookie"] = "Flower Cookie"
+        self.plando_locations["Backyard - Scurvy Splinter"] = "Scurvy Splinter"
+
 
     def get_pre_fill_items(self) -> List[Item]:
-        return [self.create_item(item)
-                for item in [*self.plando_locations.keys()]]
+        return [self.create_item(item) for item in self.plando_locations.values()]
 
     def pre_fill(self):
         for location, item in self.plando_locations.items():
@@ -375,7 +373,7 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     )
 
     for name in ITEM_TABLE.keys():
-        if name == "Pan Drop Trap":
+        if name == "Pan Drop Trap" or name in world.plando_locations.values():
             continue
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         if frog_ring_goal_active and name in item_name_groups["Frog Rings"]:
@@ -392,7 +390,7 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
         item_type: ItemClassification = FILLER_ITEM_TABLE.get(name).classification
         itempool += create_multiple_items(world, name, 1, item_type)
 
-    unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
+    unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player)) - len(world.plando_locations)
 
     fill_names, fill_weights = get_weighted_filler_choices(world)
 

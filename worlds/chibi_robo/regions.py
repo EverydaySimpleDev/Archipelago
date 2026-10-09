@@ -97,6 +97,7 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Cookie Box by Spoon B")
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Wastepaper on Shelf by Toaster")
     chibi_robo_regions["Kitchen"].locations.append("Kitchen - Cookie Crumbs under Counter")
+    chibi_robo_regions["Kitchen"].locations.append("Kitchen - Flower Cookie")
 
     # Drain 1 Location
     chibi_robo_regions["Sink Drain"].locations.append("Sink Drain - Frog Ring")
@@ -151,7 +152,6 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Backyard"].locations.append("Backyard - Twig by Fence")
     chibi_robo_regions["Backyard"].locations.append("Backyard - Twig under Tree")
     chibi_robo_regions["Backyard"].locations.append("Backyard - Twig under Awning")
-    # chibi_robo_regions["Backyard"].locations.append("Backyard - Scurvy Splinter")
     # chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds A")
     # chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds B")
     # chibi_robo_regions["Backyard"].locations.append("Backyard - Weeds C")
@@ -159,6 +159,7 @@ def create_regions(multiworld: MultiWorld, player: int, options):
     chibi_robo_regions["Backyard"].locations.append("Backyard - White Block")
 
     chibi_robo_regions["Backyard"].locations.append("Backyard - Frog Suit")
+    chibi_robo_regions["Backyard"].locations.append("Backyard - Scurvy Splinter")
 
     # Jenny's Room - 43 Locations
     chibi_robo_regions["Jenny's Room"].locations.append("Jenny's Room - AA Battery")

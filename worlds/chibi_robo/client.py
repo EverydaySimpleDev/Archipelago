@@ -3,6 +3,8 @@ import struct
 import traceback
 import dolphin_memory_engine
 import time
+import zipfile
+import json
 
 import Utils
 import websockets
@@ -11,7 +13,7 @@ from copy import deepcopy
 from typing import List, Any, Iterable, Any, Optional
 from NetUtils import decode, encode, JSONtoTextParser, JSONMessagePart, NetworkItem, NetworkPlayer, ClientStatus
 from MultiServer import Endpoint
-from CommonClient import gui_enabled, ClientCommandProcessor, logger, get_base_parser
+from CommonClient import gui_enabled, ClientCommandProcessor, logger, get_base_parser, server_loop
 
 tracker_loaded = False
 try:
@@ -130,6 +132,10 @@ STICKER_FLAGS = {
     "Primopuel Sticker":          (0x803678e4, 0x0004),
     "Tamagotchi Sticker":         (0x803678e4, 0x0008),
 }
+
+SLOT_SEED_VAR = 1884          # last 9 digits of the seed name
+SLOT_NAME_FIRST_VAR = 1885    # slot name, one character per var, 0 = end
+SLOT_NAME_LENGTH = 16         # AP slot names are at most 16 characters
 
 class ChibiRoboJSONToTextParser(JSONtoTextParser):
     def _handle_color(self, node: JSONMessagePart):
@@ -391,6 +397,7 @@ class ChibiRoboContext(SuperContext):
         self.dolphin_sync_task: Optional[asyncio.Task[None]] = None
         self.dolphin_status: str = CONNECTION_INITIAL_STATUS
         self.awaiting_rom: bool = False
+        self.slot_seed: Optional[int] = None
         self.has_send_death: bool = False
 
         self.proxy = None
@@ -412,12 +419,28 @@ class ChibiRoboContext(SuperContext):
         # (title, text, icon, duration) popups waiting for the GBA mailbox, see queue_gba_message
         self.gba_message_queue: List[Any] = []
 
-
-    async def server_auth(self, password_requested: bool = True) -> None:
+    async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
             await super().server_auth(password_requested)
 
-        await self.get_username()
+        if not self.auth:
+            in_game = dolphin_memory_engine.is_hooked() and check_ingame()
+            info = read_slot_info() if in_game else None
+            if info is not None:
+                self.auth, self.slot_seed = info
+                self.awaiting_rom = False
+                logger.info(f"Player name read from the game: {self.auth}")
+            elif in_game:
+                # in game, but no slot info (older ISO, or a save from before it)
+                self.awaiting_rom = False
+                await self.get_username()
+            else:
+                # dolphin_sync_task calls server_auth() again once the game is running
+                if not self.awaiting_rom:
+                    logger.info("Waiting for Chibi-Robo in Dolphin to read your player name...")
+                self.awaiting_rom = True
+                return
+
         await self.send_connect()
 
     def get_chibi_robo_status(self) -> str:
@@ -475,6 +498,8 @@ class ChibiRoboContext(SuperContext):
         super().on_package(cmd, args)
         ctx = self
         if cmd == "Connected":
+            if ctx.slot_seed is not None and ctx.seed_name and seed_number(ctx.seed_name) != ctx.slot_seed:
+                logger.warning("This ISO was built for a different seed than this room - re-run the randomizer with this room's .apcr file.")
 
             json = args
             if "slot_info" in json.keys():
@@ -621,6 +646,35 @@ def script_var_addr(var: int) -> int:
     """Address of script variable var(N) (a 32-bit word)."""
     return SCRIPT_VAR_BASE + var * 4
 
+def read_var(var: int) -> int:
+    return int.from_bytes(dolphin_memory_engine.read_bytes(script_var_addr(var), 4), "big", signed=True)
+
+def seed_number(seed_name: str) -> int:
+    """Same as Form1.cs SeedNumber: the last 9 digits of the seed name."""
+    digits = "".join(c for c in seed_name if c.isdigit())[-9:]
+    return int(digits) if digits else 0
+
+def read_slot_info() -> Optional[tuple]:
+    """(slot name, seed number) from the running game, or None if this save/ISO has none."""
+    name = ""
+    for i in range(SLOT_NAME_LENGTH):
+        character = read_var(SLOT_NAME_FIRST_VAR + i)
+        if character == 0:
+            break
+        name += chr(character)
+    if not name:
+        return None
+    return name, read_var(SLOT_SEED_VAR)
+
+def read_apcr_server(path: str) -> Optional[str]:
+    """The server address the website wrote into the .apcr's archipelago.json, if any."""
+    try:
+        with zipfile.ZipFile(path) as apcr:
+            manifest = json.loads(apcr.read("archipelago.json"))
+        return manifest.get("server") or None
+    except (OSError, KeyError, ValueError, zipfile.BadZipFile):
+        logger.warning(f"Could not read the server address from {path}")
+        return None
 
 def unlock_key_doors(item_name: str) -> None:
     """Set every door var opened by `item_name` (one of KEY_DOOR_VARS) to 1."""
@@ -731,10 +785,9 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
 
             if player != ctx.slot:
                 # Self-found Pan Drop Traps already play the animation instantly at pickup via
-                # Form1.cs's injected .interact code (see project_pan_drop_trap memory) - only
-                # queue here for traps found by OTHER players and delivered to us asynchronously.
-                # Matches this function's existing convention for self-found items (see the
-                # `ctx.slot == player` check below, for the same reason).
+                # Form1.cs's injected .interact code - queue here for traps found by OTHER players
+                # and delivered to us asynchronously. Matches this function's existing convention
+                # for self-found items (see the `ctx.slot == player` check below, for the same reason).
                 cur_pending = read_4byte_short(PAN_DROP_TRAP_VAR_ADDR)
                 write_4byte_short(PAN_DROP_TRAP_VAR_ADDR, cur_pending + 1)
                 # logger.info(f"Pan Drop Trap: pending count {cur_pending} -> {cur_pending + 1} (addr {hex(PAN_DROP_TRAP_VAR_ADDR)}, stage {stage_hex_to_name()})")
@@ -795,9 +848,7 @@ def check_ingame() -> bool:
 def change_max_items() -> None:
     dolphin_memory_engine.write_byte(0x800D1273, 99)
     dolphin_memory_engine.write_byte(0x800D1773, 99)
-    dolphin_memory_engine.write_byte(0x800DCD07, 99)
     dolphin_memory_engine.write_byte(0x800DCD0F, 99)
-    dolphin_memory_engine.write_byte(0x800DCD13, 246)
 
 async def give_items(ctx: ChibiRoboContext) -> None:
     """
@@ -1265,7 +1316,12 @@ async def proxy_loop(ctx: ChibiRoboContext):
 def launch(*launch_args: str):
     async def main() -> None:
         parser = get_base_parser()
+        parser.add_argument("apcr_file", default="", nargs="?", help="Path to a .apcr file")
         args = parser.parse_args(launch_args)
+
+        server_address = args.connect
+        if args.apcr_file and not server_address:
+            server_address = read_apcr_server(args.apcr_file)
 
         ctx = ChibiRoboContext(args.connect, args.password)
         logger.info("Starting Chibi Robo proxy server")
@@ -1281,7 +1337,8 @@ def launch(*launch_args: str):
 
         ctx.dolphin_sync_task = asyncio.create_task(dolphin_sync_task(ctx), name="DolphinSync")
         ctx.watcher_event.set()
-        ctx.server_address = None
+        if server_address:
+            ctx.server_task = asyncio.create_task(server_loop(ctx), name="ServerLoop")
         await ctx.shutdown()
 
         if ctx.dolphin_sync_task:

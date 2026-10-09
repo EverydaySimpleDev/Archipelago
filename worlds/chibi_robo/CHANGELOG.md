@@ -1,4 +1,10 @@
 # Chibi Robo - Changelog
+## v1.3.2
+- Updated how the room file / .apcr file is handled
+- Fixed kitchen cookie / backyard ship sending out wrong checks (They are now locked items in their locations)
+- Fixed Ghost Suit Check / Mug and Spoon will now show the item you picked up
+
+
 ## v1.3.1
 - Utilibot sticker should now be given to player if they have all the bots
 - Fixed front door model so users can't leave the map (Stay inside Chibi!)
