@@ -164,9 +164,14 @@ _CYCLE_PLACEHOLDER_CODE = 0x208
 YEAR_PLACEHOLDER_ITEM = "Year Advance"
 _YEAR_PLACEHOLDER_CODE = 0x209
 
-# Year progression keys (pre-placed at Year N Begins pseudo-locations)
-# IC.progression so AP treats them as sphere gates; item_id=None means no
-# in-game write (the client silently acknowledges them).
+# Item types that are artifacts in game. An artifact picked up in a dungeon
+# is only kept if the player chooses it as the end-of-dungeon reward, so these
+# are never put in a chest: they show as an AP Item and the client adds them
+# to the artifact bag, where they stay.
+ARTIFACT_TYPES = ("Artifact", "Spell Ring", "Stage Key")
+
+# Year progression keys. IC.progression so AP treats them as sphere gates;
+# item_id=None means no in-game write (the client silently acknowledges them).
 YEAR_KEY_NAMES = ["Year 2 Key", "Year 3 Key", "Year 4 Key", "Year 5 Key"]
 _YEAR_KEY_CODES = [0x20a, 0x20b, 0x20c, 0x20d]
 

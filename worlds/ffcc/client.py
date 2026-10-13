@@ -17,7 +17,8 @@ except ImportError:
     logger.warning("dolphin_memory_engine not installed — FFCC client will not function.")
 
 from .game_id import game_name
-from .items import ITEM_TABLE, LOOKUP_ID_TO_NAME, PROGRESSIVE_ARTIFACT_ORDER, PROGRESSIVE_ARTIFACT_NAME, STAGE_KEYS
+from .items import (ITEM_TABLE, LOOKUP_ID_TO_NAME, PROGRESSIVE_ARTIFACT_ORDER, PROGRESSIVE_ARTIFACT_NAME,
+                    STAGE_KEYS, ARTIFACT_TYPES)
 from .locations import LOCATION_TABLE, FFCCLocationData
 
 # Expected game ID
@@ -59,7 +60,7 @@ ADDR_GIL        = 0x8021f470   # 4 bytes BE
 ITEM_BAG_SLOTS      = (ADDR_ARTIFACT - ADDR_ITEM_BAG) // 2   # = 54
 # Number of 2-byte slots in the artifact bag (ADDR_ARTIFACT → ADDR_GIL).
 ARTIFACT_BAG_SLOTS  = (ADDR_GIL - ADDR_ARTIFACT) // 2        # = 101
-ITEM_SLOT_EMPTY = 0xffff  # sentinel for an empty inventory slot (confirmed via memory view)
+ITEM_SLOT_EMPTY = 0xffff  # sentinel for an empty inventory slot
 
 # Chalice / bonus / food
 ADDR_CHALICE    = 0x8021ef3f   # low byte of the chalice element: 1=Fire,2=Water,4=Wind,8=Earth,16=Unknown
@@ -91,7 +92,7 @@ TRAP_TIMER_ADDR   = {"Frozen Trap": ADDR_FROZEN, "Burned Trap": ADDR_BURNED,
 
 # Myrrh / Stages flags
 ADDR_MYRRH_COLLECTED = 0x8021ef6d  # 2 bytes: bit n of (byte0 | byte1<<8) = dungeon n cleared
-                                   # (event flags 200+n). Confirmed live for River (bit 0) and Goblin Wall (bit 1).
+                                   # (event flags 200+n), e.g. bit 0 = River Belle Path, bit 1 = Goblin Wall.
 MYRRH_DUNGEONS = 13                # River Belle Path (0) .. Rebena Te Ra (12); Mount Vellenge has no tree
 ALL_MYRRH_MASK = (1 << MYRRH_DUNGEONS) - 1
 
@@ -419,7 +420,7 @@ def _give_item(ctx: FFCCContext, item_name: str) -> bool:
     if data.item_id is None:
         return True
 
-    if data.type in ("Artifact", "Stage Key"):
+    if data.type in ARTIFACT_TYPES:
         return _give_artifact(data.item_id)  # False if bag full → retry
 
     # Materials, Food, Recipes, Magicite, Phoenix Down — find a free bag slot.

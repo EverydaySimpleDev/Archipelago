@@ -7,8 +7,8 @@ class FFCCLocationData(NamedTuple):
     region:      str           # dungeon name (must match regions.py)
     cycle:       int           # 1, 2, or 3
     chest:       int           # chest number (used by patcher; 0 = no physical chest)
-    # Chest bit flag in memory: (byte_offset, bit_index) relative to 0x80926000
-    # None = not yet mapped; requires in-game testing to confirm
+    # Chest bit flag in memory: (byte_offset, bit_index) relative to 0x80926000.
+    # Currently unused (always None): the client reads chest flags from chest_table.py.
     flag_byte:   Optional[int] = None
     flag_bit:    Optional[int] = None
     is_event:    bool = False  # True for cycle-advancement pseudo-locations (no physical chest)

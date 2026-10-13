@@ -40,12 +40,13 @@ class ShuffleLoadingZones(Toggle):
     """Shuffle which dungeon each world-map spot leads to (12 dungeons; Mount Kilanda
     and Mount Vellenge stay where they are). Each spot keeps its own Miasma Stream and
     shows the building of the dungeon it now leads to. Only layouts that can be
-    finished year by year are used."""
+    finished year by year are used. Also opens Goblin Wall's spot in Year 1."""
     display_name = "Shuffle Loading Zones"
 
 
 class GoblinWallYearOne(Toggle):
-    """Goblin Wall's spot on the world map is open from Year 1 instead of Year 2."""
+    """Goblin Wall's spot on the world map is open from Year 1 instead of Year 2.
+    Always on when Shuffle Loading Zones or Randomize Miasma Streams is on."""
     display_name = "Goblin Wall in Year 1"
 
 

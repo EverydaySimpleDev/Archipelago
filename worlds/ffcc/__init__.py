@@ -21,7 +21,7 @@ from .options import FFCCGameOptions, FFCC_option_groups
 from .rules import (set_rules, set_location_rules, layout_is_beatable, first_year_dungeons,
                     stage_key, SPOT_AREA)
 from .regions import MYRRH_DUNGEONS, myrrh_location
-from .items import MYRRH_DROP, MYRRH_DROP_DATA
+from .items import MYRRH_DROP, MYRRH_DROP_DATA, ARTIFACT_TYPES
 
 VERSION: tuple = (0, 1, 0)
 
@@ -110,9 +110,13 @@ class FFCCWorld(World):
         keys = bool(self.options.stage_keys)
         shuffle_zones = bool(self.options.shuffle_loading_zones)
         shuffle_gates = bool(self.options.randomize_miasma_streams)
-        # A shuffled Miasma Stream can ask for any element in Year 1; Goblin Wall's
-        # Fire and Earth in Year 1 is what keeps every element within reach.
-        self.goblin_year1 = bool(self.options.goblin_wall_year_one) or shuffle_gates
+        # Goblin Wall in Year 1 is forced on with either shuffle. A shuffled Miasma
+        # Stream can ask for any element in Year 1, and Goblin Wall's Fire and Earth
+        # keep every element within reach; with loading zones shuffled, the dungeon
+        # placed on Goblin Wall's spot (often River Belle Path) must show up in Year 1.
+        if shuffle_gates or shuffle_zones:
+            self.options.goblin_wall_year_one.value = 1
+        self.goblin_year1 = bool(self.options.goblin_wall_year_one)
 
         # Miasma Stream elements [year % 4 row][gate slot] and the world-map
         # layout {spot: dungeon}; shuffled ones are kept only if every year can
@@ -155,19 +159,13 @@ class FFCCWorld(World):
             "bonus_set_trap_weight", "food_preference_trap_weight", "death_link",
         )
 
-        # Locations where the item was placed physically in the chest (hybrid patch).
-        # These are own-player items with a real in-game ID; the client skips the
-        # memory-write for them to avoid giving the item a second time.
-        physical: List[int] = []
-        for location in self.multiworld.get_locations(self.player):
-            if not location.item or location.item.player != self.player:
-                continue
-            item_data = ITEM_TABLE.get(location.item.name)
-            if item_data and item_data.item_id is not None:
-                loc_data = LOCATION_TABLE.get(location.name)
-                if loc_data and not loc_data.is_event:
-                    physical.append(FFCCLocation.get_apid(loc_data.code))
-        data["physical_chest_ap_ids"] = physical
+        # Locations whose item the patcher puts in the chest itself. The game
+        # gives those on pickup, so the client doesn't give them again.
+        data["physical_chest_ap_ids"] = [
+            FFCCLocation.get_apid(LOCATION_TABLE[location.name].code)
+            for location in self.multiworld.get_locations(self.player)
+            if self._item_in_chest(location)
+        ]
 
         return data
 
@@ -196,6 +194,20 @@ class FFCCWorld(World):
                         FFCCItem(CYCLE_PLACEHOLDER_ITEM, self.player, cycle_placeholder))
         self.multiworld.itempool += _create_item_pool(self)
 
+    def _item_in_chest(self, location) -> bool:
+        """True if the patcher puts this location's item in the chest itself:
+        one of this player's own items with an in-game ID, in a real chest,
+        and not an artifact (see ARTIFACT_TYPES)."""
+        item = location.item
+        loc_data = LOCATION_TABLE.get(location.name)
+        if item is None or item.player != self.player or loc_data is None:
+            return False
+        if loc_data.is_event or not loc_data.chest:
+            return False
+        item_data = ITEM_TABLE.get(item.name)
+        return (item_data is not None and item_data.item_id is not None
+                and item_data.type not in ARTIFACT_TYPES)
+
     def generate_output(self, output_directory: str) -> None:
         multiworld = self.multiworld
         player     = self.player
@@ -216,6 +228,7 @@ class FFCCWorld(World):
                     "dungeon":     loc_data.region,
                     "cycle":       loc_data.cycle,
                     "chest":       loc_data.chest,   # game-order chest number (chest_table.py)
+                    "in_chest":    self._item_in_chest(location),
                 }
 
         output_data = {
@@ -278,10 +291,10 @@ def _create_item_pool(world: "FFCCWorld") -> List[Item]:
         if data.type == "Stage Key" and not world.options.stage_keys:
             continue
         if data.type == "Artifact" and use_progressive:
-            continue  # replaced by 73 × Progressive Artifact below
+            continue  # replaced by Progressive Artifacts below
         pool.append(FFCCItem(name, world.player, data))
 
-    # Add 73 copies of Progressive Artifact when that option is on
+    # Add one Progressive Artifact per artifact when that option is on
     if use_progressive:
         pa_data = ITEM_TABLE[PROGRESSIVE_ARTIFACT_NAME]
         for _ in range(len(_ARTIFACTS)):
