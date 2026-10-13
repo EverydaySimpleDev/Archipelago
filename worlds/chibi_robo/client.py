@@ -416,8 +416,6 @@ class ChibiRoboContext(SuperContext):
         self.curr_stage_pickup: int = 0
         self.victory: int = 0
         self.required_stickers: List[str] = []
-        # (title, text, icon, duration) popups waiting for the GBA mailbox, see queue_gba_message
-        self.gba_message_queue: List[Any] = []
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
