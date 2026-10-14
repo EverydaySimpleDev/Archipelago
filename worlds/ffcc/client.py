@@ -6,19 +6,20 @@ import traceback
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import Utils
-from CommonClient import CommonContext, ClientCommandProcessor, gui_enabled, logger, get_base_parser
+from CommonClient import (CommonContext, ClientCommandProcessor, gui_enabled, logger, get_base_parser,
+                          handle_url_arg, server_loop)
 from NetUtils import ClientStatus
 
 try:
     import dolphin_memory_engine as dme
     DOLPHIN_AVAILABLE = True
-except ImportError:
+except ImportError: # shouldn't happen since DME is a part of the AP system but you never know what future updates bring
     DOLPHIN_AVAILABLE = False
     logger.warning("dolphin_memory_engine not installed — FFCC client will not function.")
 
 from .game_id import game_name
 from .items import (ITEM_TABLE, LOOKUP_ID_TO_NAME, PROGRESSIVE_ARTIFACT_ORDER, PROGRESSIVE_ARTIFACT_NAME,
-                    STAGE_KEYS, ARTIFACT_TYPES)
+                    STAGE_KEYS)
 from .locations import LOCATION_TABLE, FFCCLocationData
 
 # Expected game ID
@@ -42,25 +43,40 @@ ADDR_CYCLE_BASE = 0x8021deb3   # 0x00=Cycle1, 0x01=Cycle2, 0x02=Cycle3
 
 # Player stats
 ADDR_MAX_HEARTS = 0x8021f28b   # 1 byte
-ADDR_CUR_HEARTS = 0x8021f28d   # 1 byte (1 heart = 2 units; 0 = dead)
+ADDR_CUR_HEARTS = 0x8021f28d   # 1 byte (1 heart = 2 units, 0 = dead)
 
-# Status effects (2 bytes each; write any nonzero value to apply)
+# Status effects (2 bytes each, write any nonzero value to apply)
 ADDR_FROZEN     = 0x8021f2ae
 ADDR_BURNED     = 0x8021f2b0
 ADDR_POISONED   = 0x8021f2b2
 ADDR_PARALYZED  = 0x8021f2b6
 ADDR_SLOWED     = 0x8021f2be
 
-# Inventory / items
-ADDR_ITEM_BAG   = 0x8021f33a   # material bag start (2 bytes per slot)
-ADDR_ARTIFACT   = 0x8021f3a6   # artifact bag start (2 bytes per slot)
+# Inventory / items: the caravan's CCaravanWork (player 1) at 0x8021f270.
+#   +0xB4  u16 m_inventoryItemCount   items in the 64 inventory slots
+#   +0xB6  m_inventoryItems[164]      slots 0-63 inventory, 64-159 permanent
+#                                     artifacts, 160-163 this dungeon's artifacts
+#   +0x200 gil
+# Permanent artifacts have fixed places: artifact `id` lives in slot
+# 64 + (id - 0x9F), and a save only keeps which places are filled, so an
+# artifact written anywhere else turns into a different one after a reload.
+ADDR_ITEM_COUNT = 0x8021f324   # u16
+ADDR_INVENTORY  = 0x8021f326   # 64 inventory slots (2 bytes each)
+ADDR_ARTIFACT   = 0x8021f3a6   # 96 permanent artifact places (2 bytes each)
 ADDR_GIL        = 0x8021f470   # 4 bytes BE
-
-# Number of 2-byte slots in the material bag (ADDR_ITEM_BAG → ADDR_ARTIFACT).
-ITEM_BAG_SLOTS      = (ADDR_ARTIFACT - ADDR_ITEM_BAG) // 2   # = 54
-# Number of 2-byte slots in the artifact bag (ADDR_ARTIFACT → ADDR_GIL).
-ARTIFACT_BAG_SLOTS  = (ADDR_GIL - ADDR_ARTIFACT) // 2        # = 101
+INVENTORY_SLOTS = 64
+ARTIFACT_FIRST_ID = 0x9f
+ARTIFACT_SLOTS  = 96
 ITEM_SLOT_EMPTY = 0xffff  # sentinel for an empty inventory slot
+
+# Items delivered so far, kept in the save file (CGameWork m_eventWork[230], a
+# value no game script uses, Thanks Decomp Team!) so a reconnect doesn't send everything again and a
+# reset without saving re-sends exactly what was lost.
+ADDR_ITEMS_DELIVERED = 0x8021f220
+
+# Item types the client adds to the permanent artifact places. Everything else
+# (Spell Rings included, which are used from the command list) goes in the bag.
+PERMANENT_ARTIFACT_TYPES = ("Artifact", "Stage Key")
 
 # Chalice / bonus / food
 ADDR_CHALICE    = 0x8021ef3f   # low byte of the chalice element: 1=Fire,2=Water,4=Wind,8=Earth,16=Unknown
@@ -84,7 +100,7 @@ ADDR_CHEST_BASE = 0x80926000
 
 # Trap Setup
 
-ADDR_TRAP_HOOK    = 0x80111a48   # 48 09 82 61 when the randomizer's trap-visuals patch is installed
+ADDR_TRAP_HOOK    = 0x80111a48
 ADDR_TRAP_PENDING = 0x801a9d28   # u16 per status: 0 freeze, 1 burn, 2 poison, 4 paralysis, 8 slow
 TRAP_STATUS_INDEX = {"Frozen Trap": 0, "Burned Trap": 1, "Poisoned Trap": 2,"Paralyzed Trap": 4, "Slowed Trap": 8}
 TRAP_TIMER_ADDR   = {"Frozen Trap": ADDR_FROZEN, "Burned Trap": ADDR_BURNED,
@@ -93,7 +109,7 @@ TRAP_TIMER_ADDR   = {"Frozen Trap": ADDR_FROZEN, "Burned Trap": ADDR_BURNED,
 # Myrrh / Stages flags
 ADDR_MYRRH_COLLECTED = 0x8021ef6d  # 2 bytes: bit n of (byte0 | byte1<<8) = dungeon n cleared
                                    # (event flags 200+n), e.g. bit 0 = River Belle Path, bit 1 = Goblin Wall.
-MYRRH_DUNGEONS = 13                # River Belle Path (0) .. Rebena Te Ra (12); Mount Vellenge has no tree
+MYRRH_DUNGEONS = 13                # River Belle Path (0) .. Rebena Te Ra (12), Mount Vellenge has no tree
 ALL_MYRRH_MASK = (1 << MYRRH_DUNGEONS) - 1
 
 # Credits Victory Setup
@@ -120,13 +136,11 @@ MAP_ID_TO_DUNGEON: Dict[int, str] = {
 }
 
 #  Chest flags per dungeon
-# From chest_table.py (generated from the game files): each chest's
-# "opened" flag(s). Flag n = bit n of the big-endian u32 words at
+# each chest's "opened" flag(s). Flag n = bit n of the big-endian u32 words at
 # ADDR_CHEST_BASE: byte 4*(n//32) + 3 - (n%32)//8, bit n%8. The same table
 # numbers the AP locations and drives the patcher, so a flag always reports
 # the chest the item was put in.
 from .chest_table import CHESTS
-
 
 def _flag_pos(n: int) -> Tuple[int, int]:
     return 4 * (n // 32) + 3 - (n % 32) // 8, n % 8
@@ -170,7 +184,7 @@ def _get_map_id() -> int:
 
 def _get_dungeon_cycle(map_id: int) -> int:
     raw = _read_byte(ADDR_CYCLE_BASE + map_id * 4)
-    return raw + 1  # game stores 0/1/2; we want 1/2/3
+    return raw + 1  # game stores 0/1/2, we want 1/2/3
 
 def _read_chest_flags() -> bytes:
     return dme.read_bytes(ADDR_CHEST_BASE, 8)
@@ -185,21 +199,24 @@ def _get_bit(data: bytes, byte_offset: int, bit_index: int) -> bool:
         return False
     return bool((data[byte_offset] >> bit_index) & 1)
 
-def _find_free_item_slot() -> Optional[int]:
-    """Return the address of the first empty (0xffff) material bag slot, or None if full."""
-    for i in range(ITEM_BAG_SLOTS):
-        addr = ADDR_ITEM_BAG + i * 2
+def _add_bag_item(item_id: int) -> bool:
+    """Put an item in the first empty inventory slot and count it but False if the inventory is full."""
+    count = _read_short(ADDR_ITEM_COUNT)
+    if count >= INVENTORY_SLOTS:
+        return False
+    for i in range(INVENTORY_SLOTS):
+        addr = ADDR_INVENTORY + i * 2
         if _read_short(addr) == ITEM_SLOT_EMPTY:
-            return addr
-    return None
+            _write_short(addr, item_id)
+            _write_short(ADDR_ITEM_COUNT, count + 1)
+            return True
+    return False
 
-def _find_free_artifact_slot() -> Optional[int]:
-    """Return the address of the first empty (0xffff) artifact bag slot, or None if full."""
-    for i in range(ARTIFACT_BAG_SLOTS):
-        addr = ADDR_ARTIFACT + i * 2
-        if _read_short(addr) == ITEM_SLOT_EMPTY:
-            return addr
-    return None
+
+def _artifact_addr(artifact_id: int) -> Optional[int]:
+    """Address of an artifact's fixed place, or None if it isn't an artifact ID."""
+    place = artifact_id - ARTIFACT_FIRST_ID
+    return ADDR_ARTIFACT + place * 2 if 0 <= place < ARTIFACT_SLOTS else None
 
 # Command processor
 
@@ -232,7 +249,7 @@ class FFCCCommandProcessor(ClientCommandProcessor):
     def _cmd_stagekeys(self, mode: str = "") -> bool:
         """Turn the stage-key locks off or back on: /stagekeys off|on.
         "off" puts every dungeon's key in your artifact bag so all dungeons
-        open (handy if you're stuck; dungeons may then be out of logic).
+        open (handy if you're stuck, dungeons may then be out of logic).
         "on" takes back the keys you haven't received from the multiworld.
         Without on/off, shows which keys you have."""
         if not isinstance(self.ctx, FFCCContext) or not dme.is_hooked():
@@ -245,9 +262,7 @@ class FFCCCommandProcessor(ClientCommandProcessor):
             added = 0
             for name, key_id in STAGE_KEYS:
                 if key_id not in in_bag:
-                    if not _give_artifact(key_id):
-                        logger.info("Your artifact bag is full - free a slot and try again.")
-                        return False
+                    _give_artifact(key_id)
                     added += 1
             logger.info(f"Stage keys off: {added} key(s) added, every dungeon is open. "
                         f"Use /stagekeys on to undo.")
@@ -373,7 +388,7 @@ class FFCCContext(CommonContext):
             self.physical_chest_ap_ids = set(slot_data.get("physical_chest_ap_ids", []))
             if self.physical_chest_ap_ids:
                 logger.info(f"FFCC: Hybrid patch active — {len(self.physical_chest_ap_ids)} "
-                            f"chest(s) contain real items; client will skip those on receive.")
+                            f"chest(s) contain real items, client will skip those on receive.")
         super().on_package(cmd, args)
 
     def on_deathlink(self, data: dict) -> None:
@@ -420,16 +435,13 @@ def _give_item(ctx: FFCCContext, item_name: str) -> bool:
     if data.item_id is None:
         return True
 
-    if data.type in ARTIFACT_TYPES:
-        return _give_artifact(data.item_id)  # False if bag full → retry
+    if data.type in PERMANENT_ARTIFACT_TYPES:
+        return _give_artifact(data.item_id)
 
-    # Materials, Food, Recipes, Magicite, Phoenix Down — find a free bag slot.
-    # Empty slots are 0xffff; never overwrite an occupied slot.
-    addr = _find_free_item_slot()
-    if addr is None:
-        logger.warning("FFCC: Item bag is full — cannot deliver item, will retry.")
+    # Spell Rings, Materials, Food, Recipes, Magicite, Phoenix Down: These are not artifacts so they must be placed in the bag instead
+    if not _add_bag_item(data.item_id):
+        logger.warning("FFCC: Item bag is full - cannot deliver item, will retry.")
         return False  # retry on next tick
-    _write_short(addr, data.item_id)
     return True
 
 
@@ -445,31 +457,25 @@ def _received_stage_keys(ctx: "FFCCContext") -> Set[int]:
 
 
 def _stage_keys_in_bag() -> Set[int]:
-    """In-game IDs of the stage keys currently in the artifact bag."""
-    ids = {key_id for _, key_id in STAGE_KEYS}
-    return {v for v in (_read_short(ADDR_ARTIFACT + i * 2) for i in range(ARTIFACT_BAG_SLOTS)) if v in ids}
+    """In-game IDs of the stage keys the caravan has."""
+    return {key_id for _, key_id in STAGE_KEYS if _read_short(_artifact_addr(key_id)) == key_id}
 
 
 def _remove_stage_keys(keep: Set[int]) -> int:
-    """Empty the artifact bag slots holding stage keys not in `keep`."""
-    ids = {key_id for _, key_id in STAGE_KEYS}
+    """Take away the stage keys not in `keep`."""
     removed = 0
-    for i in range(ARTIFACT_BAG_SLOTS):
-        addr = ADDR_ARTIFACT + i * 2
-        v = _read_short(addr)
-        if v in ids and v not in keep:
-            _write_short(addr, ITEM_SLOT_EMPTY)
-            removed += 1
+    for key_id in _stage_keys_in_bag() - keep:
+        _write_short(_artifact_addr(key_id), ITEM_SLOT_EMPTY)
+        removed += 1
     return removed
 
 
 def _give_artifact(artifact_id: int) -> bool:
-    """Write an artifact item ID into the first empty artifact bag slot.
-    Returns False if the bag is full (caller should retry next tick)."""
-    addr = _find_free_artifact_slot()
+    """Give a permanent artifact by filling its set place"""
+    addr = _artifact_addr(artifact_id)
     if addr is None:
-        logger.warning("FFCC: Artifact bag is full — cannot deliver artifact, will retry.")
-        return False
+        logger.warning(f"FFCC: 0x{artifact_id:x} is not an artifact - skipped.")
+        return True
     _write_short(addr, artifact_id)
     return True
 
@@ -625,28 +631,33 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                     if ap_ids:
                         await ctx.send_msgs([{"cmd": "LocationChecks", "locations": ap_ids}])
 
-                # Process received items
+                # Process received items, starting after the ones this save
+                # already has (the count is stored in the save itself).
                 if ctx.items_received:
+                    delivered = _read_short(ADDR_ITEMS_DELIVERED)
+                    if delivered > len(ctx.items_received):
+                        delivered = 0      # a save from a different seed
+                    if delivered != ctx.received_index:
+                        ctx.received_index = delivered
+                        ctx.progressive_count = sum(
+                            1 for i in ctx.items_received[:delivered]
+                            if LOOKUP_ID_TO_NAME.get(i.item) == PROGRESSIVE_ARTIFACT_NAME)
                     for idx in range(ctx.received_index, len(ctx.items_received)):
                         network_item = ctx.items_received[idx]
+                        item_name = LOOKUP_ID_TO_NAME.get(network_item.item)
 
                         # Hybrid patch: item was physically placed in the chest and
                         # given by the game engine on pickup — skip the memory-write.
                         if network_item.location in ctx.physical_chest_ap_ids:
-                            ctx.received_index = idx + 1
-                            item_name = LOOKUP_ID_TO_NAME.get(network_item.item, "?")
-                            logger.info(f"FFCC: {item_name} already given by chest — skipping write")
-                            continue
-
-                        item_name = LOOKUP_ID_TO_NAME.get(network_item.item)
-                        if item_name:
-                            if _give_item(ctx, item_name):
-                                ctx.received_index = idx + 1
-                                item_data = ITEM_TABLE.get(item_name)
-                                if not item_data or item_data.type != "Placeholder":
-                                    logger.info(f"FFCC: Received {item_name}")
-                            else:
+                            logger.info(f"FFCC: {item_name or '?'} already given by chest — skipping write")
+                        elif item_name:
+                            if not _give_item(ctx, item_name):
                                 break  # try again next tick
+                            item_data = ITEM_TABLE.get(item_name)
+                            if not item_data or item_data.type != "Placeholder":
+                                logger.info(f"FFCC: Received {item_name}")
+                        ctx.received_index = idx + 1
+                        _write_short(ADDR_ITEMS_DELIVERED, ctx.received_index)
 
                 # DeathLink
                 if "DeathLink" in ctx.tags:
@@ -746,16 +757,46 @@ def _apply_status_trap(trap_name: str, frames: int = 0x012c) -> None:   # 300 fr
     else:
         _write_short(TRAP_TIMER_ADDR[trap_name], frames)                            # unpatched ISO: no visual
 
+def read_ffcc_connection(path: str) -> Tuple[Optional[str], Optional[str]]:
+    """(server address, slot name) from a .ffcc file. The
+    server is only there when the file was downloaded from a room."""
+    import json
+    import zipfile
+    try:
+        with zipfile.ZipFile(path) as ffcc:
+            manifest = json.loads(ffcc.read("archipelago.json"))
+        return manifest.get("server") or None, manifest.get("player_name") or None
+    except (OSError, KeyError, ValueError, zipfile.BadZipFile):
+        logger.warning(f"Could not read the connection info from {path}")
+        return None, None
+
+
 def launch(*launch_args: str) -> None:
     async def main() -> None:
         parser = get_base_parser()
-        args   = parser.parse_args(launch_args)
-        ctx    = FFCCContext(args.connect, args.password)
+        parser.add_argument("ffcc_file", default="", nargs="?",
+                            help="A .ffcc file (connects to its room) or an archipelago:// URL")
+        parser.add_argument("--name", default=None, help="Slot name to connect as")
+        args = parser.parse_args(launch_args)
+
+        server, name = args.connect, args.name
+        if args.ffcc_file.startswith("archipelago://"):
+            args.url = args.ffcc_file
+            args = handle_url_arg(args, parser)
+            server, name = args.connect, args.name
+        elif args.ffcc_file:
+            file_server, file_name = read_ffcc_connection(args.ffcc_file)
+            server, name = server or file_server, name or file_name
+
+        ctx = FFCCContext(server, args.password)
+        ctx.username = name
 
         if gui_enabled:
             ctx.run_gui()
         ctx.run_cli()
 
+        if server:
+            ctx.server_task = asyncio.create_task(server_loop(ctx), name="ServerLoop")
         ctx.dolphin_sync_task = asyncio.create_task(dolphin_sync_task(ctx), name="DolphinSync")
         await asyncio.gather(
             ctx.dolphin_sync_task,

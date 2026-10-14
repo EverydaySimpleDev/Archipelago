@@ -4,10 +4,9 @@ import os
 import zipfile
 from typing import Any, ClassVar, Dict, List, Optional
 
-import Utils
 from BaseClasses import Item, ItemClassification, Tutorial, MultiWorld
 from worlds.AutoWorld import World, WebWorld
-from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths
+from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths, SuffixIdentifier
 from worlds.Files import APPlayerContainer
 
 from .game_id import game_name
@@ -23,20 +22,21 @@ from .rules import (set_rules, set_location_rules, layout_is_beatable, first_yea
 from .regions import MYRRH_DUNGEONS, myrrh_location
 from .items import MYRRH_DROP, MYRRH_DROP_DATA, ARTIFACT_TYPES
 
-VERSION: tuple = (0, 1, 0)
+VERSION: tuple = (0, 1, 1)
 
 IC = ItemClassification
 
 
-def launch_client():
+def launch_client(*args: str):
     from . import client
-    launch_subprocess(client.launch, name="FFCCClient")
+    launch_subprocess(client.launch, name="FFCCClient", args=args)
 
 
 components.append(Component(
     "Final Fantasy Crystal Chronicles Client",
     func=launch_client,
     component_type=Type.CLIENT,
+    file_identifier=SuffixIdentifier(".ffcc"),
     icon="FFCC_icon",
 ))
 
@@ -60,15 +60,18 @@ class FFCCWebWorld(WebWorld):
 
 
 class FFCCContainer(APPlayerContainer):
+    """The player's .ffcc file: a zip holding the seed's placement data (for the
+    randomizer's AP Patch) and archipelago.json (server and slot, so opening the
+    file starts the client and connects)."""
     game: str = game_name
-    patch_file_ending: str = ".zip"
+    patch_file_ending: str = ".ffcc"
 
     def __init__(self, patch_data: Dict[str, str], base_path: str = "",
                  output_directory: str = "", player: Optional[int] = None,
                  player_name: str = "", server: str = ""):
         self.patch_data = patch_data
         self.file_path = base_path
-        container_path = os.path.join(output_directory, base_path + ".zip")
+        container_path = os.path.join(output_directory, base_path + self.patch_file_ending)
         super().__init__(container_path, player, player_name, server)
 
     def write_contents(self, opened_zipfile: zipfile.ZipFile) -> None:
@@ -253,17 +256,12 @@ class FFCCWorld(World):
             "locations": locations_out,
         }
 
-        mod_name = (
-            f"AP-{multiworld.seed_name}"
-            f"-P{player}"
-            f"-{multiworld.get_file_safe_player_name(player)}"
-        )
-        mod_dir = os.path.join(output_directory, mod_name + "_" + Utils.__version__)
-        filename = f"{mod_name}.ffcc"
-
+        # AP_<seed>_P<slot>_<name>.ffcc - the standard name, so a room offers it
+        # as the player's download
+        base = multiworld.get_out_file_name_base(player)
         container = FFCCContainer(
-            {filename: json.dumps(output_data, indent=2)},
-            mod_dir,
+            {f"{base}.ffcc": json.dumps(output_data, indent=2)},
+            base,
             output_directory,
             player,
             multiworld.get_file_safe_player_name(player),

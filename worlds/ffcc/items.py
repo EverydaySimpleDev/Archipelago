@@ -265,11 +265,17 @@ def _build_item_table() -> dict:
 
 ITEM_TABLE: dict[str, FFCCItemData] = _build_item_table()
 
+# The items above are unused in the game (Crop Seed, Goddess Statuette, Devil's
+# Mask, Wheat, Flour), so they're left out of the item pool. They stay in
+# ITEM_TABLE so older seeds still load.
+UNUSED_ITEM_IDS = _NON_PHYSICAL_IDS
+
 # Filler item names (used for padding the item pool and get_filler_item_name)
 # Excludes the Placeholder type so "Cycle Advance" never ends up in the random pool.
 FILLER_ITEM_TABLE: dict[str, FFCCItemData] = {
     name: data for name, data in ITEM_TABLE.items()
     if data.classification == IC.filler and data.type != "Placeholder"
+    and data.code not in UNUSED_ITEM_IDS
 }
 
 # Trap item names (used for weighted trap selection in create_items)
