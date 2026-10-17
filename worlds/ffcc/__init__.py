@@ -22,7 +22,7 @@ from .rules import (set_rules, set_location_rules, layout_is_beatable, first_yea
 from .regions import MYRRH_DUNGEONS, myrrh_location
 from .items import MYRRH_DROP, MYRRH_DROP_DATA, ARTIFACT_TYPES
 
-VERSION: tuple = (0, 1, 1)
+VERSION: tuple = (0, 1, 4)
 
 IC = ItemClassification
 
@@ -160,6 +160,7 @@ class FFCCWorld(World):
             "frozen_trap_weight", "burned_trap_weight", "slowed_trap_weight",
             "poisoned_trap_weight", "chalice_element_trap_weight",
             "bonus_set_trap_weight", "food_preference_trap_weight", "death_link",
+            "stage_keys",
         )
 
         # Locations whose item the patcher puts in the chest itself. The game

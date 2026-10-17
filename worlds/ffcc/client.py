@@ -93,7 +93,7 @@ MYRRH_TREE_DUNGEONS = [
     "Veo Lu Sluice", "Lynari Desert", "Conall Curach", "Rebena Te Ra",
 ]
 ADDR_BONUS      = 0x8021fe14   # 1 byte: 0x01–0x18
-ADDR_FOOD_BASE  = 0x8021f629   # 2 bytes × 8 foods (Striped Apple, Cherry Cluster, …)
+ADDR_FOOD_BASE  = 0x8021f628   # u16 × 8 food preferences (caravan +0x3B8), about 0-100 each
 
 # Chest bit flags (8 bytes, shared/reused per dungeon, cleared on dungeon exit)
 ADDR_CHEST_BASE = 0x80926000
@@ -189,11 +189,6 @@ def _get_dungeon_cycle(map_id: int) -> int:
 def _read_chest_flags() -> bytes:
     return dme.read_bytes(ADDR_CHEST_BASE, 8)
 
-def _force_chest_flag(byte_offset: int, bit_index: int) -> None:
-    addr = ADDR_CHEST_BASE + byte_offset
-    current = _read_byte(addr)
-    _write_byte(addr, current | (1 << bit_index))
-
 def _get_bit(data: bytes, byte_offset: int, bit_index: int) -> bool:
     if byte_offset >= len(data):
         return False
@@ -277,6 +272,12 @@ class FFCCCommandProcessor(ClientCommandProcessor):
         extra = in_bag - received
         logger.info(f"Stage keys received: {len(received)}/{len(STAGE_KEYS)}"
                     + (f" - locks are off ({len(extra)} extra key(s) in your bag)" if extra else ""))
+        for name, key_id in STAGE_KEYS:
+            if key_id in received:
+                logger.info(f"  {name}")
+        missing = [name for name, key_id in STAGE_KEYS if key_id not in received]
+        if missing:
+            logger.info("Still to find: " + ", ".join(missing))
         return True
 
     def _cmd_tree(self, *name: str) -> bool:
@@ -342,6 +343,8 @@ class FFCCContext(CommonContext):
 
         # Game state
         self.current_dungeon:  Optional[str] = None
+        self.reported_stage:   Optional[str] = None  # last stage sent for PopTracker's auto tab
+        self.reported_cycles:  Optional[Dict[str, int]] = None  # last cycles sent for PopTracker
         self.current_cycle:    int = 1
         self.current_year:     Optional[int] = None
         self.prev_chest_flags: bytes = bytes(8)
@@ -369,6 +372,8 @@ class FFCCContext(CommonContext):
     def on_package(self, cmd: str, args: dict) -> None:
         if cmd == "Connected":
             slot_data = args.get("slot_data", {})
+            self.reported_stage = None
+            self.reported_cycles = None
             self.progressive_artifacts = bool(slot_data.get("progressive_artifacts", False))
             self.include_traps         = bool(slot_data.get("include_traps", True))
             self.trap_weights = {
@@ -522,14 +527,6 @@ def _find_new_chest_locations(dungeon: str, cycle: int,
     return found
 
 
-def _restore_sent_chest_bits(dungeon: str, cycle: int,
-                              checked_locs: Set[int]) -> None:
-    """Force chest bits for already-checked locations so chests appear open on re-entry."""
-    from .locations import FFCCLocation
-    for (byte_off, bit_idx), (chest, cycles) in CHEST_FLAGS.get(dungeon, {}).items():
-        loc_data = LOCATION_TABLE.get(_chest_location(dungeon, cycle, chest))
-        if loc_data and FFCCLocation.get_apid(loc_data.code) in checked_locs:
-            _force_chest_flag(byte_off, bit_idx)
 
 
 # Death detection
@@ -559,6 +556,7 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                     continue
 
                 in_dungeon = _is_in_dungeon()
+                await _report_cycles(ctx)
 
                 # Year advancement - monitor on world map and in dungeon.
                 # Year advances when the caravan returns home after filling the chalice,
@@ -585,12 +583,14 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                 if not in_dungeon:
                     ctx.current_dungeon  = None
                     ctx.prev_chest_flags = bytes(8)
+                    await _report_stage(ctx, "")
                     continue
 
                 map_id  = _get_map_id()
                 dungeon = MAP_ID_TO_DUNGEON.get(map_id)
                 if dungeon is None:
                     continue
+                await _report_stage(ctx, dungeon)
 
                 cycle = _get_dungeon_cycle(map_id)
                 if dungeon == "Mount Vellenge":
@@ -601,7 +601,6 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                     ctx.current_dungeon  = dungeon
                     ctx.current_cycle    = cycle
                     ctx.prev_chest_flags = bytes(8)
-                    _restore_sent_chest_bits(dungeon, cycle, ctx.checked_locations)
                     logger.info(f"FFCC: Entered {dungeon} — Cycle {cycle}")
                     if cycle >= 2:
                         cycle_loc_name = f"{dungeon} - Cycle {cycle} Reached"
@@ -750,6 +749,37 @@ def _read_myrrh_mask() -> int:
 
 def _myrrh_key(ctx: "FFCCContext") -> str:
     return f"ffcc_myrrh_{ctx.team}_{ctx.slot}"
+
+def _stage_key(ctx: "FFCCContext") -> str:
+    return f"ffcc_stage_{ctx.team}_{ctx.slot}"
+
+async def _report_stage(ctx: "FFCCContext", stage: str) -> None:
+    """Put the dungeon the player is in ("" when outside one) in the
+    server's data storage, where the PopTracker pack reads it to open
+    that dungeon's map tab."""
+    if ctx.slot is None or stage == ctx.reported_stage:
+        return
+    ctx.reported_stage = stage
+    await ctx.send_msgs([{"cmd": "Set", "key": _stage_key(ctx), "default": "",
+                          "operations": [{"operation": "replace", "value": stage}]}])
+
+def _cycles_key(ctx: "FFCCContext") -> str:
+    return f"ffcc_cycles_{ctx.team}_{ctx.slot}"
+
+async def _report_cycles(ctx: "FFCCContext") -> None:
+    """Put every dungeon's current cycle ({dungeon: 1-3}) in the server's
+    data storage, where the PopTracker pack reads it to set its cycle
+    trackers. Nothing is sent before a save is loaded (year 0)."""
+    if ctx.slot is None or not 1 <= _read_byte(ADDR_CURRENT_YEAR) <= 99:
+        return
+    raw = dme.read_bytes(ADDR_CYCLE_BASE, 4 * len(MAP_ID_TO_DUNGEON))
+    cycles = {dungeon: min(raw[4 * map_id], 2) + 1 for map_id, dungeon in MAP_ID_TO_DUNGEON.items()
+              if dungeon != "Mount Vellenge"}
+    if cycles == ctx.reported_cycles:
+        return
+    ctx.reported_cycles = cycles
+    await ctx.send_msgs([{"cmd": "Set", "key": _cycles_key(ctx), "default": {},
+                          "operations": [{"operation": "replace", "value": cycles}]}])
 
 def _apply_status_trap(trap_name: str, frames: int = 0x012c) -> None:   # 300 frames = ~5 s
     if dme.read_bytes(ADDR_TRAP_HOOK, 4) == bytes.fromhex("48098261"):
