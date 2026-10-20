@@ -17,10 +17,22 @@ except ImportError: # shouldn't happen since DME is a part of the AP system but 
     DOLPHIN_AVAILABLE = False
     logger.warning("dolphin_memory_engine not installed — FFCC client will not function.")
 
+# With Universal Tracker installed, the client is built on its tracker context
+# and shows its tracker and map tabs; without it, it's a plain client.
+try:
+    from worlds.tracker.TrackerClient import TrackerGameContext as BaseContext
+    from worlds.tracker.TrackerClient import TrackerCommandProcessor as BaseCommandProcessor
+    tracker_loaded = True
+except ModuleNotFoundError:
+    BaseContext, BaseCommandProcessor = CommonContext, ClientCommandProcessor
+    tracker_loaded = False
+
 from .game_id import game_name
 from .items import (ITEM_TABLE, LOOKUP_ID_TO_NAME, PROGRESSIVE_ARTIFACT_ORDER, PROGRESSIVE_ARTIFACT_NAME,
                     STAGE_KEYS)
 from .locations import LOCATION_TABLE, FFCCLocationData
+from .equipment_table import PATHS as EQUIPMENT_PATHS, SLOT as EQUIPMENT_SLOT
+from .equipment_table import POWER as EQUIPMENT_POWER, NAMES as EQUIPMENT_NAMES
 
 # Expected game ID
 GAME_ID      = b"GCCE"     # FFCC NTSC-U 4-byte game code
@@ -33,7 +45,10 @@ CONNECTION_REFUSED_STATUS   = "Dolphin refused: wrong game loaded. Please load F
 CONNECTION_LOST_STATUS      = "Dolphin connection was lost. Please restart your emulator and ensure FFCC is running."
 
 # World / dungeon state
-ADDR_MAP_ID      = 0x8021de9b   # 1 byte: 0x00-0x0d = dungeon, others = not in dungeon
+# The stage the game is in:
+# 0x00-0x0d = a dungeon, anything else = a town, the world map or an event.
+# The game picks the dungeon's cycle with this same index.
+ADDR_MAP_ID      = 0x8021f255
 ADDR_CURRENT_YEAR = 0x8021de93  # 1 byte: current caravan year (1=Year1, 2=Year2, ...)
 ADDR_WORLD_MAP   = 0x8021f25a   # 1 byte: 0x01 = on world map
 ADDR_PAUSED      = 0x8021f25b   # 1 byte: 0x01 = paused
@@ -68,6 +83,13 @@ INVENTORY_SLOTS = 64
 ARTIFACT_FIRST_ID = 0x9f
 ARTIFACT_SLOTS  = 96
 ITEM_SLOT_EMPTY = 0xffff  # sentinel for an empty inventory slot
+
+# Equipped pieces: the bag position of the equipped weapon, body armor, tribal
+# piece and accessory (2 bytes each, 0xffff = nothing equipped). Writing a new
+# item ID into that bag position changes the equipped piece; the game works out
+# the new stats when the menu is opened or a new area loads.
+ADDR_EQUIPPED   = 0x8021f31c
+ADDR_TRIBE      = 0x8021f650   # u16: 0 Clavat, 1 Lilty, 2 Yuke, 3 Selkie
 
 # Items delivered so far, kept in the save file (CGameWork m_eventWork[230], a
 # value no game script uses, Thanks Decomp Team!) so a reconnect doesn't send everything again and a
@@ -176,8 +198,8 @@ def _read_game_id() -> bytes:
     return dme.read_bytes(GAME_ID_ADDR, 4)
 
 def _is_in_dungeon() -> bool:
-    on_map = _read_byte(ADDR_WORLD_MAP)
-    return on_map == 0x00  # 0x01 = world map, 0x00 = in dungeon
+    # 0x01 = world map; towns also read 0x00, so check the stage index too
+    return _read_byte(ADDR_WORLD_MAP) == 0x00 and _get_map_id() in MAP_ID_TO_DUNGEON
 
 def _get_map_id() -> int:
     return _read_byte(ADDR_MAP_ID)
@@ -208,6 +230,49 @@ def _add_bag_item(item_id: int) -> bool:
     return False
 
 
+def _give_equipment(ctx: "FFCCContext", item_name: str) -> bool:
+    """Upgrade the equipped weapon, armor or tribal piece to the next one for
+    the player's tribe. The new piece takes the place of the equipped one in
+    the bag, so it stays equipped and needs no free slot. If nothing is
+    equipped there, or what is equipped is stronger, the new piece goes in
+    the bag instead. Returns False to try again later (bag full)."""
+    paths = EQUIPMENT_PATHS[item_name]
+    tribe = _read_short(ADDR_TRIBE)
+    if tribe >= len(paths):
+        logger.warning(f"FFCC: Unknown tribe {tribe} - {item_name} skipped.")
+        return True
+    path = paths[tribe]
+
+    # The Nth copy received gives the Nth piece of the path (this copy is the
+    # item at ctx.received_index, still being delivered).
+    copies = sum(1 for net_item in ctx.items_received[:ctx.received_index + 1]
+                 if LOOKUP_ID_TO_NAME.get(net_item.item) == item_name)
+    if copies > len(path):
+        logger.info(f"FFCC: {item_name}: you already have the best one for your tribe.")
+        return True
+    piece = path[copies - 1]
+    piece_name = EQUIPMENT_NAMES.get(piece, hex(piece))
+
+    position = _read_short(ADDR_EQUIPPED + 2 * EQUIPMENT_SLOT[item_name])
+    if position < INVENTORY_SLOTS:
+        slot = ADDR_INVENTORY + 2 * position
+        equipped = _read_short(slot)
+        if equipped == piece:
+            logger.info(f"FFCC: {item_name}: {piece_name} is already equipped.")
+            return True
+        if EQUIPMENT_POWER.get(equipped, -1) < EQUIPMENT_POWER[piece]:
+            _write_short(slot, piece)
+            logger.info(f"FFCC: {item_name}: {piece_name} equipped. "
+                        f"Open your menu or move to another area for its stats to apply.")
+            return True
+
+    if not _add_bag_item(piece):
+        logger.warning("FFCC: Item bag is full - cannot deliver item, will retry.")
+        return False
+    logger.info(f"FFCC: {item_name}: {piece_name} put in your bag.")
+    return True
+
+
 def _artifact_addr(artifact_id: int) -> Optional[int]:
     """Address of an artifact's fixed place, or None if it isn't an artifact ID."""
     place = artifact_id - ARTIFACT_FIRST_ID
@@ -215,7 +280,7 @@ def _artifact_addr(artifact_id: int) -> Optional[int]:
 
 # Command processor
 
-class FFCCCommandProcessor(ClientCommandProcessor):
+class FFCCCommandProcessor(BaseCommandProcessor):
     def _cmd_dolphin(self) -> None:
         """Show Dolphin connection status."""
         if isinstance(self.ctx, FFCCContext):
@@ -329,7 +394,7 @@ class FFCCCommandProcessor(ClientCommandProcessor):
         logger.info("Stage keys: " + (", ".join(keys) if keys else "none yet"))
         return True
 
-class FFCCContext(CommonContext):
+class FFCCContext(BaseContext):
     command_processor = FFCCCommandProcessor
     game              = game_name
     items_handling    = 0b111  # full remote items
@@ -337,6 +402,8 @@ class FFCCContext(CommonContext):
 
     def __init__(self, server_address: Optional[str], password: Optional[str]) -> None:
         super().__init__(server_address, password)
+        self.tags = {"AP"}
+        self.items_handling = 0b111
         self.dolphin_status:   str = CONNECTION_INITIAL_STATUS
         self.dolphin_sync_task: Optional[asyncio.Task] = None
         self.has_sent_death:   bool = False
@@ -402,15 +469,10 @@ class FFCCContext(CommonContext):
             logger.info("DeathLink received — killing player.")
             _write_byte(ADDR_CUR_HEARTS, 0)
 
-    def run_gui(self):
-        from kvui import GameManager
-
-        class FFCCManager(GameManager):
-            logging_pairs = [("Client", "Archipelago")]
-            base_title    = "Archipelago FFCC Client"
-
-        self.ui = FFCCManager(self)
-        self.ui_task = asyncio.create_task(self.ui.async_run(), name="UI")
+    def make_gui(self):
+        ui = super().make_gui()
+        ui.base_title = "Archipelago FFCC Client"
+        return ui
 
 
 # Item giving
@@ -436,6 +498,9 @@ def _give_item(ctx: FFCCContext, item_name: str) -> bool:
                 return False  # bag full, retry next tick
             ctx.progressive_count += 1
         return True
+
+    if data.type == "Progressive Equipment":
+        return _give_equipment(ctx, item_name)
 
     if data.item_id is None:
         return True
@@ -821,6 +886,8 @@ def launch(*launch_args: str) -> None:
         ctx = FFCCContext(server, args.password)
         ctx.username = name
 
+        if tracker_loaded:
+            ctx.run_generator()
         if gui_enabled:
             ctx.run_gui()
         ctx.run_cli()

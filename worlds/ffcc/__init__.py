@@ -2,8 +2,9 @@ import io
 import json
 import os
 import zipfile
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
+import settings
 from BaseClasses import Item, ItemClassification, Tutorial, MultiWorld
 from worlds.AutoWorld import World, WebWorld
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths, SuffixIdentifier
@@ -14,15 +15,15 @@ from .regions import create_regions, connect_entrances
 from .items import (FFCCItem, FFCCItemData, ITEM_TABLE, FILLER_ITEM_TABLE, TRAP_ITEMS,
                     ITEM_TABLE_DESC, LOOKUP_ID_TO_NAME, item_name_groups,
                     PROGRESSIVE_ARTIFACT_NAME, PROGRESSIVE_ARTIFACT_CODE, _ARTIFACTS,
-                    CYCLE_PLACEHOLDER_ITEM, YEAR_PLACEHOLDER_ITEM)
+                    CYCLE_PLACEHOLDER_ITEM, YEAR_PLACEHOLDER_ITEM, PROGRESSIVE_EQUIPMENT_COUNT)
 from .locations import FFCCLocation, LOCATION_TABLE, location_groups
 from .options import FFCCGameOptions, FFCC_option_groups
 from .rules import (set_rules, set_location_rules, layout_is_beatable, first_year_dungeons,
                     stage_key, SPOT_AREA)
 from .regions import MYRRH_DUNGEONS, myrrh_location
-from .items import MYRRH_DROP, MYRRH_DROP_DATA, ARTIFACT_TYPES
+from .items import MYRRH_DROP, MYRRH_DROP_DATA, ARTIFACT_TYPES, UNUSED_ITEM_IDS
 
-VERSION: tuple = (0, 1, 4)
+VERSION: tuple = (0, 1, 7)
 
 IC = ItemClassification
 
@@ -40,7 +41,42 @@ components.append(Component(
     icon="FFCC_icon",
 ))
 
-icon_paths["FFCC_icon"] = f"ap:{__name__}/icons/FFCC_icon.png"
+icon_paths["FFCC_icon"] = f"ap:{__name__}/icons/FFCCAPIcon.png"
+
+class FFCCTrackerPack(settings.FilePath):
+    """The FFCC PopTracker pack (.zip). Universal Tracker shows its dungeon maps
+    in the client; it asks for the file the first time if it isn't set."""
+    required = False
+    ut_dialog_name = "Select the FFCC PopTracker pack (.zip)"
+
+
+class FFCCSettings(settings.Group):
+    ut_pack_path: Union[FFCCTrackerPack, str] = FFCCTrackerPack()
+
+
+# Universal Tracker's map page: the pack's location sections are named
+# "<dungeon> - Chest <n>" / "Cycle <c>", the AP locations
+# "<dungeon> - Cycle <c> - Chest <n>".
+TRACKER_LOCATION_IDS = {
+    f"{data.region} - Chest {data.chest}/Cycle {data.cycle}": FFCCLocation.get_apid(data.code)
+    for data in LOCATION_TABLE.values()
+    if not data.is_event
+}
+
+# Index of each dungeon's map in the pack's maps/maps.json.
+TRACKER_MAP_INDEX = {
+    "River Belle Path": 0, "Goblin Wall": 1, "The Mine of Cathuriges": 2, "The Mushroom Forest": 3,
+    "Moschet Manor": 4, "Veo Lu Sluice": 5, "Daemon's Court": 6, "Selepation Cave": 7,
+    "Conall Curach": 8, "Mount Vellenge": 9, "Lynari Desert": 10, "Tida": 11,
+    "Mount Kilanda": 12, "Rebena Te Ra": 13,
+}
+
+
+def tracker_map_index(dungeon) -> int:
+    """The map Universal Tracker opens for the dungeon the client says the player
+    is in (outside dungeons it keeps River Belle Path's)."""
+    return TRACKER_MAP_INDEX.get(dungeon or "", 0)
+
 
 class FFCCWebWorld(WebWorld):
     theme = "dirt"
@@ -97,6 +133,21 @@ class FFCCWorld(World):
         for name, data in LOCATION_TABLE.items()
         if data.code is not None
     }
+    settings_key = "ffcc_options"
+    settings: ClassVar[FFCCSettings]
+
+    # Universal Tracker: the PopTracker pack gives the map page, and the client
+    # stores the dungeon the player is in under ffcc_stage_<team>_<slot>, which
+    # turns the map page to that dungeon.
+    tracker_world: ClassVar = {
+        "external_pack_key":       "ut_pack_path",
+        "map_page_maps":           "maps/maps.json",
+        "map_page_locations":      "locations/locations.json",
+        "poptracker_name_mapping": TRACKER_LOCATION_IDS,
+        "map_page_setting_key":    "ffcc_stage_{team}_{player}",
+        "map_page_index":          tracker_map_index,
+    }
+
     item_name_groups:    ClassVar[dict] = item_name_groups
     location_name_groups: ClassVar[dict] = location_groups
 
@@ -108,6 +159,12 @@ class FFCCWorld(World):
     SHUFFLED_SPOTS = [spot for spot in SPOT_AREA if spot != "Mount Kilanda"]
 
     VANILLA_GATES = [[2, 8, 4, 1], [1, 2, 8, 4], [4, 1, 2, 8], [8, 4, 1, 2]]
+
+    @staticmethod
+    def interpret_slot_data(slot_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Universal Tracker builds the world again from the slot data; hand it
+        all of it, so generate_early can reuse the seed's world-map layout."""
+        return slot_data
 
     def generate_early(self) -> None:
         keys = bool(self.options.stage_keys)
@@ -126,7 +183,13 @@ class FFCCWorld(World):
         # be finished (rules.layout_is_beatable).
         vanilla_plan = {spot: spot for spot in SPOT_AREA}
         self.gate_table, self.zone_plan = self.VANILLA_GATES, vanilla_plan
-        for _ in range(10000):
+        # Universal Tracker rebuilding a seed: use the layout the seed was made
+        # with instead of rolling a new one.
+        tracker = getattr(self.multiworld, "re_gen_passthrough", {}).get(self.game)
+        if tracker is not None:
+            self.zone_plan = tracker.get("world_zones") or vanilla_plan
+            self.gate_table = tracker.get("miasma_elements") or self.VANILLA_GATES
+        for _ in range(0 if tracker is not None else 10000):
             gates = self.VANILLA_GATES
             if shuffle_gates:
                 gates = [self.random.sample(row, 4) for row in self.VANILLA_GATES]
@@ -160,8 +223,14 @@ class FFCCWorld(World):
             "frozen_trap_weight", "burned_trap_weight", "slowed_trap_weight",
             "poisoned_trap_weight", "chalice_element_trap_weight",
             "bonus_set_trap_weight", "food_preference_trap_weight", "death_link",
-            "stage_keys",
+            "stage_keys", "progressive_equipment",
+            # options the logic depends on, for Universal Tracker
+            "goblin_wall_year_one", "shuffle_loading_zones", "randomize_miasma_streams",
+            "cycle_location_checks", "year_location_checks", "rebena_te_ra_timed_chests",
         )
+        data["miasma_elements"] = self.gate_table
+        # {spot: dungeon}, so the tracker knows which dungeons are across the river
+        data["world_zones"] = self.zone_plan
 
         # Locations whose item the patcher puts in the chest itself. The game
         # gives those on pickup, so the client doesn't give them again.
@@ -285,12 +354,14 @@ def _create_item_pool(world: "FFCCWorld") -> List[Item]:
     use_traps       = bool(world.options.include_traps)
 
     for name, data in ITEM_TABLE.items():
-        if data.type in ("Trap", "Progressive Artifact", "Placeholder"):
+        if data.type in ("Trap", "Progressive Artifact", "Placeholder", "Progressive Equipment"):
             continue  # handled separately below; Placeholders are pre-placed at event locs
         if data.type == "Stage Key" and not world.options.stage_keys:
             continue
         if data.type == "Artifact" and use_progressive:
             continue  # replaced by Progressive Artifacts below
+        if data.code in UNUSED_ITEM_IDS:
+            continue  # not a real item in the game
         pool.append(FFCCItem(name, world.player, data))
 
     # Add one Progressive Artifact per artifact when that option is on
@@ -298,6 +369,12 @@ def _create_item_pool(world: "FFCCWorld") -> List[Item]:
         pa_data = ITEM_TABLE[PROGRESSIVE_ARTIFACT_NAME]
         for _ in range(len(_ARTIFACTS)):
             pool.append(FFCCItem(PROGRESSIVE_ARTIFACT_NAME, world.player, pa_data))
+
+    # Progressive equipment: one copy per upgrade step
+    if world.options.progressive_equipment:
+        for name, count in PROGRESSIVE_EQUIPMENT_COUNT.items():
+            for _ in range(count):
+                pool.append(FFCCItem(name, world.player, ITEM_TABLE[name]))
 
     # Pad remaining slots with weighted filler (traps if enabled, food/phoenix otherwise)
     unfilled = len(world.multiworld.get_unfilled_locations(world.player)) - len(pool)

@@ -109,12 +109,12 @@ _MATERIALS = [
     ("Devil's Mask", 0x161),
 ]
 
-# Food (0x17d–0x18e)
+# Food (0x17d–0x188)
 _FOOD = [
     ("Striped Apple", 0x17d), ("Cherry Cluster", 0x17e), ("Rainbow Grapes", 0x17f),
     ("Star Carrot", 0x180), ("Gourd Potato", 0x181), ("Round Corn", 0x182),
-    ("Meat", 0x183), ("Fish", 0x184), ("Bannock", 0x185), ("Spring Water", 0x186),
-    ("Milk", 0x187), ("Strange Liquid", 0x188), ("Wheat", 0x18d), ("Flour", 0x18e),
+    ("Meat", 0x183), ("Fish", 0x184), ("Bannock", 0x185),
+    ("Spring Water", 0x186), ("Milk", 0x187), ("Strange Liquid", 0x188),
 ]
 
 # Recipes / Scrolls (0x191–0x1ed)
@@ -155,6 +155,19 @@ _RECIPES = [
 ]
 # Recipes that are useful (needed for the best end-game crafting)
 _USEFUL_RECIPE_IDS = {0x1e7, 0x1e8, 0x1ec, 0x1ed}
+
+# Progressive equipment (option Progressive Equipment). Each copy upgrades the
+# equipped weapon, body armor or tribal piece to the next one for the player's
+# tribe (equipment_table.py), so there is one copy per step of the longest path.
+from .equipment_table import PATHS as EQUIPMENT_PATHS
+PROGRESSIVE_EQUIPMENT = [
+    ("Progressive Weapon",      0x220),
+    ("Progressive Armor",       0x221),
+    ("Progressive Tribal Gear", 0x222),
+]
+PROGRESSIVE_EQUIPMENT_COUNT = {
+    name: max(len(path) for path in EQUIPMENT_PATHS[name]) for name, _ in PROGRESSIVE_EQUIPMENT
+}
 
 # Cycle advancement placeholder (used when cycle_location_checks option is off)
 # Placed at cycle event locations so they don't consume the random item pool.
@@ -224,7 +237,7 @@ PROGRESSIVE_ARTIFACT_ORDER = [iid for _, iid in _ARTIFACTS]
 # Items excluded from in-game chest drops (banned by randomizer.py EXCLUDE set).
 # These items CAN exist in inventory but cannot be physically placed in chests;
 # the hybrid patcher will write AP Item for them, and the client delivers via memory write.
-_NON_PHYSICAL_IDS = {0x156, 0x160, 0x161, 0x18d, 0x18e}
+_NON_PHYSICAL_IDS = {0x156, 0x160, 0x161}
 
 
 # Build the master item table
@@ -260,13 +273,15 @@ def _build_item_table() -> dict:
         table[name] = FFCCItemData("Year Key", IC.progression, code, None)
     for (name, iid), code in zip(STAGE_KEYS, _STAGE_KEY_CODES):
         table[name] = FFCCItemData("Stage Key", IC.progression, code, iid)
+    for name, code in PROGRESSIVE_EQUIPMENT:
+        table[name] = FFCCItemData("Progressive Equipment", IC.useful, code, None)
     return table
 
 
 ITEM_TABLE: dict[str, FFCCItemData] = _build_item_table()
 
 # The items above are unused in the game (Crop Seed, Goddess Statuette, Devil's
-# Mask, Wheat, Flour), so they're left out of the item pool. They stay in
+# Mask), so they're left out of the item pool. They stay in
 # ITEM_TABLE so older seeds still load.
 UNUSED_ITEM_IDS = _NON_PHYSICAL_IDS
 
@@ -299,4 +314,5 @@ item_name_groups: dict[str, set] = {
     "Recipes":    {n for n, d in ITEM_TABLE.items() if d.type == "Recipe"},
     "Traps":      {n for n, d in ITEM_TABLE.items() if d.type == "Trap"},
     "Stage Keys": {n for n, d in ITEM_TABLE.items() if d.type == "Stage Key"},
+    "Progressive Equipment": {n for n, d in ITEM_TABLE.items() if d.type == "Progressive Equipment"},
 }

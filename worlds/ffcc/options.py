@@ -16,7 +16,7 @@ class ProgressiveArtifacts(Toggle):
     display_name = "Progressive Artifacts"
 
 
-class CycleLocationChecks(DefaultOnToggle):
+class CycleLocationChecks(Toggle):
     """When enabled, reaching Cycle 2 or 3 in a dungeon counts as a location check
     and gives a random item reward from the pool.
     When disabled, cycle advancement still auto-tracks on the map but gives no item reward
@@ -24,7 +24,7 @@ class CycleLocationChecks(DefaultOnToggle):
     display_name = "Cycle Location Checks"
 
 
-class YearLocationChecks(DefaultOnToggle):
+class YearLocationChecks(Toggle):
     """When enabled, each year advancement counts as a location check with a random item reward.
     When disabled, year advancement still auto-tracks on the map tracker but gives no item reward."""
     display_name = "Year Location Checks"
@@ -32,19 +32,40 @@ class YearLocationChecks(DefaultOnToggle):
 
 class StageKeys(Toggle):
     """Every dungeon except River Belle Path needs its own key to enter.
-    The 13 keys are shuffled into the item pool."""
+    The 13 keys are shuffled into the item pool. The element menus on the
+    world map (changing the chalice's element at a stop) work without the key
+    and without clearing the stage first, so the element a Miasma Stream asks
+    for can always be picked up without a key."""
     display_name = "Stage Keys"
+
+
+class ProgressiveEquipment(Toggle):
+    """Adds Progressive Weapon, Progressive Armor and Progressive Tribal Gear
+    (shield, gauntlets, helm or belt) to the item pool. Each one upgrades the
+    piece you have equipped to the next one for your tribe, so it takes no bag
+    space. Open your menu or move to another area for the new stats to apply."""
+    display_name = "Progressive Equipment"
 
 
 class ShuffleLoadingZones(Toggle):
     """Shuffle which dungeon each world-map spot leads to (12 dungeons; Mount Kilanda
     and Mount Vellenge stay where they are). Each spot keeps its own Miasma Stream and
     shows the building of the dungeon it now leads to. Only layouts that can be
-    finished year by year are used. Also opens Goblin Wall's spot in Year 1."""
+    finished year by year are used. Veo Lu Sluice always stays on this side of the
+    Jegon River (Tipa Peninsula, Iron Mine Downs, Vale of Alfitaria or Veo Lu), so
+    it can be healed when the river dries up in Year 5. Also opens Goblin Wall's
+    spot in Year 1."""
     display_name = "Shuffle Loading Zones"
 
 
-class GoblinWallYearOne(Toggle):
+class RebenaTeRaTimedChests(Toggle):
+    """Rebena Te Ra chests 6 and 9 count as in logic. Reaching them alone needs
+    painful timing (Mog casting the spell for you), so when this is off they can
+    only hold filler items."""
+    display_name = "Rebena Te Ra Timed Chests"
+
+
+class GoblinWallYearOne(DefaultOnToggle):
     """Goblin Wall's spot on the world map is open from Year 1 instead of Year 2.
     Always on when Shuffle Loading Zones or Randomize Miasma Streams is on."""
     display_name = "Goblin Wall in Year 1"
@@ -56,12 +77,12 @@ class RandomizeMiasmaStreams(Toggle):
     display_name = "Randomize Miasma Streams"
 
 
-class MogNeverTired(Toggle):
+class MogNeverTired(DefaultOnToggle):
     """Mog never gets tired while carrying the chalice."""
     display_name = "Mog Never Tired"
 
 
-class SkipIntroCutscene(Toggle):
+class SkipIntroCutscene(DefaultOnToggle):
     """Skip the opening cutscene of a new game."""
     display_name = "Skip Intro Cutscene"
 
@@ -156,12 +177,14 @@ class FoodPreferenceTrapWeight(Range):
 class FFCCGameOptions(PerGameCommonOptions):
     victory_goal:                VictoryGoal
     progressive_artifacts:       ProgressiveArtifacts
+    progressive_equipment:       ProgressiveEquipment
     cycle_location_checks:       CycleLocationChecks
     year_location_checks:        YearLocationChecks
     stage_keys:                  StageKeys
     shuffle_loading_zones:       ShuffleLoadingZones
     randomize_miasma_streams:    RandomizeMiasmaStreams
     goblin_wall_year_one:        GoblinWallYearOne
+    rebena_te_ra_timed_chests:   RebenaTeRaTimedChests
     mog_never_tired:             MogNeverTired
     skip_intro_cutscene:         SkipIntroCutscene
     skip_mio_questions:          SkipMioQuestions
@@ -181,8 +204,10 @@ class FFCCGameOptions(PerGameCommonOptions):
 
 
 FFCC_option_groups = [
-    OptionGroup("General", [VictoryGoal, ProgressiveArtifacts, CycleLocationChecks, YearLocationChecks]),
-    OptionGroup("Progression", [StageKeys, ShuffleLoadingZones, RandomizeMiasmaStreams, GoblinWallYearOne]),
+    OptionGroup("General", [VictoryGoal, ProgressiveArtifacts, ProgressiveEquipment,
+                            CycleLocationChecks, YearLocationChecks]),
+    OptionGroup("Progression", [StageKeys, ShuffleLoadingZones, RandomizeMiasmaStreams, GoblinWallYearOne,
+                                RebenaTeRaTimedChests]),
     OptionGroup("Gameplay", [MogNeverTired, SkipIntroCutscene, SkipMioQuestions, TrapVisuals,
                              RandomizeShops, RandomizeShopPrices, RandomizeBonusPools]),
     OptionGroup("Traps", [

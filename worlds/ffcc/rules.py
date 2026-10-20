@@ -26,6 +26,7 @@ The world needs from generate_early (sent to the randomizer as JSON):
   self.gate_table  Miasma Stream elements, 4 rows (years 1-4, repeating) x 4 gates
 """
 
+from BaseClasses import LocationProgressType
 from rule_builder.rules import Has, HasAll, CanReachRegion
 from .items import MYRRH_DROP
 from .options import VictoryGoal
@@ -45,6 +46,36 @@ AREAS = {
     "Kilanda Islands":   (4, "Tipa Peninsula",    None),   # boat
     "Lynari Isle":       (5, "Tipa Peninsula",    None),   # Port Tipa boat
 }
+
+# The Jegon River dries up in Year 5 until Veo Lu Sluice is healed (Life on its
+# pumpflowers) or Year 8 comes. The Plains of Fum ferry needs that river, so
+# Veo Lu Sluice must stay on this side of it, in one of these areas, or a
+# player in Year 5 could be cut off from it until Year 8.
+SLUICE_AREAS = {"Tipa Peninsula", "Iron Mine Downs", "Vale of Alfitaria", "Veo Lu"}
+# Crossing the river (to the Plains of Fum, and so Rebena Plains and the Abyss)
+# needs a way to refill it from Year 5 on: Life on the six pumpflowers in Veo
+# Lu Sluice. Magicite isn't kept, so that means the Ring of Life. The logic
+# always asks for it, so the ring is never placed where a dry river hides it.
+RIVER_CROSSING = "Plains of Fum"
+RIVER_NEEDS = "Ring of Life"
+RIVER_DRY_YEARS = range(5, 8)    # in the game the ferry only stops in Years 5-7
+
+def _stream_sides():
+    """{area: the areas reachable from it without crossing a Miasma Stream}.
+    The Jegon River ferry and the boats don't cross a stream, so e.g. Iron
+    Mine Downs and the Plains of Fum are one side. A stream only lets the
+    caravan through while the chalice holds its element, so the element for
+    a stream has to be picked up on the side the caravan is coming from."""
+    side = {area: {area} for area in AREAS}
+    for area, (_, came_from, gate) in AREAS.items():
+        if came_from and gate is None:
+            merged = side[area] | side[came_from]
+            for member in merged:
+                side[member] = merged
+    return {area: frozenset(members) for area, members in side.items()}
+
+
+STREAM_SIDE = _stream_sides()
 
 # Which area each world-map spot is in (spots keep their area when shuffled).
 SPOT_AREA = {
@@ -67,6 +98,12 @@ DUNGEON_ELEMENTS = {
 }
 ELEMENT_BY_VALUE = {1: FIRE, 2: WATER, 4: WIND, 8: EARTH}
 
+# Elements a world-map stage's menu offers (the menu belongs to the stage, so
+# with Shuffle Loading Zones these stay put while the dungeons move). In the
+# game the menu only appears once that stage is cleared; with Stage
+# Keys the patcher makes it always appear and need no key.
+SPOT_ELEMENTS = {spot: [e for e in els if e != "Unknown"] for spot, els in DUNGEON_ELEMENTS.items()}
+
 # 3: stage keys
 def stage_key(dungeon):
     return f"{dungeon} Key"          # e.g. "Goblin Wall Key" (in game: artifact 0xE9)
@@ -79,6 +116,18 @@ NEEDS_RINGS = {
     "Lynari Desert":  ALL_RINGS,             # cactus, rock, mushroom and flower puzzles
     "Mount Vellenge": ALL_RINGS,
 }
+# Chests that only open after something is done in another dungeon:
+# {(dungeon, chest): dungeon that has to be reachable first}.
+CHEST_NEEDS_DUNGEON = {
+    # behind the log bridge, which is blown up with bombs in Daemon's Court
+    ("Conall Curach", 12): "Daemon's Court",
+    ("Conall Curach", 21): "Daemon's Court",
+}
+
+# Rebena Te Ra chests that need tight timing to reach alone (Mog has to cast
+# the spell); only in logic with the "Rebena Te Ra Timed Chests" option.
+REBENA_TIMED_CHESTS = (6, 9)
+
 # Holy = an element ring + Ring of Life, so anywhere Lich ends up (boss
 # shuffle) needs Ring of Life and one element ring - add it here from the
 # boss plan if bosses are shuffled.
@@ -119,6 +168,9 @@ def all_of(*rules):
 
 
 def any_of(*rules):
+    """OR together the rules; None (no requirement) makes the whole thing None."""
+    if any(r is None for r in rules):
+        return None
     out = None
     for r in rules:
         out = r if out is None else out | r
@@ -143,19 +195,41 @@ def set_location_rules(self) -> None:
     goblin_year1 = self.goblin_year1
     spot_of = {dungeon: spot for spot, dungeon in plan.items()}
 
-    def has_element(element):
-        """Can the chalice be set to `element`? Enter any dungeon that has it,
-        or Lynari Desert for Unknown (which crosses every stream)."""
-        sources = [d for d, els in DUNGEON_ELEMENTS.items() if element in els]
-        return any_of(*[CanReachRegion(d) for d in sources], CanReachRegion("Lynari Desert"))
+    def has_element(element, side):
+        """Can the chalice be set to `element` on this side of the streams?
+        Enter a dungeon there that has it, use the element menu of a world-map
+        stop there (Stage Keys: no key needed), or get Unknown in Lynari
+        Desert, which crosses every stream wherever it was picked up."""
+        sources = [CanReachRegion(d) for d, els in DUNGEON_ELEMENTS.items()
+                   if element in els and d in spot_of and SPOT_AREA[spot_of[d]] in side]
+        if keys_on:
+            sources += [all_of(can_reach_area(SPOT_AREA[spot]), year(spot_open_year(spot, goblin_year1)))
+                        for spot, els in SPOT_ELEMENTS.items()
+                        if element in els and spot in plan and SPOT_AREA[spot] in side]
+        return any_of(*sources, CanReachRegion("Lynari Desert"))
+
+    area_rules = {}
 
     def can_reach_area(area):
+        if area not in area_rules:
+            area_rules[area] = _area_rule(area)
+        return area_rules[area]
+
+    def _area_rule(area):
         opens, came_from, gate = AREAS[area]
         rule = all_of(year(opens), can_reach_area(came_from) if came_from else None)
+        if area == RIVER_CROSSING:
+            rule = all_of(rule, Has(RIVER_NEEDS), CanReachRegion("Veo Lu Sluice"))
         if gate is not None:
-            # the element the gate asks for in the year the area opens
-            element = ELEMENT_BY_VALUE[gates[(opens - 1) % 4][gate]]
-            rule = all_of(rule, has_element(element))
+            # A Miasma Stream asks for a different element each year (the table
+            # repeats every 4 years), so it can be crossed in whichever year the
+            # chalice can hold that year's element, not only the year it opens.
+            # Years past the last Year Key need nothing more than that key.
+            rule = all_of(rule, any_of(*[
+                all_of(year(min(y, LAST_YEAR_KEY)),
+                       has_element(ELEMENT_BY_VALUE[gates[(y - 1) % 4][gate]], STREAM_SIDE[came_from]))
+                for y in range(opens, opens + 4)
+            ]))
         return rule
 
     # Every dungeon: reach the area of the spot it sits on, then its own key and rings.
@@ -181,14 +255,22 @@ def set_location_rules(self) -> None:
 
     # Cycle 2/3 locations (chests and "Cycle N Reached"): the dungeon's
     # entrance rule applies through its region; add the years it takes to
-    # harvest the tree and let it grow back.
+    # harvest the tree and let it grow back. Some chests also need another
+    # dungeon first (CHEST_NEEDS_DUNGEON).
     from .locations import LOCATION_TABLE
+    timed_chests = bool(getattr(self.options, "rebena_te_ra_timed_chests", False))
     for name, data in LOCATION_TABLE.items():
-        if data.cycle < 2 or data.region not in spot_of:
+        if data.region not in spot_of:
             continue
-        opens = spot_open_year(spot_of[data.region], goblin_year1)
-        need = min(opens + YEARS_PER_CYCLE * (data.cycle - 1), LAST_YEAR_KEY)
-        rule = year(need)
+        chest = int(name.rsplit(" ", 1)[1]) if " - Chest " in name else None
+        if data.region == "Rebena Te Ra" and chest in REBENA_TIMED_CHESTS and not timed_chests:
+            mw.get_location(name, p).progress_type = LocationProgressType.EXCLUDED
+        other = CHEST_NEEDS_DUNGEON.get((data.region, chest))
+        need = None
+        if data.cycle >= 2:
+            opens = spot_open_year(spot_of[data.region], goblin_year1)
+            need = min(opens + YEARS_PER_CYCLE * (data.cycle - 1), LAST_YEAR_KEY)
+        rule = all_of(year(need) if need else None, CanReachRegion(other) if other else None)
         if rule is not None:
             self.set_rule(mw.get_location(name, p), rule)
 
@@ -202,20 +284,38 @@ def set_location_rules(self) -> None:
                 year(min(y - 1, LAST_YEAR_KEY)), Has(MYRRH_DROP, drops_to_reach(y))))
 
 
-def reachable_dungeons(plan, gates, y, open_dungeons=None, elements=(), goblin_year1=False):
+def reachable_dungeons(plan, gates, y, open_dungeons=None, elements=(), goblin_year1=False,
+                       river_always_dry=False, element_menus=False):
     """Dungeons reachable in Year y on this layout, entering only `open_dungeons`
-    (None = all of them; their elements open Miasma Streams). Returns the
-    reachable dungeons and the elements the chalice can hold."""
+    (None = all of them). A stream opens when a dungeon on the near side of it
+    (STREAM_SIDE) gives the element it asks for this year, or with Unknown.
+    `elements` and the elements returned only carry Unknown from year to year:
+    any other element would have to be brought back across a stream.
+    The Jegon River ferry needs Veo Lu Sluice in the years the river is dry,
+    or in every year with `river_always_dry` (how the AP logic treats it).
+    With `element_menus` (Stage Keys), a world-map stop's element menu works
+    as soon as its area is reached, without entering the dungeon."""
     spot_of = {dungeon: spot for spot, dungeon in plan.items()}
-    elements = set(elements)
+    elements = set(elements) & {"Unknown"}
     areas, reached = set(), set()
+
+    def side_has(element, side):
+        if any(element in DUNGEON_ELEMENTS.get(d, []) for d in reached if SPOT_AREA[spot_of[d]] in side):
+            return True
+        return element_menus and any(
+            element in els and spot in plan and SPOT_AREA[spot] in side and SPOT_AREA[spot] in areas
+            and spot_open_year(spot, goblin_year1) <= y
+            for spot, els in SPOT_ELEMENTS.items())
+
     changed = True
     while changed:
         changed = False
         for area, (opens, came_from, gate) in AREAS.items():
             if area in areas or opens > y or (came_from and came_from not in areas):
                 continue
-            if gate is not None and "Unknown" not in elements                     and ELEMENT_BY_VALUE[gates[(y - 1) % 4][gate]] not in elements:
+            if area == RIVER_CROSSING and "Veo Lu Sluice" not in reached and (river_always_dry or y in RIVER_DRY_YEARS):
+                continue
+            if gate is not None and "Unknown" not in elements and not side_has(ELEMENT_BY_VALUE[gates[(y - 1) % 4][gate]], STREAM_SIDE[came_from]):
                 continue
             areas.add(area)
             changed = True
@@ -224,7 +324,6 @@ def reachable_dungeons(plan, gates, y, open_dungeons=None, elements=(), goblin_y
                 continue
             if SPOT_AREA[spot] in areas and spot_open_year(spot, goblin_year1) <= y:
                 reached.add(dungeon)
-                elements |= set(DUNGEON_ELEMENTS.get(dungeon, []))
                 if dungeon == "Lynari Desert":
                     elements.add("Unknown")
                 changed = True
@@ -236,7 +335,7 @@ def first_year_dungeons(plan, gates, goblin_year1=False):
     River Belle Path, let the player fill the chalice in Year 1. River Belle
     Path itself must be reachable before any key is found."""
     def reach(open_dungeons):
-        return reachable_dungeons(plan, gates, 1, open_dungeons, (), goblin_year1)[0]
+        return reachable_dungeons(plan, gates, 1, open_dungeons, (), goblin_year1, element_menus=True)[0]
     if "River Belle Path" not in reach({"River Belle Path"}):
         return None
     candidates = sorted(reach(None) - {"River Belle Path"})
@@ -253,14 +352,25 @@ def layout_is_beatable(plan, gates, stage_keys=False, goblin_year1=False):
     key and ring: each year enough Myrrh trees must be reachable to fill the
     chalice (3 in Year 1, 6 from Year 2 on), and by Year 5 every dungeon must be
     reachable. With stage keys, River Belle Path is the only dungeon open at the
-    start, so it must be reachable in Year 1 before any key is found.
+    start, so it must be reachable in Year 1 before any key is found. Veo Lu
+    Sluice must sit in SLUICE_AREAS.
     `plan` is {spot: dungeon}; `gates` is the Miasma Stream table."""
+    sluice = next((spot for spot, dungeon in plan.items() if dungeon == "Veo Lu Sluice"), "Veo Lu Sluice")
+    if SPOT_AREA[sluice] not in SLUICE_AREAS:
+        return False
     if stage_keys and first_year_dungeons(plan, gates, goblin_year1) is None:
         return False
-    elements = set()                            # the chalice keeps its element between years
+    elements = set()                            # only Unknown carries over from year to year
     for y in range(1, LAST_YEAR_KEY + 1):
-        reached, elements = reachable_dungeons(plan, gates, y, None, elements, goblin_year1)
+        reached, elements = reachable_dungeons(plan, gates, y, None, elements, goblin_year1,
+                                               element_menus=stage_keys)
         trees = len(reached & set(MYRRH_DUNGEONS))
         if y < LAST_YEAR_KEY and trees < drops_to_reach(y + 1):
             return False
-    return set(MYRRH_DUNGEONS) <= reached
+    if not set(MYRRH_DUNGEONS) <= reached:
+        return False
+    # The AP logic asks for Veo Lu Sluice before every river crossing, so
+    # everything must also be reachable that way, or the seed can't be filled.
+    logic_reached, _ = reachable_dungeons(plan, gates, LAST_YEAR_KEY, None, elements, goblin_year1,
+                                          river_always_dry=True, element_menus=stage_keys)
+    return set(MYRRH_DUNGEONS) <= logic_reached
