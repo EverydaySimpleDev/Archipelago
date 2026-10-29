@@ -8,7 +8,7 @@ IC = ItemClassification
 class FFCCItemData(NamedTuple):
     type:           str
     classification: IC
-    code:           int            # AP item code (= in-game hex ID; traps/progressive use 0x200+)
+    code:           int            # AP item code (= in-game hex ID, traps/progressive use 0x200+)
     item_id:        Optional[int]  # in-game hex ID (None for meta-items like traps/progressive)
     object_name:    str = "ap_item"
     qty:            int = 1
@@ -183,13 +183,13 @@ _YEAR_PLACEHOLDER_CODE = 0x209
 # to the artifact bag, where they stay.
 ARTIFACT_TYPES = ("Artifact", "Spell Ring", "Stage Key")
 
-# Year progression keys. IC.progression so AP treats them as sphere gates;
+# Year progression keys. IC.progression so AP treats them as sphere gates.
 # item_id=None means no in-game write (the client silently acknowledges them).
 YEAR_KEY_NAMES = ["Year 2 Key", "Year 3 Key", "Year 4 Key", "Year 5 Key"]
 _YEAR_KEY_CODES = [0x20a, 0x20b, 0x20c, 0x20d]
 
 # Stage keys (option Stage Keys)
-# Artifacts the patcher adds to the game; each opens one dungeon.
+# Artifacts the patcher adds to the game. Each opens one dungeon.
 # River Belle Path is always open, so it has no key.
 STAGE_KEYS = [
     ("Goblin Wall Key",            0xe9),
@@ -209,7 +209,7 @@ STAGE_KEYS = [
 _STAGE_KEY_CODES = range(0x210, 0x210 + len(STAGE_KEYS))
 
 #  Myrrh Drop (event)
-# Collected at each dungeon's Myrrh tree; the rules count them to know how
+# Collected at each dungeon's Myrrh tree. The rules count them to know how
 # many years the chalice can be filled.
 MYRRH_DROP = "Myrrh Drop"
 MYRRH_DROP_DATA = FFCCItemData("Event", IC.progression, None, None)
@@ -233,10 +233,36 @@ PROGRESSIVE_ARTIFACT_NAME = "Progressive Artifact"
 # Ordered list of all artifact IDs for progressive giving (index 0 = first given)
 PROGRESSIVE_ARTIFACT_ORDER = [iid for _, iid in _ARTIFACTS]
 
+# The stat each artifact raises. The game groups artifacts by ID
+def artifact_stat(iid: int) -> str:
+    if iid <= 0xb5:
+        return "Strength"
+    if iid <= 0xcb:
+        return "Magic"
+    if iid <= 0xda:
+        return "Defense"
+    if iid <= 0xde:
+        return "Command"     # an extra command-list slot
+    if iid <= 0xe3:
+        return "Magic"       # Ring of Cure
+    return "HP"
+
+
+def progressive_artifact_order(first_stat: str = "", random=None) -> list:
+    """Artifact IDs in the order Progressive Artifacts give them. With
+    `first_stat`, that stat's artifacts come first. With `random`, everything
+    is shuffled. Every artifact is still in the list once."""
+    order = list(PROGRESSIVE_ARTIFACT_ORDER)
+    if random is not None:
+        random.shuffle(order)
+    elif first_stat:
+        order.sort(key=lambda iid: artifact_stat(iid) != first_stat)
+    return order
+
 
 # Items excluded from in-game chest drops (banned by randomizer.py EXCLUDE set).
-# These items CAN exist in inventory but cannot be physically placed in chests;
-# the hybrid patcher will write AP Item for them, and the client delivers via memory write.
+# These items CAN exist in inventory but cannot be physically placed in chests,
+# so the hybrid patcher will write AP Item for them, and the client delivers via memory write.
 _NON_PHYSICAL_IDS = {0x156, 0x160, 0x161}
 
 
