@@ -277,7 +277,8 @@ class ItemsDroppedAtYourFeet(DefaultOnToggle):
     bag (equipment can't lie on the ground), and artifacts, stage keys and
     Spell Rings still go straight to you. An item counts as
     received once it is on the ground: one you leave behind can be dropped
-    again with the client's /resend command."""
+    again with the client's /resend command. Items do despawn after 3 minutes
+    so make sure to pick them up!"""
     display_name = "Items Dropped At Your Feet"
 
 

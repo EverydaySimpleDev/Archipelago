@@ -111,6 +111,11 @@ MONSTER_ID        = 0x10
 MONSTER_MAX_HP    = 0x1A
 MONSTER_HP        = 0x1C
 
+# Monsters that never reach 0 HP: at 1 HP the Lamia Queen (Moschet Manor)
+# gives up and flees across the room instead (damagedFuncWifeLamia), so
+# dropping to 1 HP is her defeat.
+FLEES_AT_1_HP = {112}
+
 # monster id -> enemy type of the Monster Hunt
 MONSTER_BY_ID: Dict[int, str] = {monster_id: enemy for enemy, row in MONSTERS.items() for monster_id in row[2]}
 
@@ -1036,7 +1041,7 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                             year_loc_data = LOCATION_TABLE.get(year_loc_name)
                             if year_loc_data:
                                 ap_id = FFCCLocation.get_apid(year_loc_data.code)
-                                if ap_id not in ctx.checked_locations:
+                                if ap_id in ctx.missing_locations:
                                     await ctx.send_msgs([{"cmd": "LocationChecks",
                                                           "locations": [ap_id]}])
                                     logger.debug(f"FFCC: Year advancement — Year {y} has begun")
@@ -1076,7 +1081,7 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                         cycle_loc_data = LOCATION_TABLE.get(cycle_loc_name)
                         if cycle_loc_data:
                             ap_id = 2326528 + cycle_loc_data.code
-                            if ap_id not in ctx.checked_locations:
+                            if ap_id in ctx.missing_locations:
                                 await ctx.send_msgs([{"cmd": "LocationChecks", "locations": [ap_id]}])
                                 logger.debug(f"FFCC: Cycle advancement — {cycle_loc_name}")
 
@@ -1243,7 +1248,11 @@ async def _watch_kills(ctx: "FFCCContext", dungeon: str) -> None:
         ctx.monster_hp[slot] = (owner, monster_id, hp)
         if seen is None or seen[:2] != (owner, monster_id) or max_hp == 0:
             continue
-        if seen[2] > 0 and hp == 0 and monster_id in MONSTER_BY_ID:
+        if monster_id in FLEES_AT_1_HP:
+            down = seen[2] > 1 and hp <= 1
+        else:
+            down = seen[2] > 0 and hp == 0
+        if down and monster_id in MONSTER_BY_ID:
             killed.append((owner, monster_id))
     if not killed:
         return

@@ -40,7 +40,7 @@ def create_regions(multiworld: MultiWorld, player: int, options) -> None:
         region_data[name] = FFCCRegionData(locs, [f"{name} -> Menu"])
 
     for name, data in region_data.items():
-        region = _create_region(multiworld, player, name, data)
+        region = _create_region(multiworld, player, name, data, options)
         if name in MYRRH_DUNGEONS:
             # event: this dungeon's Myrrh tree (holds a "Myrrh Drop")
             region.locations.append(FFCCLocation(player, myrrh_location(name), region))
@@ -76,14 +76,28 @@ def connect_entrances(multiworld: MultiWorld, player: int,
         )
 
 
+def is_check(loc_data, options) -> bool:
+    """False for a "Cycle N Reached" / "Year N Begins" location whose option
+    is off: it is then only an event (no location id), so servers and
+    trackers don't list it as a check."""
+    if not loc_data.is_event:
+        return True
+    if loc_data.region == "Menu":
+        return bool(options.year_location_checks)
+    return bool(options.cycle_location_checks)
+
+
 def _create_region(multiworld: MultiWorld, player: int,
-                   name: str, data: FFCCRegionData) -> Region:
+                   name: str, data: FFCCRegionData, options) -> Region:
     region = Region(name, player, multiworld)
 
     for loc_name in data.locations:
         loc_data = LOCATION_TABLE.get(loc_name)
         if loc_data:
-            location = FFCCLocation(player, loc_name, region, loc_data)
+            if is_check(loc_data, options):
+                location = FFCCLocation(player, loc_name, region, loc_data)
+            else:
+                location = FFCCLocation(player, loc_name, region)
             region.locations.append(location)
 
     for exit_name in data.region_exits:

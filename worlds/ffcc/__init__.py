@@ -323,8 +323,10 @@ class FFCCWorld(World):
         for dungeon in MYRRH_DUNGEONS:
             self.multiworld.get_location(myrrh_location(dungeon), self.player).place_locked_item(
                 FFCCItem(MYRRH_DROP, self.player, MYRRH_DROP_DATA))
-        cycle_placeholder = ITEM_TABLE[CYCLE_PLACEHOLDER_ITEM]
-        year_placeholder  = ITEM_TABLE[YEAR_PLACEHOLDER_ITEM]
+        # events when their option is off (regions.is_check), so their
+        # placeholder is an event item too (no item id)
+        cycle_placeholder = ITEM_TABLE[CYCLE_PLACEHOLDER_ITEM]._replace(code=None)
+        year_placeholder  = ITEM_TABLE[YEAR_PLACEHOLDER_ITEM]._replace(code=None)
         for name, loc_data in LOCATION_TABLE.items():
             if not loc_data.is_event:
                 continue
@@ -356,10 +358,13 @@ class FFCCWorld(World):
     def stamp_hints(self) -> List[List[int]]:
         """[[player, location id]] of every place one of this player's
         progression items is, in any world, shuffled: the order Mog Stamps
-        hint them in (the client skips the ones already found)."""
+        hint them in (the client skips the ones already found). Year Keys
+        are left out: they only tell the logic which year you can be in,
+        and do nothing in the game."""
         spots = [[loc.player, loc.address] for loc in self.multiworld.get_locations()
                  if loc.item and loc.item.player == self.player and loc.item.advancement
-                 and loc.address is not None]
+                 and loc.address is not None
+                 and getattr(ITEM_TABLE.get(loc.item.name), "type", None) != "Year Key"]
         self.random.shuffle(spots)
         return spots
 
