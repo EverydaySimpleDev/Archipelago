@@ -29,7 +29,7 @@ from worlds.Files import APPlayerContainer
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths, SuffixIdentifier
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 3, 2)
+VERSION: tuple[int, int, int] = (1, 3, 3)
 
 def launch_client(*args: str):
     from . import client
@@ -230,8 +230,23 @@ class ChibiRoboWorld(World):
 
 
     def fill_slot_data(self) -> Dict[str, Any]:
-        slot_data = self.options.as_dict("victory_goal", "pj_suit_style", "open_upstairs", "password_rando", "chibi_vision_off", "favorite_character_voice", "death_link","group_death_link", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray")
+        slot_data = self.options.as_dict(""
+                                         "victory_goal", "pj_suit_style", "open_upstairs",
+                                         "password_rando", "chibi_vision_off", "favorite_character_voice",
+                                         "death_link","group_death_link", "battery_drain_idle", "battery_drain_walk",
+                                         "battery_drain_jog", "battery_drain_run", "battery_drain_slide",
+                                         "battery_drain_equip", "battery_drain_lift", "battery_drain_drop",
+                                         "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb",
+                                         "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump",
+                                         "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend",
+                                         "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom",
+                                         "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top",
+                                         "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend",
+                                         "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan",
+                                         "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug",
+                                         "battery_drain_squirter_suck", "battery_drain_squirter_spray")
         slot_data["_chibi_stickers"] = list(self.options.required_stickers.value)
+        slot_data["hints"] = self.chibi_rank_hints()
         return slot_data
 
     def generate_output(self, output_directory: str) -> None:
@@ -270,7 +285,22 @@ class ChibiRoboWorld(World):
                 item_info = {"name": "Nothing", "game": game_name, "classification": "filler"}
             output_locations[location.name] = item_info
 
-        output_data.update(self.options.as_dict( "victory_goal","required_stickers", "pj_suit_style", "open_upstairs","password_rando", "chibi_vision_off", "favorite_character_voice", "battery_drain_idle", "battery_drain_walk", "battery_drain_jog", "battery_drain_run", "battery_drain_slide", "battery_drain_equip", "battery_drain_lift", "battery_drain_drop", "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb", "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump", "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend", "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom", "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend", "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push", "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot", "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow", "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug", "battery_drain_squirter_suck", "battery_drain_squirter_spray"))
+        output_data.update(self.options.as_dict(
+            "victory_goal","required_stickers", "pj_suit_style",
+            "open_upstairs","password_rando", "chibi_vision_off",
+            "favorite_character_voice", "battery_drain_idle", "battery_drain_walk",
+            "battery_drain_jog", "battery_drain_run", "battery_drain_slide",
+            "battery_drain_equip", "battery_drain_lift", "battery_drain_drop",
+            "battery_drain_ledge_grab", "battery_drain_ledge_slide", "battery_drain_ledge_climb",
+            "battery_drain_ledge_drop", "battery_drain_ledge_teeter", "battery_drain_jump",
+            "battery_drain_fall", "battery_drain_ladder_grab", "battery_drain_ladder_ascend",
+            "battery_drain_ladder_descend", "battery_drain_ladder_top", "battery_drain_ladder_bottom",
+            "battery_drain_rope_grab", "battery_drain_rope_ascend", "battery_drain_rope_descend",
+            "battery_drain_rope_top", "battery_drain_rope_bottom", "battery_drain_push",
+            "battery_drain_copter_hover", "battery_drain_copter_descend", "battery_drain_popper_shoot",
+            "battery_drain_pooper_shoot_charge", "battery_drain_radar_scan", "battery_drain_radar_follow",
+            "battery_drain_brush", "battery_drain_spoon", "battery_drain_mug",
+            "battery_drain_squirter_suck", "battery_drain_squirter_spray"))
 
         # AP_<seed>_P<slot>_<name>.apcr - the standard AP name
         apcr = ChibiRoboContainer(
@@ -361,6 +391,15 @@ class ChibiRoboWorld(World):
     def remove(self, state: CollectionState, item: ChibiRoboItem) -> bool:
         change = super().remove(state, item)
         return change
+
+    def chibi_rank_hints(self) -> List[List[int]]:
+        """[[player, location id]] of every place one of this player's
+        progression items is, in any world, shuffled."""
+        spots = [[loc.player, loc.address] for loc in self.multiworld.get_locations()
+                 if loc.item and loc.item.player == self.player and loc.item.advancement
+                 and loc.address is not None]
+        self.random.shuffle(spots)
+        return spots
 
 def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
     itempool: List[Item] = []

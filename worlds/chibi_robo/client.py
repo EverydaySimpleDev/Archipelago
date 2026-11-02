@@ -10,7 +10,7 @@ import Utils
 import websockets
 import functools
 from copy import deepcopy
-from typing import List, Any, Iterable, Any, Optional
+from typing import List, Any, Iterable, Any, Optional, Dict
 from NetUtils import decode, encode, JSONtoTextParser, JSONMessagePart, NetworkItem, NetworkPlayer, ClientStatus
 from MultiServer import Endpoint
 from CommonClient import gui_enabled, ClientCommandProcessor, logger, get_base_parser, server_loop
@@ -101,7 +101,9 @@ SCRAP_ADDR = 0X8038f756
 
 HAPPY_POINTS_ADDR = 0x8038f73e
 
-GBA_MESSAGE = 0x80672300
+CHIBI_LEVEL_ADDR = 0x8038f742   # 16-bit `level`, 0-13
+CHIBI_LEVEL_MAX = 13
+HINT_PRIORITY = 30
 
 # Sticker completion flags: name -> (address, 16-bit bitmask).
 # A sticker is earned when (read_short(address) & bitmask) == bitmask.
@@ -416,6 +418,7 @@ class ChibiRoboContext(SuperContext):
         self.curr_stage_pickup: int = 0
         self.victory: int = 0
         self.required_stickers: List[str] = []
+        self.hints: List[List[int]] = []  # [player, location] of own progression items
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -500,11 +503,16 @@ class ChibiRoboContext(SuperContext):
                 logger.warning("This ISO was built for a different seed than this room - re-run the randomizer with this room's .apcr file.")
 
             json = args
+
+            slot_data = args.get("slot_data", {})
+            self.hints = slot_data.get("hints") or []
+            if self.hints:
+                self.set_notify(_chibi_rank_key(self))
+
             if "slot_info" in json.keys():
-                json["slot_info"] = {}
-                ctx.victory = args["slot_data"]["victory_goal"]
-                ctx.required_stickers = args["slot_data"].get("_chibi_stickers") or args["slot_data"].get("required_stickers", [])
-            if "death_link" + "group_death_link" in args["slot_data"]:
+                ctx.victory = slot_data.get("victory")
+                ctx.required_stickers = slot_data.get("_chibi_stickers") or slot_data.get("required_stickers", [])
+            if "death_link" + "group_death_link" in slot_data:
                 Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"]['group_death_link'])))
             if "players" in json.keys():
                 me: NetworkPlayer
@@ -787,6 +795,8 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
                 # and delivered to us asynchronously. Matches this function's existing convention
                 # for self-found items (see the `ctx.slot == player` check below, for the same reason).
                 cur_pending = read_4byte_short(PAN_DROP_TRAP_VAR_ADDR)
+                if cur_pending > 0xFF:
+                    cur_pending = 0
                 write_4byte_short(PAN_DROP_TRAP_VAR_ADDR, cur_pending + 1)
                 # logger.info(f"Pan Drop Trap: pending count {cur_pending} -> {cur_pending + 1} (addr {hex(PAN_DROP_TRAP_VAR_ADDR)}, stage {stage_hex_to_name()})")
 
@@ -1194,6 +1204,8 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                     sync_key_doors(ctx)
                     await check_locations(ctx)
                     await check_current_stage_changed(ctx)
+                    if ctx.hints:
+                        await _watch_chibi_rank(ctx)
                 else:
                     if ctx.awaiting_rom:
                         await ctx.server_auth()
@@ -1232,6 +1244,44 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
             await ctx.disconnect()
             sleep_time = 5
             continue
+
+def _chibi_rank_key(ctx: "ChibiRoboContext") -> str:
+    return f"apcr_hints_{ctx.team}_{ctx.slot}"
+
+async def _watch_chibi_rank(ctx):
+    """Send a hint for every chibi level gained that hasn't given one yet.
+       The server's data storage keeps {"best_level": highest level already
+       hinted for, "hinted": [[player, location], ...]}, so a reloaded save
+       or a reconnect doesn't hint again."""
+    key = _chibi_rank_key(ctx)
+    if key not in ctx.stored_data:
+        return
+    level = read_short(CHIBI_LEVEL_ADDR)
+    if not 1 <= level <= CHIBI_LEVEL_MAX:
+        return  # level 0 (nothing to hint yet) or garbage read
+    stored = ctx.stored_data[key] or {}
+    best = int(stored.get("best_level", 0))
+    new = level - best  # levels gained since last hint
+    if new <= 0:
+        return
+    hinted = [tuple(h) for h in stored.get("hinted", [])]
+    found = {(item.player, item.location) for item in ctx.items_received}
+    targets = [tuple(t) for t in ctx.hints if tuple(t) not in found and tuple(t) not in hinted]
+    by_player: Dict[int, List[int]] = {}
+    for player, location in targets[:new]:
+        by_player.setdefault(player, []).append(location)
+        hinted.append((player, location))
+    for player, locations in by_player.items():
+        # Priority: they're all progression items, and it gives the hint the
+        # PopTracker pack's yellow highlight
+        await ctx.send_msgs([{"cmd": "CreateHints", "player": player, "locations": locations,
+                              "status": HINT_PRIORITY}])
+    logger.info(f"Chibi Rank {min(new, len(targets))} hint(s) sent." if targets
+                else "Chibi Rank progression item is already found or hinted.")
+    value = {"best_level": level, "hinted": [list(h) for h in hinted]}
+    ctx.stored_data[key] = value
+    await ctx.send_msgs([{"cmd": "Set", "key": key, "default": {},
+                          "operations": [{"operation": "replace", "value": value}]}])
 
 async def proxy(websocket, path: str = "/", ctx: ChibiRoboContext = None):
     ctx.endpoint = Endpoint(websocket)

@@ -1,4 +1,8 @@
 # Chibi Robo - Changelog
+## v1.3.3
+- Hint Support! Chibi ranks now should give players hints for items
+- Sent traps will trigger when a player picks up a item instead of not at all
+
 ## v1.3.2
 - Updated how the room file / .apcr file is handled
 - Fixed kitchen cookie / backyard ship sending out wrong checks (They are now locked items in their locations)
