@@ -1,6 +1,8 @@
 from BaseClasses import Item, ItemClassification
-from typing import NamedTuple, Optional
+from random import Random
+from typing import NamedTuple
 from .game_id import game_name
+from .equipment_table import PATHS as EQUIPMENT_PATHS
 
 IC = ItemClassification
 
@@ -9,7 +11,7 @@ class FFCCItemData(NamedTuple):
     type:           str
     classification: IC
     code:           int            # AP item code (= in-game hex ID, traps/progressive use 0x200+)
-    item_id:        Optional[int]  # in-game hex ID (None for meta-items like traps/progressive)
+    item_id:        int | None  # in-game hex ID (None for meta-items like traps/progressive)
     object_name:    str = "ap_item"
     qty:            int = 1
     special:        bool = False
@@ -17,18 +19,18 @@ class FFCCItemData(NamedTuple):
 
 class FFCCItem(Item):
     game: str = game_name
-    type: Optional[str]
+    type: str | None
 
     def __init__(self, name: str, player: int, data: FFCCItemData,
-                 classification: Optional[IC] = None) -> None:
+                 classification: IC | None = None) -> None:
         super().__init__(
             name,
             data.classification if classification is None else classification,
             None if data.code is None else FFCCItem.get_apid(data.code),
             player,
         )
-        self.type        = data.type
-        self.item_id     = data.item_id
+        self.type = data.type
+        self.item_id = data.item_id
         self.object_name = data.object_name
 
     @staticmethod
@@ -59,8 +61,8 @@ _ARTIFACTS = [
     ("Wonder Bangle", 0xd6), ("Ring of Protection", 0xd7), ("Aegis", 0xd8),
     ("Rat's Tail", 0xd9), ("Teddy Bear", 0xda), ("Moogle Pocket", 0xdb),
     ("Chocobo Pocket", 0xdc), ("Gobbie Pocket", 0xdd), ("Ultimate Pocket", 0xde),
-    ("Ring of Cure", 0xe2), ("Earth Pendant", 0xe4),
-    ("Moon Pendant", 0xe5), ("Star Pendant", 0xe6), ("Sun Pendant", 0xe7),
+    ("Earth Pendant", 0xe4), ("Moon Pendant", 0xe5), ("Star Pendant", 0xe6),
+    ("Sun Pendant", 0xe7),
 ]
 
 # Spell Rings (permanent magic slots — always in pool, gate dungeon rules)
@@ -70,6 +72,19 @@ _SPELL_RINGS = [
     ("Ring of Blizzard", 0xe0),  # gates Rebena Te Ra (blizzard switch)
     ("Ring of Thunder",  0xe1),  # gates Rebena Te Ra (thunder switch)
     ("Ring of Life",     0xe3),  # gates Lynari Desert / Mount Vellenge (Holy = Life + element)
+    ("Ring of Cure",     0xe2),  # gates nothing, but as its own item players can hint it
+]
+
+RING_OF_CURE = 0xe2
+
+# Rings the patcher adds to the game (option Extra Spell Rings), in the free
+# artifact slots after the stage keys. Useful only: no rule needs them.
+EXTRA_SPELL_RINGS = [
+    ("Ring of Gravity", 0xf6),
+    ("Ring of Holy",    0xf7),
+    ("Ring of Slow",    0xf8),
+    ("Ring of Stop",    0xf9),
+    ("Ring of Haste",   0xfa),
 ]
 
 # Valid Magicite (spells that appear in dungeon chests)
@@ -159,12 +174,31 @@ _USEFUL_RECIPE_IDS = {0x1e7, 0x1e8, 0x1ec, 0x1ed}
 # Progressive equipment (option Progressive Equipment). Each copy upgrades the
 # equipped weapon, body armor or tribal piece to the next one for the player's
 # tribe (equipment_table.py), so there is one copy per step of the longest path.
-from .equipment_table import PATHS as EQUIPMENT_PATHS
 PROGRESSIVE_EQUIPMENT = [
     ("Progressive Weapon",      0x220),
     ("Progressive Armor",       0x221),
     ("Progressive Tribal Gear", 0x222),
 ]
+# Gil (option Gil Weight): the client adds the amount to the player's gil.
+GIL_ITEMS = [
+    ("100 Gil",  0x223, 100),
+    ("500 Gil",  0x224, 500),
+    ("1000 Gil", 0x225, 1000),
+]
+GIL_AMOUNT = {name: amount for name, _, amount in GIL_ITEMS}
+# Grooming tools (option Grooming Tools): the Moogle's tools in a Moogle Nest,
+# (name, AP code, the tool's number in the game). The client sets bit
+# 1 << number of the patcher's tools byte for each one received.
+GROOMING_TOOLS = [
+    ("Red Dye",      0x226, 0),
+    ("Blue Dye",     0x227, 1),
+    ("Green Dye",    0x228, 2),
+    ("Mog Soap",     0x229, 3),
+    ("Mog Scissors", 0x22a, 4),
+]
+DYES = ["Red Dye", "Blue Dye", "Green Dye"]
+MOG_SCISSORS = "Mog Scissors"
+
 PROGRESSIVE_EQUIPMENT_COUNT = {
     name: max(len(path) for path in EQUIPMENT_PATHS[name]) for name, _ in PROGRESSIVE_EQUIPMENT
 }
@@ -179,7 +213,7 @@ _YEAR_PLACEHOLDER_CODE = 0x209
 
 # Item types that are artifacts in game. An artifact picked up in a dungeon
 # is only kept if the player chooses it as the end-of-dungeon reward, so these
-# are never put in a chest: they show as an AP Item and the client adds them
+# are never put in a chest: the chest opens empty and the client adds them
 # to the artifact bag, where they stay.
 ARTIFACT_TYPES = ("Artifact", "Spell Ring", "Stage Key")
 
@@ -214,6 +248,11 @@ _STAGE_KEY_CODES = range(0x210, 0x210 + len(STAGE_KEYS))
 MYRRH_DROP = "Myrrh Drop"
 MYRRH_DROP_DATA = FFCCItemData("Event", IC.progression, None, None)
 
+#  Mog Stamp (event, Mog Stamps goal)
+# Collected at each Moogle Nest. The goal is all of them.
+MOG_STAMP = "Mog Stamp"
+MOG_STAMP_DATA = FFCCItemData("Event", IC.progression, None, None)
+
 # Trap items (no in-game ID - client handles them via memory writes)
 # Codes are above all valid in-game item IDs.
 _TRAPS = [
@@ -224,6 +263,7 @@ _TRAPS = [
     ("Chalice Element Trap", 0x204),
     ("Bonus Set Trap",       0x205),
     ("Food Preference Trap", 0x206),
+    ("Command Slot Trap",    0x20e),
 ]
 
 # Progressive Artifact
@@ -234,6 +274,8 @@ PROGRESSIVE_ARTIFACT_NAME = "Progressive Artifact"
 PROGRESSIVE_ARTIFACT_ORDER = [iid for _, iid in _ARTIFACTS]
 
 # The stat each artifact raises. The game groups artifacts by ID
+
+
 def artifact_stat(iid: int) -> str:
     if iid <= 0xb5:
         return "Strength"
@@ -248,7 +290,7 @@ def artifact_stat(iid: int) -> str:
     return "HP"
 
 
-def progressive_artifact_order(first_stat: str = "", random=None) -> list:
+def progressive_artifact_order(first_stat: str = "", random: Random | None = None) -> list[int]:
     """Artifact IDs in the order Progressive Artifacts give them. With
     `first_stat`, that stat's artifacts come first. With `random`, everything
     is shuffled. Every artifact is still in the list once."""
@@ -262,7 +304,7 @@ def progressive_artifact_order(first_stat: str = "", random=None) -> list:
 
 # Items excluded from in-game chest drops (banned by randomizer.py EXCLUDE set).
 # These items CAN exist in inventory but cannot be physically placed in chests,
-# so the hybrid patcher will write AP Item for them, and the client delivers via memory write.
+# so the hybrid patcher leaves their chest empty, and the client delivers via memory write.
 _NON_PHYSICAL_IDS = {0x156, 0x160, 0x161}
 
 
@@ -272,7 +314,11 @@ def _build_item_table() -> dict:
     for name, iid in _ARTIFACTS:
         table[name] = FFCCItemData("Artifact", IC.useful, iid, iid)
     for name, iid in _SPELL_RINGS:
-        table[name] = FFCCItemData("Spell Ring", IC.progression, iid, iid)
+        # the Ring of Cure opens nothing, so it isn't progression (Mog Stamp Hints skip it)
+        classification = IC.useful if iid == RING_OF_CURE else IC.progression
+        table[name] = FFCCItemData("Spell Ring", classification, iid, iid)
+    for name, iid in EXTRA_SPELL_RINGS:
+        table[name] = FFCCItemData("Spell Ring", IC.useful, iid, iid)
     for name, iid in _MAGICITE:
         table[name] = FFCCItemData("Magicite", IC.useful, iid, iid)
     for name, iid in _PHOENIX_DOWN:
@@ -301,6 +347,12 @@ def _build_item_table() -> dict:
         table[name] = FFCCItemData("Stage Key", IC.progression, code, iid)
     for name, code in PROGRESSIVE_EQUIPMENT:
         table[name] = FFCCItemData("Progressive Equipment", IC.useful, code, None)
+    for name, code, _ in GIL_ITEMS:
+        table[name] = FFCCItemData("Gil", IC.filler, code, None)
+    for name, code, _ in GROOMING_TOOLS:
+        # the soap (the game's "Wash") only washes the dye out, so no goal needs it
+        cls = IC.useful if name == "Mog Soap" else IC.progression
+        table[name] = FFCCItemData("Grooming Tool", cls, code, None)
     return table
 
 
@@ -315,7 +367,7 @@ UNUSED_ITEM_IDS = _NON_PHYSICAL_IDS
 # Excludes the Placeholder type so "Cycle Advance" never ends up in the random pool.
 FILLER_ITEM_TABLE: dict[str, FFCCItemData] = {
     name: data for name, data in ITEM_TABLE.items()
-    if data.classification == IC.filler and data.type != "Placeholder"
+    if data.classification == IC.filler and data.type not in ("Placeholder", "Gil")
     and data.code not in UNUSED_ITEM_IDS
 }
 
@@ -341,4 +393,6 @@ item_name_groups: dict[str, set] = {
     "Traps":      {n for n, d in ITEM_TABLE.items() if d.type == "Trap"},
     "Stage Keys": {n for n, d in ITEM_TABLE.items() if d.type == "Stage Key"},
     "Progressive Equipment": {n for n, d in ITEM_TABLE.items() if d.type == "Progressive Equipment"},
+    "Gil": {n for n, d in ITEM_TABLE.items() if d.type == "Gil"},
+    "Grooming Tools": {n for n, d in ITEM_TABLE.items() if d.type == "Grooming Tool"},
 }

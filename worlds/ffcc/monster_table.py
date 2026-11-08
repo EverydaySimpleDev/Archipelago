@@ -15,21 +15,33 @@ Enemy" mode), named "<dungeon> - <enemy> <n>", or "<dungeon> - <boss>":
 
 monster id    its id in the dungeon script (a boss: any of its type's ids counts)
 area, entry   the area file and its place among that file's SPAWN records
-(x, y, z)     where it spawns: a live monster keeps this as its home position
+(x, y, z)     where it spawns: a live monster keeps this at CGObject +0x168
 cycles        the cycles it appears in, for one player
+
+ENEMY_GROUPS: spots of which only some spawn per visit (the area picks one
+case of a switch, e.g. 2 of Daemon's Court's 4 Gold Lizard spots). The
+group has an ENEMIES row per enemy that spawns. A kill on any of its spots
+counts as its first name still unchecked. The names after the rows have no
+row (older seeds may still have them):
+    (dungeon, ((name, code), ...), ((monster id, (x, y, z)), ...))
+A spot of None is an ambush group: enemies the map
+script moves onto the player, so any kill of that id in the dungeon that no
+other spot matches counts.
+
+OPTIONAL_ENEMIES: enemies the game never makes you meet (the ambushes). The AP world excludes them.
 """
 
 MONSTERS = {
-    'Mu': (1000, False, (16,), 'River Belle Path', {'River Belle Path': (1, 2, 3)}),
+    'Mu': (1000, False, (16, 94), 'River Belle Path', {'River Belle Path': (1, 2, 3)}),
     'Hedgehog Pie': (1001, False, (19,), 'River Belle Path', {'River Belle Path': (1, 2), 'The Mushroom Forest': (1, 2, 3)}),
     'Dark Hedgehog': (1002, False, (20,), 'River Belle Path', {'River Belle Path': (3,), 'The Mushroom Forest': (3,)}),
     'Stone Hedgehog': (1003, False, (21,), 'River Belle Path', {'River Belle Path': (2, 3), 'The Mushroom Forest': (3,)}),
     'Goblin Chieftain': (1004, False, (159,), 'River Belle Path', {'River Belle Path': (1, 2, 3), 'Goblin Wall': (1, 2, 3)}),
     'Flan': (1005, False, (1,), 'Goblin Wall', {'Goblin Wall': (1, 2, 3)}),
     'Goblin (Sword)': (1006, False, (43, 104), 'Goblin Wall', {'River Belle Path': (1, 2, 3), 'Goblin Wall': (1, 2, 3)}),
-    'Goblin (Mace)': (1007, False, (44, 105), 'Goblin Wall', {'River Belle Path': (3,), 'Goblin Wall': (1, 2, 3)}),
+    'Goblin (Mace)': (1007, False, (44, 105), 'Goblin Wall', {'River Belle Path': (3,), 'Goblin Wall': (2, 3)}),
     'Goblin (Spear)': (1008, False, (45, 106), 'Goblin Wall', {'River Belle Path': (2, 3), 'Goblin Wall': (1, 2, 3)}),
-    'Goblin (Mage)': (1009, False, (46, 122), 'Goblin Wall', {'River Belle Path': (1, 2, 3), 'Goblin Wall': (1, 2, 3), 'Mount Kilanda': (1, 2, 3)}),
+    'Goblin (Mage)': (1009, False, (46, 122), 'Goblin Wall', {'River Belle Path': (2, 3), 'Goblin Wall': (1, 2, 3), 'Mount Kilanda': (1, 2, 3)}),
     'Bat': (1010, False, (71,), 'Goblin Wall', {'Goblin Wall': (1, 2, 3), 'The Mine of Cathuriges': (2, 3)}),
     'Bomb': (1011, False, (4,), 'The Mine of Cathuriges', {'The Mine of Cathuriges': (1, 2, 3), 'Tida': (1, 2, 3), "Daemon's Court": (1, 2, 3)}),
     'Orc (Axe)': (1012, False, (48, 100), 'The Mine of Cathuriges', {'The Mine of Cathuriges': (1, 2, 3)}),
@@ -60,6 +72,7 @@ MONSTERS = {
     'Gold Lizard Skirmisher': (1037, False, (189,), "Daemon's Court", {"Daemon's Court": (1, 2, 3)}),
     'Lizardman (Mace)': (1038, False, (29,), 'Selepation Cave', {'Selepation Cave': (3,), 'Veo Lu Sluice': (3,)}),
     'Lizardman (Javelin)': (1039, False, (30,), 'Selepation Cave', {'Selepation Cave': (2, 3), 'Veo Lu Sluice': (2, 3)}),
+    'Lizardman (Mage)': (1050, False, (31,), 'Selepation Cave', {'Selepation Cave': (1, 2, 3), 'Veo Lu Sluice': (1, 2, 3)}),
     'Electric Jellyfish': (1040, False, (41, 120), 'Selepation Cave', {'Goblin Wall': (1, 2, 3), 'Selepation Cave': (1, 2, 3)}),
     'Gigas': (1041, False, (54,), 'Selepation Cave', {'Selepation Cave': (1, 2, 3)}),
     'Cockatrice': (1042, False, (58,), 'Selepation Cave', {'The Mine of Cathuriges': (2, 3), 'Selepation Cave': (1, 2, 3)}),
@@ -70,7 +83,6 @@ MONSTERS = {
     'Ice Bomb': (1047, False, (5,), 'Veo Lu Sluice', {'The Mine of Cathuriges': (2, 3), 'Veo Lu Sluice': (1, 2, 3), 'Conall Curach': (1, 2, 3)}),
     'Griffin': (1048, False, (10,), 'Veo Lu Sluice', {'River Belle Path': (2, 3), 'Veo Lu Sluice': (1, 2, 3)}),
     'Lizardman (Axe)': (1049, False, (28,), 'Veo Lu Sluice', {'Selepation Cave': (1, 2, 3), 'Veo Lu Sluice': (1, 2, 3)}),
-    'Lizardman (Mage)': (1050, False, (31,), 'Veo Lu Sluice', {'Selepation Cave': (1, 2, 3), 'Veo Lu Sluice': (1, 2, 3)}),
     'Gigan Toad': (1051, False, (36,), 'Veo Lu Sluice', {'Veo Lu Sluice': (1, 2, 3)}),
     'Cactuar': (1052, False, (14,), 'Lynari Desert', {'Lynari Desert': (1, 2, 3)}),
     'Zu': (1053, False, (56,), 'Lynari Desert', {'Lynari Desert': (1, 2, 3)}),
@@ -131,11 +143,8 @@ MONSTERS = {
 }
 
 ENEMIES = {
-    'River Belle Path - Hedgehog Pie 1': (2000, 'River Belle Path', 'Hedgehog Pie', 19, 'river_0', 0, (-237.06, 6.91, -406.64), (1,)),
-    'River Belle Path - Goblin (Sword) 1': (2001, 'River Belle Path', 'Goblin (Sword)', 43, 'river_0', 1, (-237.19, 4.58, -479.42), (1, 2, 3)),
-    'River Belle Path - Goblin (Mage) 1': (2002, 'River Belle Path', 'Goblin (Mage)', 46, 'river_0', 2, (-185.76, 3.76, -431.75), (1, 2, 3)),
-    'River Belle Path - Mu 1': (2003, 'River Belle Path', 'Mu', 16, 'river_0', 3, (-291.33, 8.19, -381.63), (1, 2, 3)),
-    'River Belle Path - Goblin Chieftain 1': (2004, 'River Belle Path', 'Goblin Chieftain', 159, 'river_0', 6, (-135.11, 0.3, -487.43), (1, 2, 3)),
+    'River Belle Path - Hedgehog Pie 1': (2000, 'River Belle Path', 'Hedgehog Pie', 19, 'river_0', 53, (-237.06, 6.91, -406.64), (1,)),
+    'River Belle Path - Goblin (Sword) 1': (2001, 'River Belle Path', 'Goblin (Sword)', 43, 'river_0', 55, (-237.19, 4.58, -479.42), (1, 2, 3)),
     'River Belle Path - Goblin (Sword) 2': (2005, 'River Belle Path', 'Goblin (Sword)', 43, 'river_0', 7, (-259.66, 0.3, 568.48), (3,)),
     'River Belle Path - Goblin (Sword) 3': (2006, 'River Belle Path', 'Goblin (Sword)', 43, 'river_0', 9, (-303.51, 0.32, 440.73), (1, 2, 3)),
     'River Belle Path - Hedgehog Pie 2': (2007, 'River Belle Path', 'Hedgehog Pie', 19, 'river_0', 10, (-274.3, 0.3, 349.52), (1,)),
@@ -179,6 +188,7 @@ ENEMIES = {
     'River Belle Path - Goblin (Mage) 3': (2045, 'River Belle Path', 'Goblin (Mage)', 46, 'river_0', 64, (-248.52, 0.3, -530.14), (2, 3)),
     'River Belle Path - Goblin (Sword) 12': (2046, 'River Belle Path', 'Goblin (Sword)', 43, 'river_0', 65, (-291.71, 1.06, -426.26), (3,)),
     'River Belle Path - Giant Crab': (2047, 'River Belle Path', 'Giant Crab', 91, 'river_1', 0, (0.0, 0.0, -40.0), (1, 2, 3)),
+    'River Belle Path - Mu 10': (2980, 'River Belle Path', 'Mu', 94, 'river_1', 1, (40.0, 0.3, -40.0), (1, 2, 3)),
     'Goblin Wall - Goblin (Mage) 1': (2048, 'Goblin Wall', 'Goblin (Mage)', 46, 'gob_0', 0, (-264.34, -60.0, -102.13), (1, 2, 3)),
     'Goblin Wall - Bat 1': (2049, 'Goblin Wall', 'Bat', 71, 'gob_0', 1, (-337.28, -60.0, -161.7), (1, 2, 3)),
     'Goblin Wall - Bat 2': (2050, 'Goblin Wall', 'Bat', 71, 'gob_0', 2, (-409.28, -60.0, -193.7), (2, 3)),
@@ -240,20 +250,15 @@ ENEMIES = {
     'Goblin Wall - Electric Jellyfish 5': (2106, 'Goblin Wall', 'Electric Jellyfish', 41, 'gob_1', 33, (581.41, 59.79, -314.57), (1, 2, 3)),
     'Goblin Wall - Goblin (Sword) 16': (2107, 'Goblin Wall', 'Goblin (Sword)', 43, 'gob_1', 35, (350.08, 61.07, -352.13), (1, 2, 3)),
     'Goblin Wall - Goblin (Mage) 4': (2108, 'Goblin Wall', 'Goblin (Mage)', 46, 'gob_1', 36, (331.25, 61.38, -321.3), (1, 2, 3)),
-    'Goblin Wall - Electric Jellyfish 6': (2109, 'Goblin Wall', 'Electric Jellyfish', 41, 'gob_1', 37, (915.06, 81.84, -184.16), (1, 2, 3)),
-    'Goblin Wall - Goblin (Sword) 17': (2110, 'Goblin Wall', 'Goblin (Sword)', 43, 'gob_1', 38, (915.3, 94.38, -100.69), (1,)),
+    'Goblin Wall - Electric Jellyfish 6': (2109, 'Goblin Wall', 'Electric Jellyfish', 41, 'gob_1', 37, (915.06, 81.84, -184.16), (2, 3)),
     'Goblin Wall - Goblin (Mace) 6': (2111, 'Goblin Wall', 'Goblin (Mace)', 44, 'gob_1', 39, (915.3, 94.38, -100.69), (2, 3)),
     'Goblin Wall - Goblin (Mage) 5': (2112, 'Goblin Wall', 'Goblin (Mage)', 46, 'gob_1', 44, (720.85, 138.83, -417.68), (1, 2, 3)),
     'Goblin Wall - Goblin King': (2113, 'Goblin Wall', 'Goblin King', 103, 'gob_2', 0, (-1.5, -5.99, -44.28), (1, 2, 3)),
     'Goblin Wall - Goblin (Sword) 18': (2114, 'Goblin Wall', 'Goblin (Sword)', 104, 'gob_2', 1, (-42.62, -26.02, 80.53), (1, 2, 3)),
-    'Goblin Wall - Goblin (Mace) 7': (2115, 'Goblin Wall', 'Goblin (Mace)', 105, 'gob_2', 2, (-123.93, -23.07, 81.46), (1, 2, 3)),
     'Goblin Wall - Goblin (Spear) 6': (2963, 'Goblin Wall', 'Goblin (Spear)', 106, 'gob_2', 3, (-142.61, -25.76, 82.76), (1, 2, 3)),
     'Goblin Wall - Goblin (Sword) 19': (2116, 'Goblin Wall', 'Goblin (Sword)', 104, 'gob_2', 4, (42.88, -26.02, 80.28), (1, 2, 3)),
-    'Goblin Wall - Goblin (Mace) 8': (2117, 'Goblin Wall', 'Goblin (Mace)', 105, 'gob_2', 5, (123.93, -23.07, 81.46), (1, 2, 3)),
     'Goblin Wall - Goblin (Spear) 7': (2964, 'Goblin Wall', 'Goblin (Spear)', 106, 'gob_2', 6, (142.91, -25.76, 82.76), (1, 2, 3)),
     'Goblin Wall - Goblin (Spear) 8': (2965, 'Goblin Wall', 'Goblin (Spear)', 106, 'gob_2', 7, (-134.62, -3.01, 10.81), (1, 2, 3)),
-    'Goblin Wall - Goblin (Spear) 9': (2966, 'Goblin Wall', 'Goblin (Spear)', 106, 'gob_2', 8, (-97.86, 17.32, -74.44), (1, 2, 3)),
-    'Goblin Wall - Goblin (Spear) 10': (2967, 'Goblin Wall', 'Goblin (Spear)', 106, 'gob_2', 9, (99.09, 19.45, -76.44), (1, 2, 3)),
     'Goblin Wall - Goblin (Spear) 11': (2968, 'Goblin Wall', 'Goblin (Spear)', 106, 'gob_2', 10, (136.74, -3.0, 10.53), (1, 2, 3)),
     'The Mine of Cathuriges - Orc (Axe) 1': (2118, 'The Mine of Cathuriges', 'Orc (Axe)', 48, 'mine_0', 0, (-103.95, 0.0, -171.08), (1, 2, 3)),
     'The Mine of Cathuriges - Orc (Axe) 2': (2119, 'The Mine of Cathuriges', 'Orc (Axe)', 48, 'mine_0', 1, (-202.78, 1.29, -269.93), (1, 2, 3)),
@@ -369,16 +374,11 @@ ENEMIES = {
     'The Mushroom Forest - Magic Plant 1': (2229, 'The Mushroom Forest', 'Magic Plant', 97, 'kinoko_1', 8, (-50.61, 0.3, 10.17), (3,)),
     'The Mushroom Forest - Hell Plant 16': (2230, 'The Mushroom Forest', 'Hell Plant', 96, 'kinoko_1', 9, (53.8, 0.3, 10.47), (1, 2)),
     'The Mushroom Forest - Magic Plant 2': (2231, 'The Mushroom Forest', 'Magic Plant', 97, 'kinoko_1', 10, (53.8, 0.3, 10.47), (3,)),
-    'Tida - Skeleton (Sword) 1': (2232, 'Tida', 'Skeleton (Sword)', 22, 'ruin_0', 0, (-251.05, -0.7, -203.61), (1, 2, 3)),
-    'Tida - Bomb 1': (2233, 'Tida', 'Bomb', 4, 'ruin_0', 1, (-233.84, -0.96, -64.24), (1, 2, 3)),
-    'Tida - Bomb 2': (2234, 'Tida', 'Bomb', 4, 'ruin_0', 2, (-304.35, -1.56, -7.87), (1, 2, 3)),
-    'Tida - Hell Plant 1': (2235, 'Tida', 'Hell Plant', 78, 'ruin_0', 3, (-317.67, 1.12, -171.12), (1, 2, 3)),
-    'Tida - Skeleton (Sword) 2': (2236, 'Tida', 'Skeleton (Sword)', 22, 'ruin_0', 4, (-185.46, 0.82, -371.05), (1, 2, 3)),
-    'Tida - Carrion Worm 1': (2971, 'Tida', 'Carrion Worm', 26, 'ruin_0', 6, (-65.31, -2.24, -326.55), (1, 2, 3)),
-    'Tida - Hell Plant 2': (2238, 'Tida', 'Hell Plant', 78, 'ruin_0', 7, (148.97, 3.97, -361.43), (1, 2, 3)),
-    'Tida - Hell Plant 3': (2239, 'Tida', 'Hell Plant', 78, 'ruin_0', 8, (148.97, 1.78, -317.43), (1, 2, 3)),
-    'Tida - Skeleton (Sword) 3': (2240, 'Tida', 'Skeleton (Sword)', 22, 'ruin_0', 9, (242.27, -1.83, -299.64), (1, 2, 3)),
-    'Tida - Skeleton (Mage) 1': (2241, 'Tida', 'Skeleton (Mage)', 25, 'ruin_0', 10, (324.27, 0.3, -281.98), (1, 2, 3)),
+    'Tida - Skeleton (Sword) 1': (2232, 'Tida', 'Skeleton (Sword)', 22, 'ruin_0', 33, (-251.05, -0.7, -203.61), (1, 2, 3)),
+    'Tida - Bomb 2': (2234, 'Tida', 'Bomb', 4, 'ruin_0', 35, (-304.35, -1.56, -7.87), (1, 2, 3)),
+    'Tida - Hell Plant 1': (2235, 'Tida', 'Hell Plant', 78, 'ruin_0', 64, (-317.67, 1.12, -171.12), (1, 2, 3)),
+    'Tida - Skeleton (Sword) 3': (2240, 'Tida', 'Skeleton (Sword)', 22, 'ruin_0', 55, (242.27, -1.83, -299.64), (1, 2, 3)),
+    'Tida - Skeleton (Mage) 1': (2241, 'Tida', 'Skeleton (Mage)', 25, 'ruin_0', 57, (324.27, 0.3, -281.98), (1, 2, 3)),
     'Tida - Gremlin 1': (2242, 'Tida', 'Gremlin', 81, 'ruin_0', 13, (-145.16, -2.18, 343.96), (3,)),
     'Tida - Gremlin 2': (2243, 'Tida', 'Gremlin', 81, 'ruin_0', 14, (223.6, 0.63, 339.82), (1, 2, 3)),
     'Tida - Tida Carrion Worm 1': (2244, 'Tida', 'Tida Carrion Worm', 160, 'ruin_0', 15, (237.6, 0.85, 349.82), (1, 2, 3)),
@@ -452,8 +452,8 @@ ENEMIES = {
     'Tida - Carrion Worm 8': (2978, 'Tida', 'Carrion Worm', 26, 'ruin_1', 55, (480.44, 0.3, 426.78), (1, 2, 3)),
     'Tida - Abaddon 5': (2313, 'Tida', 'Abaddon', 37, 'ruin_1', 56, (-113.63, 0.54, -157.54), (3,)),
     'Tida - Armstrong': (2314, 'Tida', 'Armstrong', 107, 'ruin_2', 0, (152.49, -0.13, -241.7), (1, 2, 3)),
-    'Tida - Skeleton (Mage) 16': (2315, 'Tida', 'Skeleton (Mage)', 108, 'ruin_2', 1, (252.49, -0.13, -241.7), (1, 2, 3)),
-    'Tida - Skeleton (Mage) 17': (2316, 'Tida', 'Skeleton (Mage)', 108, 'ruin_2', 2, (152.49, -0.13, -341.7), (1, 2, 3)),
+    'Tida - Skeleton (Mage) 16': (2315, 'Tida', 'Skeleton (Mage)', 108, 'ruin_2', 3, (252.49, -0.13, -241.7), (1, 2, 3)),
+    'Tida - Skeleton (Mage) 17': (2316, 'Tida', 'Skeleton (Mage)', 108, 'ruin_2', 5, (152.49, -0.13, -341.7), (1, 2, 3)),
     'Moschet Manor - Coeurl 1': (2317, 'Moschet Manor', 'Coeurl', 55, 'gigas_0', 0, (-0.11, -8.2, -536.58), (1, 2, 3)),
     'Moschet Manor - Ochu 1': (2318, 'Moschet Manor', 'Ochu', 12, 'gigas_0', 4, (0.5, -8.2, -455.0), (3,)),
     'Moschet Manor - Coeurl 2': (2319, 'Moschet Manor', 'Coeurl', 55, 'gigas_0', 5, (1.85, -8.2, -296.94), (1, 2, 3)),
@@ -523,8 +523,6 @@ ENEMIES = {
     'Mount Kilanda - Goblin (Mage) 2': (2383, 'Mount Kilanda', 'Goblin (Mage)', 122, 'lava_2', 2, (75.47, -4.39, 43.68), (1, 2, 3)),
     "Daemon's Court - Bomb 1": (2384, "Daemon's Court", 'Bomb', 4, 'fort_0', 0, (340.51, -1.97, -99.86), (1, 2, 3)),
     "Daemon's Court - Gold Lizard Skirmisher 1": (2385, "Daemon's Court", 'Gold Lizard Skirmisher', 189, 'fort_0', 4, (426.99, 0.3, 65.14), (1, 2, 3)),
-    "Daemon's Court - Gold Lizard Skirmisher 2": (2386, "Daemon's Court", 'Gold Lizard Skirmisher', 189, 'fort_0', 5, (325.11, 60.47, -373.2), (1, 2, 3)),
-    "Daemon's Court - Gold Lizard Skirmisher 3": (2387, "Daemon's Court", 'Gold Lizard Skirmisher', 189, 'fort_0', 6, (-102.68, 60.47, -377.13), (1, 2, 3)),
     "Daemon's Court - Gold Lizard Skirmisher 4": (2388, "Daemon's Court", 'Gold Lizard Skirmisher', 189, 'fort_0', 7, (-559.24, 60.3, 139.26), (1, 2, 3)),
     "Daemon's Court - Killer Bee 1": (2389, "Daemon's Court", 'Killer Bee', 67, 'fort_0', 10, (-322.6, 0.3, 282.91), (1, 2, 3)),
     "Daemon's Court - Coeurl 1": (2390, "Daemon's Court", 'Coeurl', 55, 'fort_0', 11, (-282.6, 0.3, 202.91), (1, 2, 3)),
@@ -648,14 +646,6 @@ ENEMIES = {
     'Selepation Cave - Cave Worm': (2508, 'Selepation Cave', 'Cave Worm', 119, 'cave_2', 0, (0.0, -10.0, -60.0), (1, 2, 3)),
     'Selepation Cave - Electric Jellyfish 15': (2509, 'Selepation Cave', 'Electric Jellyfish', 120, 'cave_2', 1, (100.0, -0.51, 180.0), (1, 2, 3)),
     'Selepation Cave - Electric Jellyfish 16': (2510, 'Selepation Cave', 'Electric Jellyfish', 120, 'cave_2', 2, (-100.0, -0.51, 180.0), (1, 2, 3)),
-    'Veo Lu Sluice - Lizardman (Axe) 1': (2511, 'Veo Lu Sluice', 'Lizardman (Axe)', 28, 'water_0', 0, (-848.89, -39.7, -484.37), (1, 2, 3)),
-    'Veo Lu Sluice - Lizardman (Mage) 1': (2512, 'Veo Lu Sluice', 'Lizardman (Mage)', 31, 'water_0', 1, (-848.89, -39.7, -454.37), (1, 2, 3)),
-    'Veo Lu Sluice - Gigan Toad 1': (2513, 'Veo Lu Sluice', 'Gigan Toad', 36, 'water_0', 2, (-718.03, -39.7, -316.3), (1, 2, 3)),
-    'Veo Lu Sluice - Lizardman (Mage) 2': (2514, 'Veo Lu Sluice', 'Lizardman (Mage)', 31, 'water_0', 3, (-753.44, -39.7, -309.88), (1, 2, 3)),
-    'Veo Lu Sluice - Water Flan 1': (2515, 'Veo Lu Sluice', 'Water Flan', 2, 'water_0', 4, (-395.52, -39.7, -173.95), (1, 2, 3)),
-    'Veo Lu Sluice - Lizardman (Axe) 2': (2516, 'Veo Lu Sluice', 'Lizardman (Axe)', 28, 'water_0', 5, (-525.35, -39.7, -118.59), (1, 2, 3)),
-    'Veo Lu Sluice - Lizardman (Axe) 3': (2517, 'Veo Lu Sluice', 'Lizardman (Axe)', 28, 'water_0', 6, (-377.79, -39.7, -124.22), (1, 2, 3)),
-    'Veo Lu Sluice - Griffin 1': (2518, 'Veo Lu Sluice', 'Griffin', 10, 'water_0', 7, (-450.39, -39.7, -71.63), (1, 2, 3)),
     'Veo Lu Sluice - Lizardman (Axe) 4': (2519, 'Veo Lu Sluice', 'Lizardman (Axe)', 28, 'water_0', 8, (261.48, 30.3, -577.88), (1, 2)),
     'Veo Lu Sluice - Lizardman (Mace) 1': (2520, 'Veo Lu Sluice', 'Lizardman (Mace)', 29, 'water_0', 9, (261.48, 30.3, -577.88), (3,)),
     'Veo Lu Sluice - Gigan Toad 2': (2521, 'Veo Lu Sluice', 'Gigan Toad', 36, 'water_0', 12, (266.07, 30.3, -486.59), (1, 2, 3)),
@@ -1028,7 +1018,6 @@ ENEMIES = {
     'Rebena Te Ra - Mimic 9': (2888, 'Rebena Te Ra', 'Mimic', 85, 'city_1', 55, (504.93, 0.3, -263.25), (1, 2, 3)),
     'Rebena Te Ra - Mimic 10': (2889, 'Rebena Te Ra', 'Mimic', 85, 'city_1', 56, (495.67, 0.3, -203.62), (1, 2, 3)),
     'Rebena Te Ra - Mimic 11': (2890, 'Rebena Te Ra', 'Mimic', 85, 'city_1', 57, (464.17, 0.3, -192.07), (1, 2, 3)),
-    'Rebena Te Ra - Mimic 12': (2891, 'Rebena Te Ra', 'Mimic', 85, 'city_1', 60, (428.74, 0.3, -234.96), (1, 2, 3)),
     'Rebena Te Ra - Lich': (2892, 'Rebena Te Ra', 'Lich', 127, 'city_2', 0, (0.0, 25.37, -137.12), (1, 2, 3)),
     'Rebena Te Ra - Skeleton (Sword) 17': (2893, 'Rebena Te Ra', 'Skeleton (Sword)', 128, 'city_2', 1, (0.0, 0.34, -100.12), (1, 2, 3)),
     'Mount Vellenge - Shade (Sword) 1': (2894, 'Mount Vellenge', 'Shade (Sword)', 75, 'meteo_0', 0, (-177.01, 325.94, -760.33), (1, 2, 3)),
@@ -1101,3 +1090,11 @@ ENEMIES = {
     'Mount Vellenge - Tentacle (Lightning) 2': (2961, 'Mount Vellenge', 'Tentacle (Lightning)', 89, 'meteo_1', 40, (292.78, -17.53, 283.7), (1, 2, 3)),
     'Mount Vellenge - Meteor Parasite': (2962, 'Mount Vellenge', 'Meteor Parasite', 136, 'meteo_2', 0, (0.0, 0.0, 0.0), (1, 2, 3)),
 }
+
+ENEMY_GROUPS = [
+    ("Daemon's Court", (("Daemon's Court - Gold Lizard Skirmisher 1", 2385), ("Daemon's Court - Gold Lizard Skirmisher 4", 2388), ("Daemon's Court - Gold Lizard Skirmisher 2", 2386), ("Daemon's Court - Gold Lizard Skirmisher 3", 2387)), ((189, (426.99, 0.3, 65.14)), (189, (-559.24, 60.3, 139.26)), (189, (325.11, 60.47, -373.2)), (189, (-102.68, 60.47, -377.13)))),
+    ('Rebena Te Ra', (('Rebena Te Ra - Mimic 9', 2888), ('Rebena Te Ra - Mimic 10', 2889), ('Rebena Te Ra - Mimic 11', 2890), ('Rebena Te Ra - Mimic 12', 2891)), ((85, (504.93, 0.3, -263.25)), (85, (495.67, 0.3, -203.62)), (85, (464.17, 0.3, -192.07)), (85, (428.74, 0.3, -234.96)))),
+    ('Lynari Desert', (('Lynari Desert - Scorpion 1', 2563), ('Lynari Desert - Scorpion 2', 2564)), ((124, None),)),
+]
+
+OPTIONAL_ENEMIES = ('Lynari Desert - Scorpion 1', 'Lynari Desert - Scorpion 2')
