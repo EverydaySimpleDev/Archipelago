@@ -41,6 +41,8 @@ class SecondFloorAccessTest(ChibiRoboTestBase):
     on top of the core gear/key needed to reach the Foyer and the door key itself. A story event also requires
     the player to have visited the Basement first, so "Foyer - Basement Key" is required too."""
 
+    options = {"open_upstairs": 0}
+
     base_gear = [tooth_brush, mug, drake_suit, "Living Room - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Basement Key"]
 
     def _can_reach_jennys_room(self, items) -> bool:
@@ -60,6 +62,55 @@ class SecondFloorAccessTest(ChibiRoboTestBase):
 
     def test_neither_route_blocks_second_floor(self) -> None:
         self.assertFalse(self._can_reach_jennys_room(self.base_gear))
+
+
+class OpenUpstairsAccessTest(ChibiRoboTestBase):
+    """With Open Upstairs on, the stairs replace the Foyer Ladder + Chibi-Copter / Foyer Teleport. The Basement
+    story event and the door key are still required."""
+
+    options = {"open_upstairs": 1}
+
+    base_gear = [tooth_brush, mug, drake_suit, "Living Room - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Basement Key"]
+
+    def _can_reach_jennys_room(self, items) -> bool:
+        state = CollectionState(self.multiworld)
+        for name in items:
+            state.collect(self.world.create_item(name))
+        return state.can_reach("Jenny's Room", "Region", self.player)
+
+    def test_stairs_reach_second_floor_without_ladder_or_teleport(self) -> None:
+        self.assertTrue(self._can_reach_jennys_room(self.base_gear))
+
+    def test_basement_key_still_required(self) -> None:
+        self.assertFalse(self._can_reach_jennys_room([item for item in self.base_gear if item != "Foyer - Basement Key"]))
+
+    def test_room_key_still_required(self) -> None:
+        self.assertFalse(self._can_reach_jennys_room([item for item in self.base_gear if item != "Foyer - Jenny's Room Key"]))
+
+
+class BackyardLocationTest(ChibiRoboTestBase):
+    """Backyard checks: the Frog Ring and Frog Suit don't need the Chibi-Blaster, and the Scurvy Splinter is dug up
+    with the Spoon."""
+
+    base_gear = ["Living Room - Backyard Key"]
+
+    def _can_reach(self, location, items) -> bool:
+        state = CollectionState(self.multiworld)
+        for name in self.base_gear + items:
+            state.collect(self.world.create_item(name))
+        return self.multiworld.get_location(location, self.player).can_reach(state)
+
+    def test_frog_ring_needs_only_copter(self) -> None:
+        self.assertTrue(self._can_reach("Backyard - Frog Ring", [copter]))
+        self.assertFalse(self._can_reach("Backyard - Frog Ring", []))
+
+    def test_frog_suit_needs_only_squirter(self) -> None:
+        self.assertTrue(self._can_reach("Backyard - Frog Suit", [squirter]))
+        self.assertFalse(self._can_reach("Backyard - Frog Suit", []))
+
+    def test_scurvy_splinter_needs_spoon(self) -> None:
+        self.assertTrue(self._can_reach("Backyard - Scurvy Splinter", ["Spoon Chibi-Gear"]))
+        self.assertFalse(self._can_reach("Backyard - Scurvy Splinter", []))
 
 
 class GoalAccessTest(ChibiRoboTestBase):
@@ -137,3 +188,31 @@ class FrogRingStickerGoalAccessTest(ChibiRoboTestBase):
         for name in self.frog_rings:
             with self.subTest(name=name):
                 self.assertIn(IC.progression, pool_items[name].classification)
+
+
+class FoyerUpstairsCopterTest(ChibiRoboTestBase):
+    """The sofa and spaceship shelf candy wrappers are reached from the second floor with the Chibi-Copter."""
+
+    options = {"open_upstairs": 1}
+
+    locations = [f"Foyer - Candy Wrapper on Sofa {x}" for x in "ABC"] + \
+                [f"Foyer - Candy Wrapper by Spaceship Shelf {x}" for x in "ABC"]
+    base_gear = [tooth_brush, mug, drake_suit, "Living Room - Foyer Key", "Foyer - Basement Key"]
+
+    def _can_reach(self, location, items) -> bool:
+        state = CollectionState(self.multiworld)
+        for name in items:
+            state.collect(self.world.create_item(name))
+        return self.multiworld.get_location(location, self.player).can_reach(state)
+
+    def test_needs_copter(self) -> None:
+        for location in self.locations:
+            with self.subTest(location=location):
+                self.assertTrue(self._can_reach(location, self.base_gear + [copter]))
+                self.assertFalse(self._can_reach(location, self.base_gear))
+
+    def test_needs_second_floor(self) -> None:
+        for location in self.locations:
+            with self.subTest(location=location):
+                held = [item for item in self.base_gear if item != "Foyer - Basement Key"] + [copter]
+                self.assertFalse(self._can_reach(location, held))
