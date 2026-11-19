@@ -20,6 +20,8 @@ How the game gates progress:
                  cycle N needs about 2 more years per cycle. The chest table
                  (chest_table.py) only lists chests a player can reach in
                  each cycle, so cycle locations just need the right year.
+                 With Cycle Locks (option) they need N - 1 unlock items
+                 instead, and the patcher's cycle menu offers the cycle.
 
 The world needs from generate_early (sent to the randomizer as JSON):
   self.zone_plan   {spot: dungeon}, spots named by their vanilla dungeon
@@ -35,9 +37,9 @@ from typing import Any
 
 from BaseClasses import LocationProgressType
 from rule_builder.rules import Has, HasAll, HasAny, CanReachRegion, Rule, True_
-from .items import MYRRH_DROP, MOG_STAMP, DYES, MOG_SCISSORS
+from .items import MYRRH_DROP, MOG_STAMP, DYES, MOG_SCISSORS, PROGRESSIVE_CYCLE, dungeon_cycle_item
 from .locations import MOG_STAMP_NESTS, mog_stamp_location, GROOMING_LOCATIONS, GROOMING_RADAR_DYE
-from .options import VictoryGoal, grooming_tools_on
+from .options import VictoryGoal, grooming_tools_on, victory_goals, last_cycle, chests_are_checks
 from .regions import MYRRH_DUNGEONS
 
 # The world-map data the logic works with:
@@ -165,6 +167,12 @@ def stage_key(dungeon: str) -> str:
     return f"{dungeon} Key"          # e.g. "Goblin Wall Key" (in game: artifact 0xE9)
 
 
+def cycle_unlock_item(cycle_locks: int, dungeon: str) -> str:
+    """The item that unlocks `dungeon`'s next cycle with the Cycle Locks
+    option (1 = Global, 2 = Per Dungeon)."""
+    return PROGRESSIVE_CYCLE if cycle_locks == 1 else dungeon_cycle_item(dungeon)
+
+
 # 4: rings a dungeon needs to be finished
 ALL_RINGS = ["Ring of Fire", "Ring of Blizzard", "Ring of Thunder", "Ring of Life"]
 NEEDS_RINGS = {
@@ -238,19 +246,14 @@ def any_of(*rules: Rule | None) -> Rule | None:
     return out
 
 
-def first_hunt_cycle(enemy: str) -> int:
-    """The earliest cycle an enemy type of the Monster Hunt can be found in
-    (Mount Vellenge has a single cycle)."""
-    from .locations import MONSTERS
-    return min(1 if dungeon == "Mount Vellenge" else min(cycles)
-               for dungeon, cycles in MONSTERS[enemy][4].items())
-
-
 def excluded_count(options: Any) -> int:
     """How many of the seed's locations only get filler (see set_location_rules):
-    Monster Hunt locations and "Cycle N Reached" past Progression Cycles."""
-    from .locations import LOCATION_TABLE, ENEMY_LOCATION_TABLE, hunt_list, enemy_is_boss
+    chests, Monster Hunt locations and "Cycle N Reached" past Progression
+    Cycles. With Later Cycles: Removed there are none, those aren't in the seed."""
+    from .locations import LOCATION_TABLE, ENEMY_LOCATION_TABLE, hunt_list, enemy_is_boss, first_hunt_cycle
     progression_cycles = options.progression_cycles.value
+    if last_cycle(options) <= progression_cycles:
+        return 0
     hunt, bosses = options.monster_hunt_checks, bool(options.monster_hunt_bosses)
     count = 0
     if hunt == hunt.option_enemy_types:
@@ -258,36 +261,43 @@ def excluded_count(options: Any) -> int:
     elif hunt == hunt.option_every_enemy:
         count += sum(1 for name, data in ENEMY_LOCATION_TABLE.items()
                      if data.cycle > progression_cycles and (bosses or not enemy_is_boss(name)))
+    if chests_are_checks(options):
+        count += sum(1 for data in LOCATION_TABLE.values()
+                     if data.chest and data.cycle > progression_cycles)
     if options.cycle_location_checks:
         count += sum(1 for name, data in LOCATION_TABLE.items()
                      if data.is_event and data.region != "Menu" and data.cycle > progression_cycles)
     return count
 
 
-def set_rules(self) -> None:
-    if self.options.victory_goal == VictoryGoal.option_all_myrrh:
+def _goal_rule(self, goal: int) -> Rule | None:
+    """What one victory goal (a VictoryGoal value) needs, None for nothing."""
+    if goal == VictoryGoal.option_all_myrrh:
         # every Myrrh tree reachable (each dungeon's entrance rule already
         # includes its year, Miasma element, stage key and rings)
-        self.set_completion_rule(Has(MYRRH_DROP, len(MYRRH_DUNGEONS)))
-    elif self.options.victory_goal == VictoryGoal.option_monster_hunt:
+        return Has(MYRRH_DROP, len(MYRRH_DUNGEONS))
+    if goal == VictoryGoal.option_monster_hunt:
         # every enemy type of the hunt can be found
-        self.set_completion_rule(all_of(*self.hunt_rules.values()))
-    elif self.options.victory_goal == VictoryGoal.option_mog_stamps:
-        self.set_completion_rule(Has(MOG_STAMP, len(MOG_STAMP_NESTS)))
-    elif self.options.victory_goal == VictoryGoal.option_mog_grooming:
+        return all_of(*self.hunt_rules.values())
+    if goal == VictoryGoal.option_mog_stamps:
+        return Has(MOG_STAMP, len(MOG_STAMP_NESTS))
+    if goal == VictoryGoal.option_mog_grooming:
         # Tipa has a Moogle Nest, so only the tools can be missing: a dye
         # (any colour counts) to dye, the scissors to trim
-        goal = self.options.mog_grooming_goal
-        if grooming_tools_on(self.options):
-            rule = all_of(HasAny(*DYES) if goal != goal.option_trim else None,
-                          Has(MOG_SCISSORS) if goal != goal.option_dye else None)
-            self.set_completion_rule(rule if rule is not None else True_())
-        else:
-            self.set_completion_rule(True_())
-    else:
-        # final boss: reaching Mount Vellenge (its entrance needs Year 5,
-        # Unknown, Veo Lu Sluice, all rings and its key)
-        self.set_completion_rule(CanReachRegion("Mount Vellenge"))
+        if not grooming_tools_on(self.options):
+            return None
+        kind = self.options.mog_grooming_goal
+        return all_of(HasAny(*DYES) if kind != kind.option_trim else None,
+                      Has(MOG_SCISSORS) if kind != kind.option_dye else None)
+    # final boss: reaching Mount Vellenge (its entrance needs Year 5,
+    # Unknown, Veo Lu Sluice, all rings and its key)
+    return CanReachRegion("Mount Vellenge")
+
+
+def set_rules(self) -> None:
+    # every goal of the seed (the Victory Goal, or the Multiple Goals) has to be done
+    rule = all_of(*[_goal_rule(self, goal) for goal in sorted(victory_goals(self.options))])
+    self.set_completion_rule(rule if rule is not None else True_())
 
 
 def _set_grooming_rules(self) -> None:
@@ -310,6 +320,8 @@ def set_location_rules(self) -> None:
     gates = self.gate_table
     keys_on = bool(getattr(self.options, "stage_keys", False))
     goblin_year1 = self.goblin_year1
+    # Skip Miasma Streams: a gate takes the caravan across whatever the chalice holds
+    gates_open = bool(getattr(self.options, "skip_miasma_streams", False))
     spot_of = {dungeon: spot for spot, dungeon in plan.items()}
 
     def has_element(element: str, side: frozenset[str], y: int) -> Rule | None:
@@ -341,7 +353,7 @@ def set_location_rules(self) -> None:
         rule = all_of(year(opens), can_reach_area(came_from) if came_from else None)
         if area == RIVER_CROSSING:
             rule = all_of(rule, Has(RIVER_NEEDS), CanReachRegion("Veo Lu Sluice"))
-        if gate is not None:
+        if gate is not None and not gates_open:
             # A Miasma Stream asks for a different element each year (the table
             # repeats every 4 years), so it can be crossed in whichever year the
             # chalice can hold that year's element, not only the year it opens.
@@ -378,21 +390,35 @@ def set_location_rules(self) -> None:
     if getattr(self.options, "mog_grooming_only", False):
         return      # no other locations (regions.create_regions)
 
+    cycle_locks = getattr(self.options, "cycle_locks", None)
+    cycle_locks = cycle_locks.value if cycle_locks is not None else 0
+
+    def cycle_rule(dungeon: str, cycle: int) -> Rule | None:
+        """What reaching `cycle` of `dungeon` needs (None for cycle 1): the
+        years it takes the tree to be harvested and grow back, or with Cycle
+        Locks the unlock items (the cycle menu then offers it at once)."""
+        if cycle < 2 or dungeon == "Mount Vellenge":
+            return None
+        if cycle_locks:
+            return Has(cycle_unlock_item(cycle_locks, dungeon), cycle - 1)
+        opens = spot_open_year(spot_of[dungeon], goblin_year1)
+        return year(min(opens + YEARS_PER_CYCLE * (cycle - 1), LAST_YEAR_KEY))
+
     # Cycle 2/3 locations (chests and "Cycle N Reached"): the dungeon's
-    # entrance rule applies through its region. Add the years it takes to
-    # harvest the tree and let it grow back. Some chests also need another
-    # dungeon first (CHEST_NEEDS_DUNGEON).
+    # entrance rule applies through its region, plus what the cycle needs.
     from .locations import LOCATION_TABLE
     timed_chests = bool(getattr(self.options, "rebena_te_ra_timed_chests", False))
     progression_cycles = getattr(self.options, "progression_cycles", None)
     progression_cycles = progression_cycles.value if progression_cycles is not None else 3
-    hunt_checks = bool(getattr(self.options, "monster_hunt_checks", False))
-    grooming_only = bool(getattr(self.options, "mog_grooming_only", False))
+    chests_in = chests_are_checks(self.options)
+    final_cycle = last_cycle(self.options)
     for name, data in LOCATION_TABLE.items():
         if data.region not in spot_of:
             continue
-        if data.chest and (hunt_checks or grooming_only):
+        if data.chest and not chests_in:
             continue    # with Monster Hunt checks (or Mog Grooming Only) the chests aren't locations
+        if data.cycle > final_cycle:
+            continue    # Later Cycles: Removed
         chest = int(name.rsplit(" ", 1)[1]) if " - Chest " in name else None
         if data.region == "Rebena Te Ra" and chest in REBENA_TIMED_CHESTS and not timed_chests:
             mw.get_location(name, p).progress_type = LocationProgressType.EXCLUDED
@@ -400,34 +426,25 @@ def set_location_rules(self) -> None:
         if data.cycle > progression_cycles:
             mw.get_location(name, p).progress_type = LocationProgressType.EXCLUDED
         other = CHEST_NEEDS_DUNGEON.get((data.region, chest))
-        need = None
-        if data.cycle >= 2:
-            opens = spot_open_year(spot_of[data.region], goblin_year1)
-            need = min(opens + YEARS_PER_CYCLE * (data.cycle - 1), LAST_YEAR_KEY)
-        rule = all_of(year(need) if need else None, CanReachRegion(other) if other else None)
+        rule = all_of(cycle_rule(data.region, data.cycle), CanReachRegion(other) if other else None)
         if rule is not None:
             self.set_rule(mw.get_location(name, p), rule)
 
     # Monster Hunt: an enemy type can be found in any dungeon it appears in,
     # in a cycle it appears in there (monster_table.py). Types only found in
     # cycles past Progression Cycles only get filler.
-    from .locations import hunt_list, monster_location, MONSTERS, ENEMY_LOCATION_TABLE
+    from .locations import hunt_list, monster_location, MONSTERS, ENEMY_LOCATION_TABLE, first_hunt_cycle
     from .options import MonsterHuntChecks
-
-    def cycle_year(dungeon: str, cycle: int) -> Rule | None:
-        """The year rule for reaching `cycle` of `dungeon` (None for cycle 1)."""
-        if cycle < 2 or dungeon == "Mount Vellenge":
-            return None
-        opens = spot_open_year(spot_of[dungeon], goblin_year1)
-        return year(min(opens + YEARS_PER_CYCLE * (cycle - 1), LAST_YEAR_KEY))
 
     hunt_mode = getattr(self.options, "monster_hunt_checks", None)
     hunt_mode = hunt_mode.value if hunt_mode is not None else 0
     self.hunt_rules = {}
-    for enemy in hunt_list(bool(getattr(self.options, "monster_hunt_bosses", True))):
-        cycles = MONSTERS[enemy][4]
-        self.hunt_rules[enemy] = any_of(*[all_of(CanReachRegion(dungeon), cycle_year(dungeon, min(c)))
-                                          for dungeon, c in cycles.items()])
+    for enemy in hunt_list(bool(getattr(self.options, "monster_hunt_bosses", True)), final_cycle):
+        # only the cycles still in the seed count (Later Cycles: Removed)
+        cycles = {dungeon: [c for c in found if c <= final_cycle or dungeon == "Mount Vellenge"]
+                  for dungeon, found in MONSTERS[enemy][4].items()}
+        self.hunt_rules[enemy] = any_of(*[all_of(CanReachRegion(dungeon), cycle_rule(dungeon, min(c)))
+                                          for dungeon, c in cycles.items() if c])
         if hunt_mode == MonsterHuntChecks.option_enemy_types:
             location = mw.get_location(monster_location(enemy), p)
             self.set_rule(location, self.hunt_rules[enemy])
@@ -439,7 +456,7 @@ def set_location_rules(self) -> None:
     # Shella only lets in a caravan with a Shella Mark, which the enemies of
     # Veo Lu Sluice drop. Mag Mell is in the Abyss, on the way to Mount
     # Vellenge, so it asks for Mount Vellenge.
-    if self.options.victory_goal == VictoryGoal.option_mog_stamps:
+    if VictoryGoal.option_mog_stamps in victory_goals(self.options):
         town_nests = {
             "Marr's Pass": can_reach_area(TOWN_AREA["Marr's Pass"]),
             "Alfitaria": can_reach_area(TOWN_AREA["Alfitaria"]),
@@ -474,7 +491,7 @@ def set_location_rules(self) -> None:
             data = ENEMY_LOCATION_TABLE.get(location.name)
             if data is None:
                 continue
-            rule = cycle_year(data.region, data.cycle)
+            rule = cycle_rule(data.region, data.cycle)
             if rule is not None:
                 self.set_rule(location, rule)
             if data.cycle > progression_cycles or location.name in OPTIONAL_ENEMIES:
@@ -493,7 +510,7 @@ def set_location_rules(self) -> None:
 def reachable_dungeons(plan: Plan, gates: Gates, y: int, open_dungeons: set[str] | None = None,
                        elements: tuple[str, ...] = (), goblin_year1: bool = False, river_always_dry: bool = False,
                        element_menus: bool = False, hotspots: YearRows | None = None,
-                       menus: YearRows | None = None) -> tuple[set[str], set[str]]:
+                       menus: YearRows | None = None, gates_open: bool = False) -> tuple[set[str], set[str]]:
     """Dungeons reachable in Year y on this layout, entering only `open_dungeons`
     (None = all of them). A stream opens when a dungeon on the near side of it
     (STREAM_SIDE) gives the element it asks for this year, or Unknown (Lynari
@@ -505,7 +522,8 @@ def reachable_dungeons(plan: Plan, gates: Gates, y: int, open_dungeons: set[str]
     With `element_menus` (Stage Keys), a world-map stop's element menu works
     as soon as its area is reached, without entering the dungeon.
     A dungeon that needs rings (NEEDS_RINGS) only counts once a dungeon that
-    needs none is reached, since the rings have to be found somewhere first."""
+    needs none is reached, since the rings have to be found somewhere first.
+    With `gates_open` (Skip Miasma Streams) no stream needs an element."""
     spot_of = {dungeon: spot for spot, dungeon in plan.items()}
     areas, reached = set(), set()
 
@@ -527,7 +545,7 @@ def reachable_dungeons(plan: Plan, gates: Gates, y: int, open_dungeons: set[str]
                 continue
             if area == RIVER_CROSSING and "Veo Lu Sluice" not in reached and (river_always_dry or y in RIVER_DRY_YEARS):
                 continue
-            if gate is not None and not side_has(ELEMENT_BY_VALUE[gates[(y - 1) % 4][gate]], STREAM_SIDE[came_from]):
+            if gate is not None and not gates_open and not side_has(ELEMENT_BY_VALUE[gates[(y - 1) % 4][gate]], STREAM_SIDE[came_from]):
                 continue
             areas.add(area)
             changed = True
@@ -543,13 +561,13 @@ def reachable_dungeons(plan: Plan, gates: Gates, y: int, open_dungeons: set[str]
 
 
 def first_year_dungeons(plan: Plan, gates: Gates, goblin_year1: bool = False, hotspots: YearRows | None = None,
-                        menus: YearRows | None = None) -> list[str] | None:
+                        menus: YearRows | None = None, gates_open: bool = False) -> list[str] | None:
     """With stage keys: two dungeons whose keys, together with the always-open
     River Belle Path, let the player fill the chalice in Year 1. River Belle
     Path itself must be reachable before any key is found."""
     def reach(open_dungeons: set[str]) -> set[str]:
         return reachable_dungeons(plan, gates, 1, open_dungeons, (), goblin_year1, element_menus=True,
-                                  hotspots=hotspots, menus=menus)[0]
+                                  hotspots=hotspots, menus=menus, gates_open=gates_open)[0]
     if "River Belle Path" not in reach({"River Belle Path"}):
         return None
     candidates = sorted(reach(None) - {"River Belle Path"})
@@ -562,7 +580,8 @@ def first_year_dungeons(plan: Plan, gates: Gates, goblin_year1: bool = False, ho
 
 
 def layout_is_beatable(plan: Plan, gates: Gates, stage_keys: bool = False, goblin_year1: bool = False,
-                       hotspots: YearRows | None = None, menus: YearRows | None = None) -> bool:
+                       hotspots: YearRows | None = None, menus: YearRows | None = None,
+                       gates_open: bool = False) -> bool:
     """Check a world-map layout year by year, as if the player already had every
     key and ring: each year enough Myrrh trees must be reachable to fill the
     chalice (3 in Year 1, 6 from Year 2 on), and by Year 5 every dungeon must be
@@ -573,12 +592,13 @@ def layout_is_beatable(plan: Plan, gates: Gates, stage_keys: bool = False, gobli
     sluice = next((spot for spot, dungeon in plan.items() if dungeon == "Veo Lu Sluice"), "Veo Lu Sluice")
     if SPOT_AREA[sluice] not in SLUICE_AREAS:
         return False
-    if stage_keys and first_year_dungeons(plan, gates, goblin_year1, hotspots, menus) is None:
+    if stage_keys and first_year_dungeons(plan, gates, goblin_year1, hotspots, menus, gates_open) is None:
         return False
     elements = set()
     for y in range(1, LAST_YEAR_KEY + 1):
         reached, elements = reachable_dungeons(plan, gates, y, None, elements, goblin_year1,
-                                               element_menus=stage_keys, hotspots=hotspots, menus=menus)
+                                               element_menus=stage_keys, hotspots=hotspots, menus=menus,
+                                               gates_open=gates_open)
         trees = len(reached & set(MYRRH_DUNGEONS))
         if y < LAST_YEAR_KEY and trees < drops_to_reach(y + 1):
             return False
@@ -588,7 +608,7 @@ def layout_is_beatable(plan: Plan, gates: Gates, stage_keys: bool = False, gobli
     # everything must also be reachable that way, or the seed can't be filled.
     logic_reached, _ = reachable_dungeons(plan, gates, LAST_YEAR_KEY, None, elements, goblin_year1,
                                           river_always_dry=True, element_menus=stage_keys,
-                                          hotspots=hotspots, menus=menus)
+                                          hotspots=hotspots, menus=menus, gates_open=gates_open)
     return set(MYRRH_DUNGEONS) <= logic_reached
 
 

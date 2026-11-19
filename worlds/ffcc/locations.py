@@ -61,9 +61,18 @@ def monster_location(enemy: str) -> str:
     return MONSTER_HUNT_PREFIX + enemy
 
 
-def hunt_list(include_bosses: bool) -> list:
-    """The enemy types of the hunt, in the table's order."""
-    return [enemy for enemy, row in MONSTERS.items() if include_bosses or not row[1]]
+def first_hunt_cycle(enemy: str) -> int:
+    """The earliest cycle an enemy type of the Monster Hunt can be found in
+    (Mount Vellenge has a single cycle)."""
+    return min(1 if dungeon == "Mount Vellenge" else min(cycles)
+               for dungeon, cycles in MONSTERS[enemy][4].items())
+
+
+def hunt_list(include_bosses: bool, last_cycle: int = 3) -> list:
+    """The enemy types of the hunt, in the table's order. With `last_cycle`
+    (Later Cycles: Removed), only the types found by that cycle."""
+    return [enemy for enemy, row in MONSTERS.items()
+            if (include_bosses or not row[1]) and first_hunt_cycle(enemy) <= last_cycle]
 
 
 MONSTER_LOCATION_TABLE: dict[str, FFCCLocationData] = {

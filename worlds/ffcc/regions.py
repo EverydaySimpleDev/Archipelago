@@ -1,6 +1,6 @@
 from typing import NamedTuple
 from BaseClasses import MultiWorld, Region, Entrance
-from .options import FFCCGameOptions
+from .options import FFCCGameOptions, victory_goals, last_cycle, chests_are_checks
 from .locations import (FFCCLocation, FFCCLocationData, LOCATION_TABLE, location_groups, MONSTER_LOCATION_TABLE,
                         MOG_STAMP_NESTS, mog_stamp_location, GROOMING_LOCATIONS, GROOMING_LOCATION_TABLE,
                         ENEMY_LOCATION_TABLE, SHOP_LOCATION_TABLE, monster_location, hunt_list, enemy_is_boss)
@@ -37,11 +37,14 @@ def create_regions(multiworld: MultiWorld, player: int, options: FFCCGameOptions
         "Menu": FFCCRegionData([] if grooming_only else location_groups.get("Menu", []),
                                [f"Menu -> {d}" for d in dungeon_names]),
     }
+    final_cycle = last_cycle(options)
     for name in dungeon_names:
         locs = [] if grooming_only else location_groups.get(name, [])
-        if options.monster_hunt_checks or options.mog_grooming_only:
+        if not chests_are_checks(options):
             # enemies (or the Moogle) are the checks instead of chests
             locs = [loc for loc in locs if not LOCATION_TABLE[loc].chest]
+        # Later Cycles: Removed leaves the later cycles out (chests and "Cycle N Reached")
+        locs = [loc for loc in locs if LOCATION_TABLE[loc].cycle <= final_cycle]
         region_data[name] = FFCCRegionData(locs, [f"{name} -> Menu"])
 
     for name, data in region_data.items():
@@ -49,7 +52,7 @@ def create_regions(multiworld: MultiWorld, player: int, options: FFCCGameOptions
         if name in MYRRH_DUNGEONS and not grooming_only:
             # event: this dungeon's Myrrh tree (holds a "Myrrh Drop")
             region.locations.append(FFCCLocation(player, myrrh_location(name), region))
-        if options.victory_goal == options.victory_goal.option_mog_stamps:
+        if options.victory_goal.option_mog_stamps in victory_goals(options):
             # events: the Moogle Nests (each holds a "Mog Stamp"). A dungeon's
             # nest is in its region, a town's in Menu with its town's rule.
             for nest in MOG_STAMP_NESTS:
@@ -59,12 +62,13 @@ def create_regions(multiworld: MultiWorld, player: int, options: FFCCGameOptions
         if name == "Menu" and hunt == hunt.option_enemy_types:
             # an enemy type can be found in several dungeons, so its location
             # sits in Menu and its rule asks for any of them (rules.py)
-            for enemy in hunt_list(bool(options.monster_hunt_bosses)):
+            for enemy in hunt_list(bool(options.monster_hunt_bosses), final_cycle):
                 loc_name = monster_location(enemy)
                 region.locations.append(FFCCLocation(player, loc_name, region, MONSTER_LOCATION_TABLE[loc_name]))
         if hunt == hunt.option_every_enemy:
             for loc_name, loc_data in ENEMY_LOCATION_TABLE.items():
-                if loc_data.region == name and (options.monster_hunt_bosses or not enemy_is_boss(loc_name)):
+                if (loc_data.region == name and loc_data.cycle <= final_cycle
+                        and (options.monster_hunt_bosses or not enemy_is_boss(loc_name))):
                     region.locations.append(FFCCLocation(player, loc_name, region, loc_data))
         if name == "Menu":
             # Mog grooming checks: Tipa has a Moogle Nest, so they're in Menu

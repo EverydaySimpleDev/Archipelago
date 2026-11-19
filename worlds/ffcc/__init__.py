@@ -12,16 +12,17 @@ from worlds.Files import APPlayerContainer
 
 from .game_id import game_name
 from .presets import options_presets
-from .regions import create_regions, connect_entrances
+from .regions import create_regions, connect_entrances, is_check
 from .items import (FFCCItem, FFCCItemData, ITEM_TABLE, FILLER_ITEM_TABLE, TRAP_ITEMS, GROOMING_TOOLS, DYES,
                     ITEM_TABLE_DESC, LOOKUP_ID_TO_NAME, item_name_groups,
                     PROGRESSIVE_ARTIFACT_NAME, PROGRESSIVE_ARTIFACT_CODE, _ARTIFACTS,
                     CYCLE_PLACEHOLDER_ITEM, YEAR_PLACEHOLDER_ITEM, PROGRESSIVE_EQUIPMENT_COUNT,
-                    GIL_ITEMS)
+                    GIL_ITEMS, PROGRESSIVE_CYCLE, CYCLE_DUNGEONS, CYCLE_UNLOCK_COPIES, dungeon_cycle_item)
 from .locations import (FFCCLocation, LOCATION_TABLE, MONSTER_LOCATION_TABLE, ENEMY_LOCATION_TABLE,
                         SHOP_LOCATION_TABLE, SHOP_LOCATIONS, SHOPS, location_groups, GROOMING_LOCATION_TABLE,
                         chest_holds_item, shop_sells_item)
-from .options import FFCCGameOptions, FFCC_option_groups, SHORTCUT_OPTIONS, grooming_tools_on
+from .options import (FFCCGameOptions, FFCC_option_groups, SHORTCUT_OPTIONS, grooming_tools_on, victory_goals,
+                      tint_colours, last_cycle)
 from .rules import (set_rules, set_location_rules, layout_is_beatable, first_year_dungeons,
                     stage_key, SPOT_AREA, excluded_count, make_hotspots, VANILLA_HOTSPOTS,
                     make_menus, VANILLA_MENUS)
@@ -35,7 +36,7 @@ from .items import MYRRH_DROP, MYRRH_DROP_DATA, MOG_STAMP, MOG_STAMP_DATA, ARTIF
 
 EXTRA_RING_NAMES = {name for name, _ in EXTRA_SPELL_RINGS}
 
-VERSION: tuple = (0, 3, 0)
+VERSION: tuple = (0, 4, 0)
 
 IC = ItemClassification
 
@@ -198,11 +199,11 @@ class FFCCWorld(World):
     # Universal Tracker gets them back from there: it rebuilds the world with
     # default options, so without this its logic would not match the seed's.
     LOGIC_OPTIONS = (
-        "victory_goal", "progressive_artifacts", "progressive_equipment", "stage_keys",
-        "goblin_wall_year_one", "shuffle_loading_zones", "randomize_miasma_streams",
+        "victory_goal", "progressive_artifacts", "progressive_equipment", "stage_keys", "cycle_locks",
+        "goblin_wall_year_one", "shuffle_loading_zones", "randomize_miasma_streams", "skip_miasma_streams",
         "cycle_location_checks", "year_location_checks", "rebena_te_ra_timed_chests",
-        "progression_cycles", "include_traps", "monster_hunt_checks", "monster_hunt_bosses",
-        "shop_checks", "hotspot_elements", "extra_spell_rings", "gil_weight",
+        "progression_cycles", "later_cycles", "include_traps", "monster_hunt_checks", "monster_hunt_bosses",
+        "chest_checks", "shop_checks", "hotspot_elements", "extra_spell_rings", "gil_weight",
         "mog_grooming_goal", "mog_grooming_percent", "mog_grooming_checks", "mog_grooming_only",
     )
 
@@ -221,18 +222,20 @@ class FFCCWorld(World):
                 self.options.hotspot_elements.value = 1
                 tracker = dict(tracker, hotspot_table=tracker["hotspot_elements"],
                                menu_table=tracker.get("menu_elements"))
+            if isinstance(tracker.get("multiple_goals"), list):
+                self.options.multiple_goals.value = set(tracker["multiple_goals"])
             # the slot data has whether the tools are items, not the option
             if "grooming_tools" in tracker:
                 tools = self.options.grooming_tools
                 tools.value = tools.option_always if tracker["grooming_tools"] else tools.option_off
         if self.options.mog_grooming_only:
             # only the Moogle: the goal, the tools as items and every grooming
-            # check. no chests, shops, hunts, stage keys or cycle/year checks
+            # check. No chests, shops, hunts, stage keys or cycle/year checks.
             o = self.options
             o.victory_goal.value = o.victory_goal.option_mog_grooming
             o.grooming_tools.value = o.grooming_tools.option_always
             o.mog_grooming_checks.value = o.mog_grooming_checks.option_all
-            for name in ("monster_hunt_checks", "shop_checks", "stage_keys",
+            for name in ("monster_hunt_checks", "shop_checks", "stage_keys", "cycle_locks",
                          "cycle_location_checks", "year_location_checks"):
                 getattr(o, name).value = 0
         keys = bool(self.options.stage_keys)
@@ -245,6 +248,7 @@ class FFCCWorld(World):
         if shuffle_gates or shuffle_zones:
             self.options.goblin_wall_year_one.value = 1
         self.goblin_year1 = bool(self.options.goblin_wall_year_one)
+        gates_open = bool(self.options.skip_miasma_streams)
 
         # Miasma Stream elements [year % 4 row][gate slot], the world-map
         # layout {spot: dungeon}, the hotspot elements {dungeon: [year row]}
@@ -274,7 +278,7 @@ class FFCCWorld(World):
                 plan = dict(vanilla_plan, **dict(zip(self.SHUFFLED_SPOTS, dungeons)))
             hotspots = make_hotspots(hotspot_mode, gates, plan, self.random)
             menus = make_menus(hotspot_mode is not None, gates)
-            if layout_is_beatable(plan, gates, keys, self.goblin_year1, hotspots, menus):
+            if layout_is_beatable(plan, gates, keys, self.goblin_year1, hotspots, menus, gates_open):
                 self.gate_table, self.zone_plan, self.hotspots, self.menus = gates, plan, hotspots, menus
                 break
 
@@ -305,7 +309,7 @@ class FFCCWorld(World):
             # whose keys must turn up early, along with the Year 2 Key.
             early = self.multiworld.local_early_items[self.player]
             for dungeon in first_year_dungeons(self.zone_plan, self.gate_table, self.goblin_year1,
-                                               self.hotspots, self.menus):
+                                               self.hotspots, self.menus, gates_open):
                 early[stage_key(dungeon)] = 1
             early["Year 2 Key"] = 1
 
@@ -327,21 +331,22 @@ class FFCCWorld(World):
 
     def fill_slot_data(self) -> dict[str, Any]:
         data = self.options.as_dict(
-            "victory_goal", "progressive_artifacts", "include_traps",
+            "victory_goal", "multiple_goals", "progressive_artifacts", "include_traps",
             "frozen_trap_weight", "burned_trap_weight", "slowed_trap_weight",
             "poisoned_trap_weight", "chalice_element_trap_weight", "bonus_set_trap_weight",
             "food_preference_trap_weight", "command_slot_trap_weight", "death_link",
-            "stage_keys", "progressive_equipment", "extra_spell_rings",
+            "stage_keys", "progressive_equipment", "extra_spell_rings", "cycle_locks", "cycle_select",
             # options the logic depends on, for Universal Tracker
-            "goblin_wall_year_one", "shuffle_loading_zones", "randomize_miasma_streams",
+            "goblin_wall_year_one", "shuffle_loading_zones", "randomize_miasma_streams", "skip_miasma_streams",
             "cycle_location_checks", "year_location_checks", "rebena_te_ra_timed_chests",
-            "progression_cycles", "magicite_needs_ring", "hide_collected_chests",
+            "progression_cycles", "later_cycles", "chest_checks", "magicite_needs_ring", "hide_collected_chests",
             "items_dropped_at_your_feet", "keep_picked_up_artifacts", "free_cure_magicite",
             "monster_hunt_checks", "monster_hunt_bosses", "shop_checks", "hotspot_elements",
             "mog_stamp_hints", "lynari_desert_north_exit", "gil_weight", "item_messages",
             "mog_grooming_goal", "mog_grooming_percent", "mog_grooming_checks", "mog_grooming_only",
         )
         data["progressive_artifact_order"] = self.artifact_order
+        data["victory_goals"] = sorted(victory_goals(self.options))
         # the tools are items (the option, worked out with the goal)
         data["grooming_tools"] = grooming_tools_on(self.options)
         data["bonus_pools"] = self.bonus_pools
@@ -355,6 +360,8 @@ class FFCCWorld(World):
             data["stamp_hints"] = self.stamp_hints()
         if self.start_dye:
             data["grooming_start_dye"] = self.start_dye
+        # Monster Hunt Tint: [progression, useful, filler, trap] colours for the client
+        data["monster_hunt_tint"] = tint_colours(self.options)
 
         return data
 
@@ -371,16 +378,18 @@ class FFCCWorld(World):
         for dungeon in MYRRH_DUNGEONS:
             self.multiworld.get_location(myrrh_location(dungeon), self.player).place_locked_item(
                 FFCCItem(MYRRH_DROP, self.player, MYRRH_DROP_DATA))
-        if self.options.victory_goal == self.options.victory_goal.option_mog_stamps:
+        if self.options.victory_goal.option_mog_stamps in victory_goals(self.options):
             for nest in MOG_STAMP_NESTS:
                 self.multiworld.get_location(mog_stamp_location(nest), self.player).place_locked_item(
                     FFCCItem(MOG_STAMP, self.player, MOG_STAMP_DATA))
         # events when their option is off (regions.is_check), so their
-        # placeholder is an event item too (no item id)
+        # placeholder is an event item too (no item id). Later Cycles: Removed
+        # leaves the later cycles' "Cycle N Reached" out.
         cycle_placeholder = ITEM_TABLE[CYCLE_PLACEHOLDER_ITEM]._replace(code=None)
         year_placeholder = ITEM_TABLE[YEAR_PLACEHOLDER_ITEM]._replace(code=None)
+        final_cycle = last_cycle(self.options)
         for name, loc_data in LOCATION_TABLE.items():
-            if not loc_data.is_event:
+            if not loc_data.is_event or (loc_data.region != "Menu" and loc_data.cycle > final_cycle):
                 continue
             loc = self.multiworld.get_location(name, self.player)
             if loc_data.region == "Menu":
@@ -388,7 +397,7 @@ class FFCCWorld(World):
                     loc.place_locked_item(
                         FFCCItem(YEAR_PLACEHOLDER_ITEM, self.player, year_placeholder))
             else:
-                if not self.options.cycle_location_checks:
+                if not is_check(loc_data, self.options):
                     loc.place_locked_item(
                         FFCCItem(CYCLE_PLACEHOLDER_ITEM, self.player, cycle_placeholder))
         self.multiworld.itempool += _create_item_pool(self)
@@ -465,14 +474,15 @@ class FFCCWorld(World):
                 "frozen_trap_weight", "burned_trap_weight", "slowed_trap_weight",
                 "poisoned_trap_weight", "chalice_element_trap_weight", "bonus_set_trap_weight",
                 "food_preference_trap_weight", "command_slot_trap_weight", "death_link",
-                "stage_keys", "extra_spell_rings", "shuffle_loading_zones",
-                "randomize_miasma_streams", "goblin_wall_year_one", "mog_never_tired",
+                "stage_keys", "extra_spell_rings", "shuffle_loading_zones", "cycle_select", "cycle_locks",
+                "randomize_miasma_streams", "skip_miasma_streams", "goblin_wall_year_one", "mog_never_tired",
                 "skip_intro_cutscene", "skip_mio_questions", "trap_visuals",
                 "items_dropped_at_your_feet", "keep_picked_up_artifacts", "randomize_shops", "show_enemy_health",
-                "show_play_timer",
+                "show_play_timer", "all_in_one_radar", "gba_bonus_pool", "gba_enemy_drops",
                 "randomize_shop_prices", "randomize_bonus_pools", "chest_color_matches_contents",
                 "hide_collected_chests", "magicite_needs_ring", "best_bonus_tier",
-                "monster_hunt_checks", "shop_checks",
+                "monster_hunt_checks", "monster_hunt_tint", "shop_checks", "chest_checks",
+                "progression_cycles", "later_cycles",
                 *SHORTCUT_OPTIONS,
             ),
             # {spot: dungeon} for the patcher (same names the randomizer's JSON uses)
@@ -499,7 +509,6 @@ class FFCCWorld(World):
         # AP_<seed>_P<slot>_<name>.apffcc - the standard name, so a room offers it
         # as the player's download. The placement data inside keeps the .ffcc
         # name, which every version of the randomizer looks for.
-        # as the player's download
         base = multiworld.get_out_file_name_base(player)
         container = FFCCContainer(
             {f"{base}.ffcc": json.dumps(output_data, indent=2)},
@@ -545,6 +554,8 @@ def _create_item_pool(world: "FFCCWorld") -> list[Item]:
             continue  # handled separately below. Placeholders are pre-placed at event locs
         if data.type == "Stage Key" and not world.options.stage_keys:
             continue
+        if data.type == "Cycle Unlock":
+            continue  # added below with Cycle Locks
         if data.type == "Grooming Tool" and not grooming_tools_on(world.options):
             continue
         if name in EXTRA_RING_NAMES and not world.options.extra_spell_rings:
@@ -560,6 +571,16 @@ def _create_item_pool(world: "FFCCWorld") -> list[Item]:
         pa_data = ITEM_TABLE[PROGRESSIVE_ARTIFACT_NAME]
         for _ in range(len(_ARTIFACTS)):
             pool.append(FFCCItem(PROGRESSIVE_ARTIFACT_NAME, world.player, pa_data))
+
+    # Cycle Locks: two unlocks (Cycle 2, then 3), for every dungeon at once or
+    # one set per dungeon. Later Cycles: Removed only adds the cycles still in the seed.
+    locks = world.options.cycle_locks
+    if locks:
+        names = [PROGRESSIVE_CYCLE] if locks == locks.option_global else [
+            dungeon_cycle_item(dungeon) for dungeon in CYCLE_DUNGEONS]
+        for name in names:
+            for _ in range(min(CYCLE_UNLOCK_COPIES, last_cycle(world.options) - 1)):
+                pool.append(FFCCItem(name, world.player, ITEM_TABLE[name]))
 
     # Progressive equipment: one copy per upgrade step
     if world.options.progressive_equipment:

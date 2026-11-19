@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup
+from Options import Toggle, Range, Choice, PerGameCommonOptions, DefaultOnToggle, DeathLink, OptionGroup, OptionSet
 
 
 class VictoryGoal(Choice):
@@ -11,14 +11,33 @@ class VictoryGoal(Choice):
       "Monster Hunt Bosses").
     - **Mog Stamps:** collect all 23 Mog Stamps from the Moogle Nests.
     - **Mog Grooming:** dye or trim a Moogle's fur in any Moogle Nest (see "Mog
-      Grooming Goal" and "Mog Grooming Percent")."""
+      Grooming Goal" and "Mog Grooming Percent").
+    - **Multiple:** every goal picked in "Multiple Goals" (all of them unless
+      some are removed)."""
     display_name = "Victory Goal"
     option_all_myrrh = 0
     option_final_boss = 1
     option_monster_hunt = 2
     option_mog_stamps = 3
     option_mog_grooming = 4
+    option_multiple = 5
     default = 0
+
+
+# Multiple Goals' names -> the VictoryGoal value of that goal
+GOAL_NAMES = {"All Myrrh": 0, "Final Boss": 1, "Monster Hunt": 2, "Mog Stamps": 3, "Mog Grooming": 4}
+
+class MultipleGoals(OptionSet):
+    """With Victory Goal set to Multiple, the goals to complete: All Myrrh,
+    Final Boss, Monster Hunt, Mog Stamps and Mog Grooming. Every goal is in by
+    default, so remove the ones you don't want. The seed is won once every
+    goal left is done, in any order. The client remembers each goal as it's
+    finished, so beating the final boss first still counts after the
+    credits. Leaving none means All Myrrh. Ignored with any other Victory
+    Goal."""
+    display_name = "Multiple Goals"
+    valid_keys = frozenset(GOAL_NAMES)
+    default = frozenset(GOAL_NAMES)
 
 
 class MogGroomingGoal(Choice):
@@ -107,13 +126,29 @@ class ProgressiveArtifactOrder(Choice):
 
 
 class ProgressionCycles(Range):
-    """How many cycles of each dungeon can hold progression and useful items.
-    Chests in later cycles are still checks, but they only hold filler, so you
-    never need to play those cycles. 3 = every cycle."""
+    """How many cycles of each dungeon can hold progression and useful items,
+    so you never need to play the cycles after it. 3 = every cycle. What
+    happens to the later cycles' checks is set by "Later Cycles"."""
     display_name = "Progression Cycles"
     range_start = 1
     range_end = 3
     default = 3
+
+
+class LaterCycles(Choice):
+    """What happens to the checks in the cycles after "Progression Cycles".
+
+    - **Filler:** they stay in the seed but only hold filler, so collecting
+      them is optional.
+    - **Removed:** they aren't in the seed at all: no chests, enemies or
+      "Cycle N Reached" checks from those cycles, and the Monster Hunt goal
+      leaves out enemy types found only there. Their chests are empty. With
+      Cycle Locks, only the unlocks for the cycles still in the seed are
+      added."""
+    display_name = "Later Cycles"
+    option_filler = 0
+    option_removed = 1
+    default = 0
 
 
 class CycleLocationChecks(Toggle):
@@ -174,6 +209,70 @@ class MonsterHuntBosses(DefaultOnToggle):
     display_name = "Monster Hunt Bosses"
 
 
+class MonsterHuntTint(DefaultOnToggle):
+    """With Monster Hunt Checks, enemies whose check isn't done yet glow in a
+    colour: the colour of the kind of item the check holds (Progression Tint,
+    Useful Tint, Filler Tint and Trap Tint). Enemies whose checks are all done
+    look as usual."""
+    display_name = "Monster Hunt Tint"
+
+
+class ChestChecks(DefaultOnToggle):
+    """With Monster Hunt Checks, the chests are checks too, so a seed has both
+    the chests and the enemies. Off: only the enemies are checks, and the
+    chests are emptied and hidden. Without Monster Hunt Checks the chests
+    are always checks."""
+    display_name = "Chest Checks"
+
+
+# Tint colours: name -> (R, G, B)
+TINT_COLOURS = {
+    "red": (255, 70, 70), "orange": (255, 150, 50), "gold": (255, 215, 60),
+    "green": (90, 230, 90), "cyan": (70, 220, 230), "blue": (90, 170, 255),
+    "purple": (190, 110, 255), "pink": (255, 120, 200), "white": (255, 255, 255),
+}
+
+
+class TintColour(Choice):
+    """A Monster Hunt Tint colour. None leaves those enemies as they are."""
+    option_none = 0
+    option_red = 1
+    option_orange = 2
+    option_gold = 3
+    option_green = 4
+    option_cyan = 5
+    option_blue = 6
+    option_purple = 7
+    option_pink = 8
+    option_white = 9
+
+
+class ProgressionTint(TintColour):
+    """The Monster Hunt Tint of enemies whose check holds a progression item."""
+    display_name = "Progression Tint"
+    default = TintColour.option_gold
+
+
+class UsefulTint(TintColour):
+    """The Monster Hunt Tint of enemies whose check holds a useful item."""
+    display_name = "Useful Tint"
+    default = TintColour.option_blue
+
+
+class FillerTint(TintColour):
+    """The Monster Hunt Tint of enemies whose check holds any other item."""
+    display_name = "Filler Tint"
+    default = TintColour.option_white
+
+
+class TrapTint(TintColour):
+    """The Monster Hunt Tint of enemies whose check holds a trap. Same As
+    Progression makes traps look worth getting, as the chests do."""
+    display_name = "Trap Tint"
+    option_same_as_progression = 10
+    default = 10
+
+
 class StageKeys(Toggle):
     """Every dungeon except River Belle Path needs its own key to enter.
     The 13 keys are shuffled into the item pool. The element menus on the
@@ -181,6 +280,31 @@ class StageKeys(Toggle):
     and without clearing the stage first, so the element a Miasma Stream asks
     for can always be picked up without a key."""
     display_name = "Stage Keys"
+
+
+class CycleSelect(DefaultOnToggle):
+    """When entering a dungeon that has reached Cycle 2 or 3, a menu asks which
+    of its reached cycles to play ("Which cycle?"), so earlier cycles' chests
+    can be gone back for. The dungeon's own cycle comes back when you leave."""
+    display_name = "Cycle Select"
+
+
+class CycleLocks(Choice):
+    """A dungeon's Cycle 2 and 3 need items instead of years. The cycle menu
+    offers the cycles unlocked, and a dungeon with none unlocked is always
+    played on Cycle 1.
+
+    - **Off:** cycles are normal
+    - **Global:** 2 Progressive Cycle items. Each unlocks the next cycle in
+      every dungeon.
+    - **Per Dungeon:** 2 Progressive Cycle items for each dungeon (26 items),
+      e.g. "Progressive Tida Cycle". Mount Vellenge has a single cycle."""
+
+    display_name = "Cycle Locks"
+    option_off = 0
+    option_global = 1
+    option_per_dungeon = 2
+    default = 0
 
 
 class ProgressiveEquipment(Toggle):
@@ -281,6 +405,15 @@ class RandomizeMiasmaStreams(Toggle):
     display_name = "Randomize Miasma Streams"
 
 
+class SkipMiasmaStreams(Toggle):
+    """Entering a Miasma Stream takes the caravan straight to the other side,
+    whatever element the chalice holds, so a wrong element can never leave you
+    stuck behind a stream. The logic then never asks for an element to reach an
+    area. The Mystery Miasma Stream to the Abyss still needs Unknown. Entering
+    a Miasma Stream shows a loading (black) screen of about 20 seconds."""
+    display_name = "Skip Miasma Streams"
+
+
 class HotspotElements(Choice):
     """Change the elements each dungeon's hotspots (the elemental pools)
     give, every year. A dungeon keeps its usual number of different elements,
@@ -327,7 +460,7 @@ class HideCollectedChests(DefaultOnToggle):
     """A chest doesn't appear once its check for the dungeon's current cycle is
     done, so only chests with something left to find show up. Each cycle has
     its own checks, so a chest comes back in a cycle where it hasn't been
-    checked yet. Just in case the player wants to keep farming the cycles chests for items."""
+    checked yet, which lets you keep farming each cycle's chests for items."""
     display_name = "Hide Collected Chests"
 
 
@@ -353,6 +486,39 @@ class ShowEnemyHealth(Choice):
     alias_true = 2
     alias_false = 0
     default = 0
+
+
+class AllInOneRadar(Toggle):
+    """The GBA radar shows the area map, its exits, enemies and treasure chests
+    together, instead of the one kind of radar the game hands out (in single
+    player, picked by how you brushed the Moogle).
+
+    The radar is on a GBA: in single player, a GBA in controller port 2 (in
+    Dolphin, set Port 2 to **GBA (Integrated)** and give it a GBA BIOS). In
+    multiplayer every player's GBA shows it."""
+    display_name = "All-in-One GBA Radar"
+
+
+class GbaBonusPoolPages(Toggle):
+    """Press A on the GBA radar to see the dungeon's end-of-stage bonus items:
+    one page per bonus tier, with the 4 items that tier offers on the dungeon's
+    current cycle and the points it needs. A turns the page, B goes back to
+    the radar.
+
+    For single player, with a GBA in controller port 2 (see All-in-One GBA
+    Radar)."""
+    display_name = "GBA Bonus Pool Pages"
+
+
+class GbaEnemyDropsPages(Toggle):
+    """Press A on the GBA radar to see the artifacts this area's enemies
+    carry, each with the kind of enemy carrying it. An enemy's drop is picked
+    when it appears, so this is what it will drop. A turns the page, B goes
+    back to the radar.
+
+    For single player, with a GBA in controller port 2 (see All-in-One GBA
+    Radar)."""
+    display_name = "GBA Enemy Drops Pages"
 
 
 class ShowPlayTimer(Choice):
@@ -437,7 +603,7 @@ class KeepPickedUpArtifacts(DefaultOnToggle):
 
 
 class RandomizeShops(Toggle):
-    """Shuffle what each shop sells. Does not currently have location checks so may break things currently"""
+    """Shuffle what each shop sells. It has no location checks yet, so it may break things."""
     display_name = "Randomize Shops"
 
 
@@ -586,6 +752,7 @@ class StartingHearts(Range):
 @dataclass
 class FFCCGameOptions(PerGameCommonOptions):
     victory_goal:                VictoryGoal
+    multiple_goals:              MultipleGoals
     mog_grooming_goal:           MogGroomingGoal
     mog_grooming_percent:        MogGroomingPercent
     grooming_tools:              GroomingTools
@@ -595,15 +762,25 @@ class FFCCGameOptions(PerGameCommonOptions):
     progressive_artifact_order:  ProgressiveArtifactOrder
     progressive_equipment:       ProgressiveEquipment
     progression_cycles:          ProgressionCycles
+    later_cycles:                LaterCycles
     cycle_location_checks:       CycleLocationChecks
     year_location_checks:        YearLocationChecks
     shop_checks:                 ShopChecks
     mog_stamp_hints:             MogStampHints
     monster_hunt_checks:         MonsterHuntChecks
     monster_hunt_bosses:         MonsterHuntBosses
+    monster_hunt_tint:           MonsterHuntTint
+    chest_checks:                ChestChecks
+    progression_tint:            ProgressionTint
+    useful_tint:                 UsefulTint
+    filler_tint:                 FillerTint
+    trap_tint:                   TrapTint
     stage_keys:                  StageKeys
+    cycle_locks:                 CycleLocks
+    cycle_select:                CycleSelect
     shuffle_loading_zones:       ShuffleLoadingZones
     randomize_miasma_streams:    RandomizeMiasmaStreams
+    skip_miasma_streams:         SkipMiasmaStreams
     hotspot_elements:            HotspotElements
     goblin_wall_year_one:        GoblinWallYearOne
     rebena_te_ra_timed_chests:   RebenaTeRaTimedChests
@@ -619,6 +796,9 @@ class FFCCGameOptions(PerGameCommonOptions):
     free_cure_magicite:          FreeCureMagicite
     show_enemy_health:           ShowEnemyHealth
     show_play_timer:             ShowPlayTimer
+    all_in_one_radar:            AllInOneRadar
+    gba_bonus_pool:              GbaBonusPoolPages
+    gba_enemy_drops:             GbaEnemyDropsPages
     item_messages:               ItemMessages
     extra_spell_rings:           ExtraSpellRings
     best_bonus_tier:             BestBonusTier
@@ -653,17 +833,20 @@ class FFCCGameOptions(PerGameCommonOptions):
 
 
 FFCC_option_groups = [
-    OptionGroup("General", [VictoryGoal, ProgressiveArtifacts, ProgressiveArtifactOrder, ProgressiveEquipment,
-                            ProgressionCycles, CycleLocationChecks, YearLocationChecks, ShopChecks,
+    OptionGroup("General", [VictoryGoal, MultipleGoals, ProgressiveArtifacts, ProgressiveArtifactOrder, ProgressiveEquipment,
+                            ProgressionCycles, LaterCycles, CycleLocationChecks, YearLocationChecks, ShopChecks,
                             MogStampHints]),
-    OptionGroup("Monster Hunt", [MonsterHuntChecks, MonsterHuntBosses]),
+    OptionGroup("Monster Hunt", [MonsterHuntChecks, MonsterHuntBosses, ChestChecks, MonsterHuntTint,
+                                 ProgressionTint, UsefulTint, FillerTint, TrapTint]),
     OptionGroup("Mog Grooming", [MogGroomingGoal, MogGroomingPercent, GroomingTools, MogGroomingChecks,
                                  MogGroomingOnly]),
-    OptionGroup("Progression", [StageKeys, ShuffleLoadingZones, RandomizeMiasmaStreams, HotspotElements,
-                                GoblinWallYearOne, RebenaTeRaTimedChests]),
-    OptionGroup("Gameplay", [ItemsDroppedAtYourFeet, KeepPickedUpArtifacts, MogNeverTired, SkipIntroCutscene,
+    OptionGroup("Progression", [StageKeys, CycleLocks, ShuffleLoadingZones, RandomizeMiasmaStreams,
+                                SkipMiasmaStreams, HotspotElements, GoblinWallYearOne, RebenaTeRaTimedChests]),
+    OptionGroup("Gameplay", [CycleSelect, ItemsDroppedAtYourFeet, KeepPickedUpArtifacts, MogNeverTired,
+                             SkipIntroCutscene,
                              SkipMioQuestions, TrapVisuals, ChestColorMatchesContents, HideCollectedChests,
-                             MagiciteNeedsRing, FreeCureMagicite, ShowEnemyHealth, ShowPlayTimer, ItemMessages,
+                             MagiciteNeedsRing, FreeCureMagicite, ShowEnemyHealth, ShowPlayTimer, AllInOneRadar,
+                             GbaBonusPoolPages, GbaEnemyDropsPages, ItemMessages,
                              ExtraSpellRings, BestBonusTier, RandomizeShops, RandomizeShopPrices, RandomizeBonusPools,
                              GilWeight]),
     OptionGroup("Characters", [StartingStats, StartingStatsMinimum, StartingStatsMaximum, StartingHearts]),
@@ -693,11 +876,52 @@ SHORTCUT_OPTIONS = (
 )
 
 
+def last_cycle(options: "FFCCGameOptions") -> int:
+    """The last cycle with checks: Progression Cycles when Later Cycles is
+    Removed, otherwise 3."""
+    later = getattr(options, "later_cycles", None)
+    if later is not None and later.value == LaterCycles.option_removed:
+        return options.progression_cycles.value
+    return 3
+
+
+def chests_are_checks(options: "FFCCGameOptions") -> bool:
+    """False when Monster Hunt Checks has Chest Checks off, or with Mog
+    Grooming Only: the chests are then emptied and hidden."""
+    if getattr(options, "mog_grooming_only", False):
+        return False
+    return not getattr(options, "monster_hunt_checks", False) or bool(getattr(options, "chest_checks", True))
+
+
 def grooming_tools_on(options: "FFCCGameOptions") -> bool:
     """True if the grooming tools are items in this seed."""
     tools = options.grooming_tools
     return tools == tools.option_always or (
-        tools == tools.option_with_goal and options.victory_goal == VictoryGoal.option_mog_grooming)
+        tools == tools.option_with_goal and VictoryGoal.option_mog_grooming in victory_goals(options))
+
+
+def tint_colours(options: "FFCCGameOptions") -> list[list[int] | None] | None:
+    """The Monster Hunt Tint colours, [progression, useful, filler, trap] as
+    [R, G, B] or None (no tint), or None when there's no tint at all."""
+    if not options.monster_hunt_tint or not options.monster_hunt_checks:
+        return None
+
+    def rgb(option: TintColour) -> list[int] | None:
+        name = option.current_key
+        return list(TINT_COLOURS[name]) if name in TINT_COLOURS else None
+
+    progression = rgb(options.progression_tint)
+    trap = progression if options.trap_tint == TrapTint.option_same_as_progression else rgb(options.trap_tint)
+    return [progression, rgb(options.useful_tint), rgb(options.filler_tint), trap]
+
+
+def victory_goals(options: "FFCCGameOptions") -> set[int]:
+    """Every goal of this seed (VictoryGoal values): the Victory Goal, or with
+    Multiple the goals left in Multiple Goals (none = All Myrrh)."""
+    goal = options.victory_goal
+    if goal != goal.option_multiple:
+        return {goal.value}
+    return {GOAL_NAMES[name] for name in options.multiple_goals.value} or {goal.option_all_myrrh}
 
 
 def grooming_location_kinds(options: "FFCCGameOptions") -> set[str]:

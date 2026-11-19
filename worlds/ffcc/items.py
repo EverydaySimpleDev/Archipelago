@@ -242,6 +242,22 @@ STAGE_KEYS = [
 ]
 _STAGE_KEY_CODES = range(0x210, 0x210 + len(STAGE_KEYS))
 
+# Cycle unlocks (option Cycle Locks): each copy unlocks the next cycle, so two
+# copies give Cycle 3. Global uses one item for every dungeon, Per Dungeon one
+# item for each dungeon, in the game's dungeon order.
+PROGRESSIVE_CYCLE = "Progressive Cycle"
+_PROGRESSIVE_CYCLE_CODE = 0x22b
+CYCLE_DUNGEONS = [
+    "River Belle Path", "Goblin Wall", "The Mine of Cathuriges", "The Mushroom Forest",
+    "Tida", "Moschet Manor", "Mount Kilanda", "Daemon's Court", "Selepation Cave",
+    "Veo Lu Sluice", "Lynari Desert", "Conall Curach", "Rebena Te Ra",
+]
+_DUNGEON_CYCLE_CODES = range(0x230, 0x230 + len(CYCLE_DUNGEONS))
+CYCLE_UNLOCK_COPIES = 2
+
+def dungeon_cycle_item(dungeon: str) -> str:
+    return f"Progressive {dungeon} Cycle"      # e.g. "Progressive Tida Cycle"
+
 #  Myrrh Drop (event)
 # Collected at each dungeon's Myrrh tree. The rules count them to know how
 # many years the chalice can be filled.
@@ -345,6 +361,9 @@ def _build_item_table() -> dict:
         table[name] = FFCCItemData("Year Key", IC.progression, code, None)
     for (name, iid), code in zip(STAGE_KEYS, _STAGE_KEY_CODES):
         table[name] = FFCCItemData("Stage Key", IC.progression, code, iid)
+    table[PROGRESSIVE_CYCLE] = FFCCItemData("Cycle Unlock", IC.progression, _PROGRESSIVE_CYCLE_CODE, None)
+    for dungeon, code in zip(CYCLE_DUNGEONS, _DUNGEON_CYCLE_CODES):
+        table[dungeon_cycle_item(dungeon)] = FFCCItemData("Cycle Unlock", IC.progression, code, None)
     for name, code in PROGRESSIVE_EQUIPMENT:
         table[name] = FFCCItemData("Progressive Equipment", IC.useful, code, None)
     for name, code, _ in GIL_ITEMS:
@@ -392,6 +411,7 @@ item_name_groups: dict[str, set] = {
     "Recipes":    {n for n, d in ITEM_TABLE.items() if d.type == "Recipe"},
     "Traps":      {n for n, d in ITEM_TABLE.items() if d.type == "Trap"},
     "Stage Keys": {n for n, d in ITEM_TABLE.items() if d.type == "Stage Key"},
+    "Cycle Unlocks": {n for n, d in ITEM_TABLE.items() if d.type == "Cycle Unlock"},
     "Progressive Equipment": {n for n, d in ITEM_TABLE.items() if d.type == "Progressive Equipment"},
     "Gil": {n for n, d in ITEM_TABLE.items() if d.type == "Gil"},
     "Grooming Tools": {n for n, d in ITEM_TABLE.items() if d.type == "Grooming Tool"},

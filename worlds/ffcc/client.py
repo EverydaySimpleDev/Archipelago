@@ -34,7 +34,8 @@ except ModuleNotFoundError:
 from .game_id import game_name
 from .items import (ITEM_TABLE, LOOKUP_ID_TO_NAME, PROGRESSIVE_ARTIFACT_ORDER, PROGRESSIVE_ARTIFACT_NAME,
                     GROOMING_TOOLS,
-                    STAGE_KEYS, EXTRA_SPELL_RINGS, GIL_AMOUNT)
+                    STAGE_KEYS, EXTRA_SPELL_RINGS, GIL_AMOUNT,
+                    PROGRESSIVE_CYCLE, CYCLE_DUNGEONS, dungeon_cycle_item)
 from .locations import (LOCATION_TABLE, FFCCLocationData, MONSTER_LOCATION_TABLE, MONSTERS, ENEMIES,
                         ENEMY_LOCATION_TABLE, monster_location, hunt_list, SHOP_LOCATIONS, SHOPS,
                         MOG_STAMP_NESTS, MOG_STAMP_BITS, mog_stamp_bit, FFCCLocation, GROOMING_LOCATIONS,
@@ -124,7 +125,7 @@ ADDR_ITEMS_DELIVERED = 0x8021f220
 
 # HUD: boxes of text the game draws from a table
 # of slots. Item messages use slots 1-3 as lines at the bottom of the screen,
-# the newest at the bottom and slot 0 is the play timer's. A slot is 0x60 bytes:
+# the newest at the bottom. Slot 0 is the play timer's. A slot is 0x60 bytes:
 # +0 flags (1 shown, 2 box), +1 font palette, +2 frames left (the game hides
 # the slot when it runs out), +4 box x, y, width, height, +0x14 text x, y,
 # scale (floats, the screen is 640 x 448), +0x20 border, fill and text
@@ -163,14 +164,16 @@ GROOMING_HOOK_WORD = 0x480c94bd
 # sets it on every grooming stroke and keeps it in the save.
 ADDR_MOG_RADAR = 0x8021f25d
 
-# "Hide Collected Chests": each dungeon's chest mask for its current cycle
+# "Hide Collected Chests": each dungeon's chest mask for its current cycle.
 # The patched dungeon scripts add the mask to the chests' "opened"
-# bits as an area loads, so those chests don't appear
+# bits as an area loads, so those chests don't appear.
 ADDR_EVENT_WORK = 0x8021f054
 CHEST_MASK_SLOT = 180
 
+CYCLE_UNLOCK_SLOT = 128
+
 # Live monsters: 64 records of 0x110 bytes. In each, +0x10 is the
-# monster id (the same number as in the dungeon scripts' SPAWN records,
+# monster id (the same number as in the dungeon scripts' SPAWN records),
 # +0x1A max HP and +0x1C HP. When a monster dies its HP
 # drops to 0 and stays there until the next area reuses the record.
 ADDR_MONSTER_WORK = 0x80226020
@@ -178,6 +181,19 @@ MONSTER_WORK_SIZE = 0x110
 MONSTER_SLOTS = 64
 MONSTER_ID = 0x10
 MONSTER_MAX_HP = 0x1A
+
+ADDR_TINT_TABLE = 0x801a9eec
+ADDR_AREA = 0x8021f256
+ADDR_TINT_HOOK = 0x80074344
+TINT_HOOK_WORD = 0x48135bc5
+MONSTER_DISPLAY_FLAGS = 0x60
+TINT_SHIFT = 28
+TINT_MASK = 7 << TINT_SHIFT
+TINT_GLOW = 150
+
+TINT_PROGRESSION, TINT_USEFUL, TINT_FILLER, TINT_TRAP = 1, 2, 3, 4
+
+ITEM_FLAG_PROGRESSION, ITEM_FLAG_USEFUL, ITEM_FLAG_TRAP = 0b001, 0b010, 0b100
 MONSTER_HP = 0x1C
 
 # Monsters that never reach 0 HP: at 1 HP the Lamia Queen (Moschet Manor)
@@ -218,6 +234,10 @@ for _dungeon, _members, _spots in ENEMY_GROUPS:
             AMBUSH_IDS.setdefault(_dungeon, []).append((_monster_id, _ap_ids))
         else:
             ENEMY_SPOTS.setdefault(_dungeon, []).append((_monster_id, _spot, _ap_ids))
+
+# every Monster Hunt location (Enemy Types and Every Enemy)
+HUNT_LOCATION_IDS = ({2326528 + data.code for data in MONSTER_LOCATION_TABLE.values()}
+                     | {2326528 + row[0] for row in ENEMIES.values()})
 
 # in-game item id -> item name
 ITEM_NAME_BY_ID: dict[int, str] = {d.item_id: n for n, d in ITEM_TABLE.items() if d.item_id is not None}
@@ -511,7 +531,7 @@ def _get_bit(data: bytes, byte_offset: int, bit_index: int) -> bool:
 
 
 def _add_bag_item(item_id: int) -> bool:
-    """Put an item in the first empty inventory slot and count it but False if the inventory is full."""
+    """Put an item in the first empty inventory slot and count it. False if the inventory is full."""
     count = _read_short(ADDR_ITEM_COUNT)
     if count >= INVENTORY_SLOTS:
         return False
@@ -834,7 +854,7 @@ class FFCCCommandProcessor(BaseCommandProcessor):
             entries = self.ctx.bonus_pools.get(dungeon, [])
             picked = ((self.ctx.stored_data.get(_bonus_key(self.ctx)) or {}).get(dungeon) or {}).get("picked", [])
             reached = max((t for t in range(4) if score * PLAYER_FACTOR[0] >= thresholds[t]), default=0)
-            logger.info(f"{dungeon} bonus rewards, Cycle {cycle} (points needed solo; * = collected):")
+            logger.info(f"{dungeon} bonus rewards, Cycle {cycle} (points needed solo, * = collected):")
             for tier in range(4):
                 entry = entries[offered_entry(cycle, tier)]
                 names = ", ".join(item_name(v) + ("*" if v in picked else "") for v in entry)
@@ -942,7 +962,7 @@ class FFCCCommandProcessor(BaseCommandProcessor):
             logger.info("Connect to the server first.")
             return False
         ctx = self.ctx
-        wanted = hunt_list(ctx.monster_hunt_bosses)
+        wanted = hunt_list(ctx.monster_hunt_bosses, ctx.hunt_last_cycle)
         done = _defeated(ctx)
         logger.info(f"Monster Hunt: {sum(1 for e in wanted if e in done)}/{len(wanted)} enemy types defeated")
         left: dict[str, list[str]] = {}
@@ -975,7 +995,7 @@ class FFCCContext(BaseContext):
         self.current_year:     int | None = None
         self.prev_chest_flags: bytes = bytes(8)
         self.received_index:   int = 0  # items processed so far
-        self.victory: int = 0
+        self.victory_goals: set[int] = {0}    # VictoryGoal values: every goal of the seed
 
         # Settings loaded from slot_data
         self.progressive_artifacts: bool = False
@@ -993,8 +1013,12 @@ class FFCCContext(BaseContext):
         self.dropping:              int | None = None              # item id waiting to be dropped
         self.last_dropped:          tuple[int, str] | None = None  # (item id, name), for /resend
         self.monster_hunt_bosses:   bool = True
+        self.hunt_last_cycle:       int = 3     # Later Cycles: Removed leaves out types found only after it
         self.monster_hp:            dict[int, tuple[int, int, int]] = {}  # slot -> (owner, id, HP) last seen
         self.group_spots_done:      set[tuple] = set()  # switch-group spots credited this dungeon visit
+        self.monster_tint:          list | None = None  # Monster Hunt Tint colours, None = off
+        self.tint_checks:           dict[tuple[int, int, int], list[int]] = {}  # (slot, owner, id) -> its AP ids
+        self.tint_area:             int | None = None  # the area tint_checks belongs to
         self.in_town:               bool = False
         self.shop_checks:           bool = False
         self.stamp_hints:           list[list[int]] = []   # [player, location] of own progression items
@@ -1003,6 +1027,7 @@ class FFCCContext(BaseContext):
         self.shop_gil:              int | None = None   # gil last seen with a shop open
         self.shop_buying:           int | None = None   # slot on the yes/no screen
         self.hide_collected_chests: bool = False
+        self.cycle_locks:      int = 0      # option Cycle Locks: 0 off, 1 global, 2 per dungeon
         self.bonus_pools:           dict[str, list[list[int]]] = make_bonus_pools()
         self.bonus_recorded:        tuple[str, int, int] | None = None  # last pick sent
         self.reported_live:         dict[str, Any] | None = None        # last live score sent
@@ -1046,13 +1071,23 @@ class FFCCContext(BaseContext):
             self.progressive_artifacts = bool(slot_data.get("progressive_artifacts", False))
             self.magicite_needs_ring = bool(slot_data.get("magicite_needs_ring", False))
             self.hide_collected_chests = bool(slot_data.get("hide_collected_chests", False))
+            self.cycle_locks = int(slot_data.get("cycle_locks", 0))
             self.monster_hunt_checks = int(slot_data.get("monster_hunt_checks", 0))
             self.items_dropped_at_your_feet = bool(slot_data.get("items_dropped_at_your_feet", False))
             self.keep_picked_up_artifacts = bool(slot_data.get("keep_picked_up_artifacts", False))
             self.free_cure_magicite = bool(slot_data.get("free_cure_magicite", False))
             self.dropping = None
             self.monster_hunt_bosses = bool(slot_data.get("monster_hunt_bosses", True))
+            self.hunt_last_cycle = (int(slot_data.get("progression_cycles", 3))
+                                    if int(slot_data.get("later_cycles", 0)) == 1 else 3)
             self.monster_hp = {}
+            self.monster_tint = slot_data.get("monster_hunt_tint")
+            self.tint_checks = {}
+            if self.monster_tint:
+                # the item each Monster Hunt check holds picks its tint
+                scout = sorted(HUNT_LOCATION_IDS & self.missing_locations)
+                Utils.async_start(self.send_msgs([{"cmd": "LocationScouts", "locations": scout,
+                                                   "create_as_hint": 0}]))
             self.shop_checks = bool(slot_data.get("shop_checks", False))
             self.stamp_hints = slot_data.get("stamp_hints") or []
             self.stamps_reported = 0
@@ -1078,8 +1113,9 @@ class FFCCContext(BaseContext):
                 "Food Preference Trap": slot_data.get("food_preference_trap_weight", 1),
             }
             self.set_notify(_myrrh_key(self))
-            if slot_data.get("victory_goal"):
-                self.victory = args["slot_data"]["victory_goal"]
+            # every goal of the seed (seeds from before the Multiple goal only have the one)
+            self.victory_goals = set(slot_data.get("victory_goals") or [slot_data.get("victory_goal", 0)])
+            self.set_notify(_goals_key(self))
             # DeathLink follows the seed, unless the player switched it with
             # /deathlink (kept in data storage, applied once it arrives)
             self.death_link_seed = bool(slot_data.get("death_link"))
@@ -1273,7 +1309,7 @@ def _sync_party(ctx: "FFCCContext") -> None:
 
 
 def _give_artifact(artifact_id: int) -> bool:
-    """Give a permanent artifact by filling its set place"""
+    """Give a permanent artifact by filling its set place."""
     addr = _artifact_addr(artifact_id)
     if addr is None:
         logger.warning(f"FFCC: 0x{artifact_id:x} is not an artifact - skipped.")
@@ -1333,7 +1369,7 @@ def _apply_trap_to(trap_name: str, table: int | None) -> None:
 
 def _clear_command_slot() -> None:
     """Take one random command (not Attack or Defend) off player 1's command
-    list, the way the game does it. A fused spell the command was part of comes apart"""
+    list, the way the game does it. A fused spell the command was part of comes apart."""
     count = min(_read_short(ADDR_CMD_COUNT), 8)
     slots = [_read_short(ADDR_CMD_SLOTS + 2 * i) for i in range(8)]
     used = [i for i in range(FIXED_COMMANDS, count) if slots[i] != 0xffff]
@@ -1560,10 +1596,11 @@ def _update_grooming(ctx: "FFCCContext") -> None:
     if locked and _read_byte(ADDR_GROOMING_TOOLS) != owned:
         _write_byte(ADDR_GROOMING_TOOLS, owned)
     progress = second = ""
-    if _in_moogle_nest() and (ctx.victory == 4 or ctx.grooming_checks or (locked and ctx.grooming_tools)):
+    grooming_goal = GOAL_MOG_GROOMING in ctx.victory_goals
+    if _in_moogle_nest() and (grooming_goal or ctx.grooming_checks or (locked and ctx.grooming_tools)):
         dyed, red, green, blue, cut = _grooming_colours()
         second = f"Red {red}%  Green {green}%  Blue {blue}%"
-        if ctx.victory == 4:
+        if grooming_goal:
             need = ctx.grooming_percent
             parts = [f"Dyed {dyed}%/{need}%" if ctx.grooming_goal != 1 else "",
                      f"Cut {cut}%/{need}%" if ctx.grooming_goal != 0 else ""]
@@ -1665,6 +1702,7 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                 _update_grooming(ctx)
                 _update_hud(ctx)
                 _write_chest_masks(ctx)
+                _write_cycle_unlocks(ctx)
                 await _report_live_score(ctx, in_dungeon)
                 if ctx.shop_checks and not in_dungeon:
                     await _watch_shop(ctx)
@@ -1704,6 +1742,7 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                     ctx.current_dungeon = None
                     ctx.prev_chest_flags = bytes(8)
                     ctx.monster_hp = {}
+                    ctx.tint_checks = {}
                     ctx.group_spots_done = set()
                     ctx.cure_pending = False
                     await _report_stage(ctx, "")
@@ -1715,6 +1754,8 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
                     continue
                 await _report_stage(ctx, dungeon)
                 await _watch_kills(ctx, dungeon)
+                if ctx.monster_tint:
+                    _tint_monsters(ctx, dungeon)
 
                 cycle = _get_dungeon_cycle(map_id)
                 if dungeon == "Mount Vellenge":
@@ -1825,63 +1866,103 @@ async def dolphin_sync_task(ctx: FFCCContext) -> None:
             await asyncio.sleep(5)
 
 
+# Victory goals (the AP world's VictoryGoal values)
+GOAL_ALL_MYRRH, GOAL_FINAL_BOSS, GOAL_MONSTER_HUNT, GOAL_MOG_STAMPS, GOAL_MOG_GROOMING = range(5)
+GOAL_LABELS = {GOAL_ALL_MYRRH: "All Myrrh", GOAL_FINAL_BOSS: "Final Boss", GOAL_MONSTER_HUNT: "Monster Hunt",
+               GOAL_MOG_STAMPS: "Mog Stamps", GOAL_MOG_GROOMING: "Mog Grooming"}
+
+
+def _goals_key(ctx: "FFCCContext") -> str:
+    return f"ffcc_goals_{ctx.team}_{ctx.slot}"
+
+
+async def _all_myrrh_done(ctx: FFCCContext) -> bool:
+    """Every Myrrh tree harvested at least once."""
+    key = _myrrh_key(ctx)
+    stored = ctx.stored_data.get(key) or 0
+    mask = _read_myrrh_mask()
+    if mask & ~stored:
+        # Bits reset each year, so remember every dungeon ever seen on the server.
+        await ctx.send_msgs([{"cmd": "Set", "key": key, "default": 0, "want_reply": True,
+                              "operations": [{"operation": "or", "value": mask}]}])
+        stored |= mask
+        ctx.stored_data[key] = stored
+        logger.info(f"FFCC: Myrrh trees harvested: {bin(stored).count("1")}/{MYRRH_DUNGEONS}")
+    return stored & ALL_MYRRH_MASK == ALL_MYRRH_MASK
+
+
+async def _final_boss_done(ctx: FFCCContext) -> bool:
+    """The final boss (Mount Vellenge) defeated: the credits / end screen is on."""
+    return _read_int(ADDR_SCRIPT_NAME_ID) in ENDING_IDS
+
+
+async def _monster_hunt_done(ctx: FFCCContext) -> bool:
+    """One of every enemy type of the hunt defeated."""
+    done = _defeated(ctx)
+    return all(enemy in done for enemy in hunt_list(ctx.monster_hunt_bosses, ctx.hunt_last_cycle))
+
+
+async def _mog_grooming_done(ctx: FFCCContext) -> bool:
+    """A Moogle dyed or trimmed enough, in a Moogle Nest."""
+    if not _in_moogle_nest():
+        return False
+    dyed, cut = _grooming()
+    if not _grooming_goal_met(ctx, dyed, cut):
+        return False
+    done = " and ".join(part for part, kind in ((f"{dyed}% dyed", 1), (f"{cut}% cut", 0))
+                        if ctx.grooming_goal != kind)
+    logger.info(f"FFCC: The Moogle is {done}.")
+    return True
+
+
+async def _mog_stamps_done(ctx: FFCCContext) -> bool:
+    """Every stamp on the Mog Stamp card."""
+    stamps = int.from_bytes(dme.read_bytes(ADDR_MOG_STAMPS, 4), "big") & MOG_STAMP_BITS
+    if stamps != ctx.stamps_seen:
+        new = [name for bit, name in MOG_STAMPS.items()
+               if stamps & bit and ctx.stamps_seen is not None and not ctx.stamps_seen & bit]
+        missing = [name for bit, name in MOG_STAMPS.items() if not stamps & bit]
+        ctx.stamps_seen = stamps
+        logger.info(f"FFCC: Mog Stamps: {MOG_STAMP_COUNT - len(missing)}/{MOG_STAMP_COUNT}"
+                    + (f" (new: {", ".join(new)})" if new else ""))
+        if 0 < len(missing) <= 5:
+            logger.info(f"FFCC: Mog Stamps still to get: {", ".join(missing)}")
+    return stamps == MOG_STAMP_BITS
+
+
+GOAL_CHECKS = {
+    GOAL_ALL_MYRRH: _all_myrrh_done,
+    GOAL_FINAL_BOSS: _final_boss_done,
+    GOAL_MONSTER_HUNT: _monster_hunt_done,
+    GOAL_MOG_STAMPS: _mog_stamps_done,
+    GOAL_MOG_GROOMING: _mog_grooming_done,
+}
+
+
 async def _check_victory(ctx: FFCCContext) -> None:
-    """Send goal completion when victory goal is finished"""
-    if ctx.victory == 0:  # collect all 13 Myrrh drops
-        key = _myrrh_key(ctx)
-        stored = ctx.stored_data.get(key) or 0
-        mask = _read_myrrh_mask()
-        if mask & ~stored:
-            # Bits reset each year, so remember every dungeon ever seen on the server.
-            await ctx.send_msgs([{"cmd": "Set", "key": key, "default": 0, "want_reply": True,
-                                  "operations": [{"operation": "or", "value": mask}]}])
-            stored |= mask
-            ctx.stored_data[key] = stored
-            logger.info(f"FFCC: Myrrh trees harvested: {bin(stored).count("1")}/{MYRRH_DUNGEONS}")
-
-        if stored & ALL_MYRRH_MASK == ALL_MYRRH_MASK:
-            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-            ctx.finished_game = True
-            logger.info("FFCC: Goal complete — congratulations!")
-
-    elif ctx.victory == 1:  # defeat the final boss (Mount Vellenge) and enter credits / end screen
-        if _read_int(ADDR_SCRIPT_NAME_ID) in ENDING_IDS:
-            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-            ctx.finished_game = True
-            logger.info("FFCC: Goal complete — congratulations!")
-
-    elif ctx.victory == 2:  # Monster Hunt: one of every enemy type of the hunt
-        done = _defeated(ctx)
-        if all(enemy in done for enemy in hunt_list(ctx.monster_hunt_bosses)):
-            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-            ctx.finished_game = True
-            logger.info("FFCC: Goal complete — every enemy type defeated, congratulations!")
-
-    elif ctx.victory == 4:  # Mog Grooming: a Moogle dyed or trimmed enough
-        if _in_moogle_nest():
-            dyed, cut = _grooming()
-            if _grooming_goal_met(ctx, dyed, cut):
-                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                ctx.finished_game = True
-                done = " and ".join(part for part, kind in ((f"{dyed}% dyed", 1), (f"{cut}% cut", 0))
-                                    if ctx.grooming_goal != kind)
-                logger.info(f"FFCC: Goal complete — the Moogle is {done}, congratulations!")
-
-    elif ctx.victory == 3:  # Mog Stamps: every stamp on the card
-        stamps = int.from_bytes(dme.read_bytes(ADDR_MOG_STAMPS, 4), "big") & MOG_STAMP_BITS
-        if stamps != ctx.stamps_seen:
-            new = [name for bit, name in MOG_STAMPS.items()
-                   if stamps & bit and ctx.stamps_seen is not None and not ctx.stamps_seen & bit]
-            missing = [name for bit, name in MOG_STAMPS.items() if not stamps & bit]
-            ctx.stamps_seen = stamps
-            logger.info(f"FFCC: Mog Stamps: {MOG_STAMP_COUNT - len(missing)}/{MOG_STAMP_COUNT}"
-                        + (f" (new: {", ".join(new)})" if new else ""))
-            if 0 < len(missing) <= 5:
-                logger.info(f"FFCC: Mog Stamps still to get: {", ".join(missing)}")
-        if stamps == MOG_STAMP_BITS:
-            await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-            ctx.finished_game = True
-            logger.info("FFCC: Goal complete — every Mog Stamp collected, congratulations!")
+    """Check the seed's goals that aren't done yet. A finished goal is kept
+    in data storage (a bit per goal), since some are only true for a moment
+    (the credits, a Moogle groomed in its nest). Once every goal is done,
+    the goal is sent."""
+    key = _goals_key(ctx)
+    done = ctx.stored_data.get(key) or 0
+    newly = 0
+    for goal in sorted(ctx.victory_goals):
+        if not done & (1 << goal) and goal in GOAL_CHECKS and await GOAL_CHECKS[goal](ctx):
+            newly |= 1 << goal
+    if newly:
+        done |= newly
+        ctx.stored_data[key] = done
+        await ctx.send_msgs([{"cmd": "Set", "key": key, "default": 0, "want_reply": True,
+                              "operations": [{"operation": "or", "value": newly}]}])
+        count = sum(1 for goal in ctx.victory_goals if done & (1 << goal))
+        for goal in sorted(ctx.victory_goals):
+            if newly & (1 << goal):
+                logger.info(f"FFCC: Goal done: {GOAL_LABELS.get(goal, goal)} ({count}/{len(ctx.victory_goals)})")
+    if all(done & (1 << goal) for goal in ctx.victory_goals):
+        await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+        ctx.finished_game = True
+        logger.info("FFCC: Goal complete — congratulations!")
 
 
 def _hunt_key(ctx: "FFCCContext") -> str:
@@ -1966,7 +2047,7 @@ async def _watch_kills(ctx: "FFCCContext", dungeon: str) -> None:
     done = _defeated(ctx)
     new = [enemy for enemy in dict.fromkeys(MONSTER_BY_ID[m] for _, m in killed) if enemy not in done]
     # kills are always recorded, but only announced when the hunt is in play
-    announce = logger.info if ctx.monster_hunt_checks or ctx.victory == 2 else logger.debug
+    announce = logger.info if ctx.monster_hunt_checks or GOAL_MONSTER_HUNT in ctx.victory_goals else logger.debug
     for enemy in new:
         announce(f"FFCC: Monster Hunt: defeated the first {enemy}")
     if new:
@@ -1978,6 +2059,64 @@ async def _watch_kills(ctx: "FFCCContext", dungeon: str) -> None:
                        if i in ctx.missing_locations]
     if ap_ids:
         await ctx.send_msgs([{"cmd": "LocationChecks", "locations": ap_ids}])
+
+
+def _tint_table(colours: list) -> bytes:
+    """The colour table for slot data "monster_hunt_tint" ([progression,
+    useful, filler, trap], each [R, G, B] or None)."""
+    out = bytearray()
+    for colour in (list(colours) + [None] * 7)[:7]:
+        out += bytes((*colour, TINT_GLOW)) if colour else bytes((255, 255, 255, 0))
+    return bytes(out)
+
+
+def _tint_entry(ctx: "FFCCContext", ap_id: int) -> int:
+    """The colour table entry for the item at `ap_id`, 0 for no tint."""
+    item = ctx.locations_info.get(ap_id)
+    flags = item.flags if item is not None else 0
+    if flags & ITEM_FLAG_PROGRESSION:
+        entry = TINT_PROGRESSION
+    elif flags & ITEM_FLAG_TRAP:
+        entry = TINT_TRAP
+    elif flags & ITEM_FLAG_USEFUL:
+        entry = TINT_USEFUL
+    else:
+        entry = TINT_FILLER
+    return entry if ctx.monster_tint[entry - 1] else 0
+
+
+def _tint_monsters(ctx: "FFCCContext", dungeon: str) -> None:
+    """Monster Hunt Tint: colour every living monster whose Monster Hunt
+    check isn't done yet by the item it holds, and take the colour off the done ones."""
+    if _read_int(ADDR_TINT_HOOK) != TINT_HOOK_WORD:
+        return                                  # an ISO patched without the tint
+    table = _tint_table(ctx.monster_tint)
+    if dme.read_bytes(ADDR_TINT_TABLE, len(table)) != table:
+        dme.write_bytes(ADDR_TINT_TABLE, table)
+    area = struct.unpack(">h", dme.read_bytes(ADDR_AREA, 2))[0]
+    if area != ctx.tint_area:
+        ctx.tint_checks, ctx.tint_area = {}, area
+    raw = dme.read_bytes(ADDR_MONSTER_WORK, MONSTER_WORK_SIZE * MONSTER_SLOTS)
+    for slot in range(MONSTER_SLOTS):
+        base = MONSTER_WORK_SIZE * slot
+        owner = struct.unpack_from(">I", raw, base + 0x0C)[0]
+        monster_id = struct.unpack_from(">i", raw, base + MONSTER_ID)[0]
+        max_hp, hp = struct.unpack_from(">2H", raw, base + MONSTER_MAX_HP)
+        if not 0x80000000 <= owner < 0x81800000 or max_hp == 0 or hp == 0 or monster_id not in MONSTER_BY_ID:
+            continue
+        key = (slot, owner, monster_id)
+        if key not in ctx.tint_checks:
+            if ctx.monster_hunt_checks == HUNT_EVERY_ENEMY:
+                ctx.tint_checks[key] = _enemy_location(dungeon, owner, monster_id)[1]
+            else:
+                location = MONSTER_LOCATION_TABLE[monster_location(MONSTER_BY_ID[monster_id])]
+                ctx.tint_checks[key] = [2326528 + location.code]
+        to_do = next((i for i in ctx.tint_checks[key] if i in ctx.missing_locations), None)
+        entry = _tint_entry(ctx, to_do) if to_do is not None else 0
+        flags = _read_int(owner + MONSTER_DISPLAY_FLAGS)
+        wanted = (flags & ~TINT_MASK) | (entry << TINT_SHIFT)
+        if wanted != flags:
+            _write_int(owner + MONSTER_DISPLAY_FLAGS, wanted)
 
 
 def _shop_town() -> str | None:
@@ -2153,6 +2292,26 @@ def _write_chest_masks(ctx: "FFCCContext") -> None:
             dme.write_bytes(start + 6 * map_id, wanted)
 
 
+def _cycle_unlocks(ctx: "FFCCContext") -> list[int]:
+    """With "Cycle Locks", the cycles unlocked past the first for each
+    dungeon (0-2), in the game's dungeon order."""
+    received = [LOOKUP_ID_TO_NAME.get(net_item.item, "") for net_item in ctx.items_received]
+    shared = received.count(PROGRESSIVE_CYCLE)
+    return [min(2, shared + received.count(dungeon_cycle_item(dungeon))) for dungeon in CYCLE_DUNGEONS]
+
+
+def _write_cycle_unlocks(ctx: "FFCCContext") -> None:
+    """With "Cycle Locks", keep eventWork[CYCLE_UNLOCK_SLOT + dungeon] at the
+    dungeon's unlock count, which the patched cycle menu reads. Nothing is
+    written before a save is loaded (year 0)."""
+    if not ctx.cycle_locks or not 1 <= _read_byte(ADDR_CURRENT_YEAR) <= 99:
+        return
+    wanted = struct.pack(f">{len(CYCLE_DUNGEONS)}H", *_cycle_unlocks(ctx))
+    start = ADDR_EVENT_WORK + 2 * CYCLE_UNLOCK_SLOT
+    if dme.read_bytes(start, len(wanted)) != wanted:
+        dme.write_bytes(start, wanted)
+
+
 def _bonus_key(ctx: "FFCCContext") -> str:
     return f"ffcc_bonus_{ctx.team}_{ctx.slot}"
 
@@ -2212,9 +2371,14 @@ async def _report_cycles(ctx: "FFCCContext") -> None:
     year = _read_byte(ADDR_CURRENT_YEAR)
     if ctx.slot is None or not 1 <= year <= 99:
         return
-    raw = dme.read_bytes(ADDR_CYCLE_BASE, 4 * len(MAP_ID_TO_DUNGEON))
-    cycles = {dungeon: min(raw[4 * map_id], 2) + 1 for map_id, dungeon in MAP_ID_TO_DUNGEON.items()
-              if dungeon != "Mount Vellenge"}
+    if ctx.cycle_locks:
+        # the highest cycle each dungeon can be played on
+        unlocks = _cycle_unlocks(ctx)
+        cycles = {dungeon: unlocks[n] + 1 for n, dungeon in enumerate(CYCLE_DUNGEONS)}
+    else:
+        raw = dme.read_bytes(ADDR_CYCLE_BASE, 4 * len(MAP_ID_TO_DUNGEON))
+        cycles = {dungeon: min(raw[4 * map_id], 2) + 1 for map_id, dungeon in MAP_ID_TO_DUNGEON.items()
+                  if dungeon != "Mount Vellenge"}
     cycles["Year"] = year
     if cycles == ctx.reported_cycles:
         return
