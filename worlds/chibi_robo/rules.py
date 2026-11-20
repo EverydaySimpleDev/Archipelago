@@ -1,0 +1,425 @@
+from rule_builder.rules import Has, HasAll, CanReachRegion
+from .items import item_name_groups
+from .options import VictoryGoal
+
+blaster = "Chibi-Blaster Chibi-Gear"
+mug = "Mug Chibi-Gear"
+spoon = "Spoon Chibi-Gear"
+tooth_brush = "Toothbrush Chibi-Gear"
+squirter = "Squirter Chibi-Gear"
+charge_chip = "Charge Chip"
+red_shoe = "Red Shoe"
+copter = "Chibi-Copter Chibi-Gear"
+
+def set_rules(self) -> None:
+
+    multiworld = self.multiworld
+    player = self.player
+
+    kitchen_to_living  = multiworld.get_entrance("Kitchen - Living Room", player)
+    kitchen_to_foyer   = multiworld.get_entrance("Kitchen - Foyer", player)
+    living_to_kitchen  = multiworld.get_entrance("Living Room - Kitchen", player)
+    backyard_to_living  = multiworld.get_entrance("Backyard - Living Room", player)
+    foyer_to_kitchen   = multiworld.get_entrance("Foyer - Kitchen", player)
+    living_to_backyard = multiworld.get_entrance("Living Room - Backyard", player)
+    living_to_foyer    = multiworld.get_entrance("Living Room - Foyer", player)
+    foyer_to_living    = multiworld.get_entrance("Foyer - Living Room", player)
+    foyer_to_jenny     = multiworld.get_entrance("Foyer - Jenny's Room", player)
+    foyer_to_bedroom   = multiworld.get_entrance("Foyer - Bedroom", player)
+    foyer_to_basement  = multiworld.get_entrance("Foyer - Basement", player)
+    basement_to_foyer  = multiworld.get_entrance("Basement - Foyer", player)
+    bedroom_to_foyer   = multiworld.get_entrance("Bedroom - Foyer", player)
+    jenny_to_foyer     = multiworld.get_entrance("Jenny's Room - Foyer", player)
+    living_to_spider   = multiworld.get_entrance("Living Room - Mother Spider", player)
+    backyard_to_ufo    = multiworld.get_entrance("Backyard - UFO", player)
+    ufo_to_past        = multiworld.get_entrance("UFO - Bedroom - Past", player)
+
+    open_upstairs = bool(self.options.open_upstairs.value)
+
+    if open_upstairs:
+        reach_second_floor = HasAll(mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key")
+    else:
+        reach_second_floor = HasAll("Foyer Ladder", copter, mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key") | HasAll("Foyer Teleport", mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key")
+
+    can_enter_basement = HasAll(tooth_brush, mug, "Drake Redcrest Suit")
+
+    can_enter_backyard = Has("Living Room - Backyard Key")
+
+    # Living Room <-> Kitchen
+    self.set_rule(living_to_kitchen,  Has("Living Room - Kitchen Key"))
+    self.set_rule(kitchen_to_living,  Has("Living Room - Kitchen Key"))
+
+    # Every Foyer check also needs the Basement Key (and the mug, from can_enter_basement), so the
+    # player isn't expected to work the Foyer before the Free Rangers encounter is dealt with
+    foyer_entry = can_enter_basement & Has("Foyer - Basement Key")
+
+    # Living Room <-> Foyer
+    self.set_rule(living_to_foyer,    foyer_entry & Has("Living Room - Foyer Key"))
+    self.set_rule(foyer_to_living,    Has("Living Room - Foyer Key"))
+
+    # Living Room <-> Backyard
+    self.set_rule(living_to_backyard, can_enter_backyard )
+    self.set_rule(backyard_to_living, Has("Living Room - Backyard Key") )
+
+    # Kitchen <-> Foyer
+    self.set_rule(kitchen_to_foyer,   foyer_entry & Has("Kitchen - Foyer Key"))
+    self.set_rule(foyer_to_kitchen,   Has("Kitchen - Foyer Key"))
+
+    # Foyer <-> Basement
+    self.set_rule(foyer_to_basement,  Has("Foyer - Basement Key"))
+    self.set_rule(basement_to_foyer,  Has("Foyer - Basement Key"))
+
+    # Foyer <-> Jenny's Room
+    self.set_rule(foyer_to_jenny,     reach_second_floor & Has("Foyer - Jenny's Room Key"))
+    self.set_rule(jenny_to_foyer,     Has("Foyer - Jenny's Room Key"))
+
+    # Foyer <-> Bedroom
+    self.set_rule(foyer_to_bedroom,   reach_second_floor & Has("Foyer - Bedroom Key"))
+    self.set_rule(bedroom_to_foyer,   Has("Foyer - Bedroom Key"))
+
+    # Backyard <-> UFO: the aliens only take you aboard once you can understand them and have
+    # found them with the Chibi-Radar, and their beds / the UFO's power are unlocked by blasting
+    # the energy seals
+    self.set_rule(backyard_to_ufo,    HasAll("Alien Ear Chip", "Chibi-Radar Chibi-Gear", blaster))
+
+    # UFO -> Bedroom (Past): the time machine's barrier only breaks with a
+    # charged shot. With ufo_color_codes, the color puzzle needs all four code items instead.
+    ufo_time_machine = HasAll(blaster, charge_chip)
+    if self.options.ufo_color_codes:
+        ufo_time_machine = ufo_time_machine & HasAll(*sorted(item_name_groups["UFO Color Codes"]))
+    self.set_rule(ufo_to_past,        ufo_time_machine)
+
+    has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, spoon, "Alien Ear Chip", "Giga-Battery",
+                           "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder",
+                           "Foyer Teleport", "Drake Redcrest Suit", "Frog Suit", "Trauma Suit", "Old Clothes",
+                           "Foyer - Basement Key", "Living Room - Backyard Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
+                           "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key", "Dinahs Teeth", "Passed-out Frog", "Toy Receipt",
+                           "Circuit Schematic")
+
+    mother_spider_rule = has_all_items
+
+    if (self.options.victory_goal.value == VictoryGoal.option_stickers
+            and "Frog Ring Sticker" in self.options.required_stickers.value):
+        mother_spider_rule = mother_spider_rule & HasAll(*item_name_groups["Frog Rings"])
+
+    if self.options.victory_goal.value == VictoryGoal.option_divorce:
+        mother_spider_rule =  HasAll(
+                tooth_brush, mug, copter, "Foyer Teleport", "Drake Redcrest Suit",
+                           "Foyer - Basement Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
+                           "Kitchen - Foyer Key", "Foyer - Bedroom Key", "Toy Receipt")
+
+    self.set_rule(living_to_spider, mother_spider_rule)
+
+    self.set_completion_rule(CanReachRegion("Staff Credits"))
+
+    # from Utils import visualize_regions
+    # visualize_regions(multiworld.get_region("Menu", self.player), "chibi_robo.puml")
+
+def set_location_rules(self) -> None:
+
+    multiworld = self.multiworld
+    player = self.player
+
+    open_upstairs = bool(self.options.open_upstairs.value)
+
+    can_hover = Has(copter)
+
+    has_blaster = Has(blaster)
+
+    has_brush = Has(tooth_brush)
+
+    blaster_copter_lr_ladder = HasAll(blaster, copter, "Living Room Ladder", tooth_brush, mug, "Drake Redcrest Suit")
+
+    blaster_copter_lr_ladder_lr_bridge = HasAll(blaster, copter, "Living Room Ladder", "Living Room Bridge", tooth_brush, mug, "Drake Redcrest Suit")
+
+    reach_charger = HasAll(blaster, mug, copter, tooth_brush, "Drake Redcrest Suit")
+
+    # Living Room
+    living_room_frog_ring_window = multiworld.get_location("Living Room - Frog Ring (Behind Window)", player)
+    self.set_rule(living_room_frog_ring_window, blaster_copter_lr_ladder)
+
+    living_room_frog_ring_corkboard = multiworld.get_location("Living Room - Frog Ring (Corkboard)", player)
+    self.set_rule(living_room_frog_ring_corkboard, blaster_copter_lr_ladder_lr_bridge)
+
+    living_room_table_cookie_box_a = multiworld.get_location("Living Room - Table Cookie Box A", player)
+    self.set_rule(living_room_table_cookie_box_a, can_hover)
+
+    living_room_table_cookie_box_b = multiworld.get_location("Living Room - Table Cookie Box B", player)
+    self.set_rule(living_room_table_cookie_box_b, can_hover)
+
+    living_room_cupholder_candy_wrapper = multiworld.get_location("Living Room - Cupholder Candy Wrapper", player)
+    self.set_rule(living_room_cupholder_candy_wrapper, can_hover)
+
+    living_room_cupholder_wastepaper = multiworld.get_location("Living Room - Cupholder Wastepaper", player)
+    self.set_rule(living_room_cupholder_wastepaper, can_hover)
+
+    living_room_cookie_crumbs_on_couch = multiworld.get_location("Living Room - Cookie Crumbs on Couch", player)
+    self.set_rule(living_room_cookie_crumbs_on_couch, can_hover)
+
+    living_room_couch_wastepaper_a = multiworld.get_location("Living Room - Couch Wastepaper A", player)
+    self.set_rule(living_room_couch_wastepaper_a, can_hover)
+
+    living_room_couch_wastepaper_b = multiworld.get_location("Living Room - Couch Wastepaper B", player)
+    self.set_rule(living_room_couch_wastepaper_b, can_hover)
+
+    living_room_couch_candy_bag = multiworld.get_location("Living Room - Couch Candy Bag", player)
+    self.set_rule(living_room_couch_candy_bag, can_hover)
+
+    living_room_toy_receipt = multiworld.get_location("Living Room - Toy receipt on coach", player)
+    self.set_rule(living_room_toy_receipt, can_hover)
+
+    living_room_couch_candy_wrapper = multiworld.get_location("Living Room - Couch Candy Wrapper", player)
+    self.set_rule(living_room_couch_candy_wrapper, can_hover)
+
+    living_room_drake_suit = multiworld.get_location("Living Room - Drake Redcrest Suit", player)
+    self.set_rule(living_room_drake_suit, has_brush)
+
+    has_trauma_suit = Has("Trauma Suit")
+
+    living_room_ghost_suit = multiworld.get_location("Chibi House - Ghost Suit", player)
+    self.set_rule(living_room_ghost_suit, has_trauma_suit)
+
+    # Kitchen
+    has_kitchen_ladder = Has("Kitchen Ladder")
+
+    has_k_ladder_blaster_copter = HasAll("Kitchen Ladder", blaster, copter)
+
+    kitchen_spoon = multiworld.get_location("Kitchen - Spoon Location", player)
+    self.set_rule(kitchen_spoon, has_kitchen_ladder)
+
+    kitchen_cookie_crumb_by_spoon = multiworld.get_location("Kitchen - Cookie Crumbs by Spoon", player)
+    self.set_rule(kitchen_cookie_crumb_by_spoon, has_kitchen_ladder)
+
+    kitchen_cookie_box_a_by_spoon = multiworld.get_location("Kitchen - Cookie Box by Spoon A", player)
+    self.set_rule(kitchen_cookie_box_a_by_spoon, has_kitchen_ladder)
+
+    kitchen_cookie_box_b_by_spoon = multiworld.get_location("Kitchen - Cookie Box by Spoon B", player)
+    self.set_rule(kitchen_cookie_box_b_by_spoon, has_kitchen_ladder)
+
+    kitchen_bandage = multiworld.get_location("Kitchen - Bandage Location", player)
+    self.set_rule(kitchen_bandage, has_k_ladder_blaster_copter)
+
+    kitchen_frog_ring_table = multiworld.get_location("Kitchen - Frog Ring (Table)", player)
+    self.set_rule(kitchen_frog_ring_table, has_blaster)
+
+    kitchen_frog_ring_table = multiworld.get_location("Kitchen - Wastepaper on Shelf by Toaster", player)
+    self.set_rule(kitchen_frog_ring_table, has_blaster)
+
+    # Kitchen - Cookie Crumbs by Plant Box
+
+    #  Drain
+    has_blaster_copter = HasAll(blaster, copter)
+    sink_frog_ring = multiworld.get_location("Sink Drain - Frog Ring", player)
+    self.set_rule(sink_frog_ring, has_blaster_copter)
+
+    #  Foyer
+    has_copter_f_ladder_blaster = HasAll(copter, "Foyer Ladder", blaster, "Foyer - Basement Key", mug, "Foyer - Bedroom Key") | HasAll(copter, "Foyer Teleport", blaster, "Foyer - Basement Key", mug, "Foyer - Bedroom Key")
+
+    foyer_frog_ring = multiworld.get_location("Foyer - Waterfall Frog Ring", player)
+    self.set_rule(foyer_frog_ring, HasAll(copter, blaster, mug, "Foyer - Basement Key", "Foyer - Bedroom Key") if open_upstairs else has_copter_f_ladder_blaster)
+
+    has_copter_f_ladder = HasAll(copter, "Foyer Ladder", "Foyer - Basement Key", mug) | HasAll(copter, "Foyer Teleport", "Foyer - Basement Key", mug)
+
+    upstairs_foyer_rule = HasAll(mug, "Foyer - Basement Key") if open_upstairs else has_copter_f_ladder
+
+    # Reached from the second floor with the Chibi-Copter
+    upstairs_copter_rule = HasAll(copter, mug, "Foyer - Basement Key") if open_upstairs else has_copter_f_ladder
+
+    foyer_red_block = multiworld.get_location("Foyer - Red Block", player)
+    self.set_rule(foyer_red_block, upstairs_copter_rule)
+
+    foyer_upstairs_wastepaper = multiworld.get_location("Foyer - Upstairs Wastepaper by stairs", player)
+    self.set_rule(foyer_upstairs_wastepaper, upstairs_foyer_rule)
+
+    foyer_upstairs_cookie_crumb = multiworld.get_location("Foyer - Upstairs Cookie Crumbs by stairs", player)
+    self.set_rule(foyer_upstairs_cookie_crumb, upstairs_foyer_rule)
+
+    foyer_upstairs_candy_wrapper_jenny_a= multiworld.get_location("Foyer - Upstairs Candy Wrapper by Jenny's Door A", player)
+    self.set_rule(foyer_upstairs_candy_wrapper_jenny_a, upstairs_foyer_rule)
+
+    foyer_upstairs_candy_wrapper_jenny_b = multiworld.get_location("Foyer - Upstairs Candy Wrapper by Jenny's Door B", player)
+    self.set_rule(foyer_upstairs_candy_wrapper_jenny_b, upstairs_foyer_rule)
+
+    foyer_upstairs_candy_wrapper_bedroom = multiworld.get_location("Foyer - Upstairs Candy Wrapper by Parents' Door", player)
+    self.set_rule(foyer_upstairs_candy_wrapper_bedroom, upstairs_foyer_rule)
+
+    foyer_upstairs_candy_wrapper_stairs= multiworld.get_location("Foyer - Candy Wrapper on Stairs",player)
+    self.set_rule(foyer_upstairs_candy_wrapper_stairs, upstairs_foyer_rule)
+
+    foyer_candy_on_sofa_a = multiworld.get_location("Foyer - Candy Wrapper on Sofa A", player)
+    self.set_rule(foyer_candy_on_sofa_a, upstairs_copter_rule)
+
+    foyer_candy_on_sofa_b = multiworld.get_location("Foyer - Candy Wrapper on Sofa B", player)
+    self.set_rule(foyer_candy_on_sofa_b, upstairs_copter_rule)
+
+    foyer_candy_on_sofa_c = multiworld.get_location("Foyer - Candy Wrapper on Sofa C", player)
+    self.set_rule(foyer_candy_on_sofa_c, upstairs_copter_rule)
+
+    foyer_wastepaper_on_stairs = multiworld.get_location("Foyer - Wastepaper On Stairs", player)
+    self.set_rule(foyer_wastepaper_on_stairs, upstairs_foyer_rule)
+
+    foyer_candy_jenny_photo_a = multiworld.get_location("Foyer - Candy Wrapper by Jenny Photo A", player)
+    self.set_rule(foyer_candy_jenny_photo_a, has_copter_f_ladder)
+
+    foyer_candy_jenny_photo_b = multiworld.get_location("Foyer - Candy Wrapper by Jenny Photo B", player)
+    self.set_rule(foyer_candy_jenny_photo_b, has_copter_f_ladder)
+
+    foyer_soda_on_shelf= multiworld.get_location("Foyer - Soda Can on Shelf", player)
+    self.set_rule(foyer_soda_on_shelf, upstairs_copter_rule)
+
+    foyer_spaceship_shelf_a = multiworld.get_location("Foyer - Candy Wrapper by Spaceship Shelf A", player)
+    self.set_rule(foyer_spaceship_shelf_a, upstairs_copter_rule)
+
+    foyer_spaceship_shelf_b = multiworld.get_location("Foyer - Candy Wrapper by Spaceship Shelf B", player)
+    self.set_rule(foyer_spaceship_shelf_b, upstairs_copter_rule)
+
+    foyer_spaceship_shelf_c = multiworld.get_location("Foyer - Candy Wrapper by Spaceship Shelf C", player)
+    self.set_rule(foyer_spaceship_shelf_c, upstairs_copter_rule)
+
+    foyer_upstairs_wastepaper_pdoor = multiworld.get_location("Foyer - Upstairs Wastepaper by Parents' Door", player)
+    self.set_rule(foyer_upstairs_wastepaper_pdoor, upstairs_foyer_rule)
+
+    foyer_upstairs_soda_can = multiworld.get_location("Foyer - Upstairs Soda Can", player)
+    self.set_rule(foyer_upstairs_soda_can, upstairs_foyer_rule)
+
+    foyer_candy_wrapper_on_lower_shelf = multiworld.get_location("Foyer - Candy Wrapper on Lower Shelf by Entrance", player)
+    # Reached from the Foyer floor
+    self.set_rule(foyer_candy_wrapper_on_lower_shelf, HasAll(mug, "Foyer - Basement Key"))
+
+    can_get_toa_suit = HasAll("Dog Tags", mug, tooth_brush, "Foyer Ladder", blaster)
+
+    foyer_toa_suit = multiworld.get_location("Foyer - Tao Suit", player)
+    self.set_rule(foyer_toa_suit, can_get_toa_suit)
+
+    if open_upstairs:
+        reach_second_floor = HasAll(mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key")
+    else:
+        reach_second_floor = HasAll("Foyer Ladder", copter, mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key") | HasAll("Foyer Teleport", mug, tooth_brush, "Drake Redcrest Suit", "Foyer - Basement Key")
+
+    foyer_candy_wrapper_by_entrance = multiworld.get_location("Foyer - Candy Wrapper by Entrance", player)
+    self.set_rule(foyer_candy_wrapper_by_entrance, reach_second_floor)
+
+    foyer_free_ranger_photo = multiworld.get_location("Foyer - Free Rangers Photo", player)
+    self.set_rule(foyer_free_ranger_photo, reach_second_floor)
+
+    #  Basement
+    basement_giga_charger = multiworld.get_location("Basement - Giga Charger", player)
+    self.set_rule(basement_giga_charger, reach_charger)
+
+    basement_waste_paper_on_shelf = multiworld.get_location("Basement - Wastepaper on Shelf", player)
+    self.set_rule(basement_waste_paper_on_shelf, reach_charger)
+
+    basement_gunpowder = multiworld.get_location("Basement - Gunpowder", player)
+    self.set_rule(basement_gunpowder, reach_charger)
+
+    basement_frog_ring = multiworld.get_location("Basement - Frog Ring", player)
+    self.set_rule(basement_frog_ring, reach_charger)
+
+    basement_purple_can = multiworld.get_location("Basement - Purple Can", player)
+    self.set_rule(basement_purple_can, reach_charger)
+
+    basement_cabinet_trash_a = multiworld.get_location("Basement - Cabinet Trash A", player)
+    self.set_rule(basement_cabinet_trash_a, reach_charger)
+
+    basement_cabinet_trash_b = multiworld.get_location("Basement - Trash On Stairs", player)
+    self.set_rule(basement_cabinet_trash_b, reach_charger)
+
+    # Backyard
+
+    can_reach_swing = Has(copter)
+
+    backyard_frog_ring = multiworld.get_location("Backyard - Frog Ring", player)
+    self.set_rule(backyard_frog_ring, can_reach_swing)
+
+    can_get_frog_suit = Has(squirter)
+
+    backyard_frog_suit = multiworld.get_location("Backyard - Frog Suit", player)
+    self.set_rule(backyard_frog_suit, can_get_frog_suit)
+
+    has_blaster_copter_charge_chip_squirter = HasAll(copter, "Charge Chip", blaster, squirter)
+
+    backyard_white_block = multiworld.get_location("Backyard - White Block", player)
+    self.set_rule(backyard_white_block, has_blaster_copter_charge_chip_squirter)
+
+    backyard_scurvy_splinter = multiworld.get_location("Backyard - Scurvy Splinter", player)
+    self.set_rule(backyard_scurvy_splinter, Has(spoon))
+
+    # Jenny's Room
+
+    # With Open Upstairs the stairs replace the Foyer Ladder / Foyer Teleport, so those drop out of the rules below
+
+    reach_j_aa_battery = HasAll(copter, "Red Shoe", blaster, "Foyer Ladder", mug) | HasAll(copter, "Red Shoe", blaster, "Foyer Teleport", mug)
+    if open_upstairs:
+        reach_j_aa_battery = HasAll(copter, "Red Shoe", blaster, mug)
+
+    jenny_aa_battery = multiworld.get_location("Jenny's Room - AA Battery", player)
+    self.set_rule(jenny_aa_battery, reach_j_aa_battery)
+
+    reach_j_d_battery = HasAll(copter, "Red Shoe", blaster, "Foyer Ladder", mug, "AA Battery") | HasAll(copter, "Red Shoe", blaster, "Foyer Teleport", mug, "AA Battery")
+    if open_upstairs:
+        reach_j_d_battery = HasAll(copter, "Red Shoe", blaster, mug, "AA Battery")
+
+    jenny_d_battery = multiworld.get_location("Jenny's Room - D Battery", player)
+    self.set_rule(jenny_d_battery, reach_j_d_battery)
+
+    reach_j_c_battery = HasAll(copter, "Red Shoe", blaster, "Foyer Ladder", mug, "AA Battery", "D Battery") | HasAll(copter, "Red Shoe", blaster, "Foyer Teleport", mug, "AA Battery", "D Battery")
+    if open_upstairs:
+        reach_j_c_battery = HasAll(copter, "Red Shoe", blaster, mug, "AA Battery", "D Battery")
+
+    jenny_c_battery = multiworld.get_location("Jenny's Room - C Battery", player)
+    self.set_rule(jenny_c_battery, reach_j_c_battery)
+
+    has_copter_stair_access = HasAll(copter, "Foyer Ladder", mug) | HasAll(copter, "Foyer Teleport", mug)
+    if open_upstairs:
+        has_copter_stair_access = HasAll(copter, mug)
+
+    jenny_yellow_crayon = multiworld.get_location("Jenny's Room - Yellow Crayon", player)
+    self.set_rule(jenny_yellow_crayon, has_copter_stair_access)
+
+    jenny_purple_crayon = multiworld.get_location("Jenny's Room - Purple Crayon", player)
+    self.set_rule(jenny_purple_crayon, has_copter_stair_access)
+
+    jenny_frog_ring = multiworld.get_location("Jenny's Room - Frog Ring", player)
+    self.set_rule(jenny_frog_ring, has_copter_stair_access)
+
+    jenny_green_block = multiworld.get_location("Jenny's Room - Green Block", player)
+    self.set_rule(jenny_green_block, has_copter_stair_access)
+
+    jenny_snorkel = multiworld.get_location("Jenny's Room - Snorkel", player)
+    self.set_rule(jenny_snorkel, has_copter_stair_access)
+
+    # Bedroom
+
+    bedroom_ticket_stub = multiworld.get_location("Bedroom - Ticket Stub", player)
+    self.set_rule(bedroom_ticket_stub, has_copter_stair_access)
+
+    bedroom_wastepaper_on_vanity = multiworld.get_location("Bedroom - Wastepaper on Vanity", player)
+    self.set_rule(bedroom_wastepaper_on_vanity, has_copter_stair_access)
+
+    bedroom_wastepaper_on_bed = multiworld.get_location("Bedroom - Wastepaper on Bed", player)
+    self.set_rule(bedroom_wastepaper_on_bed, has_copter_stair_access)
+
+    bedroom_wastepaper_by_dinah_place_a = multiworld.get_location("Bedroom - Wastepaper by Dinahs Place A", player)
+    self.set_rule(bedroom_wastepaper_by_dinah_place_a, has_copter_stair_access)
+
+    bedroom_wastepaper_by_dinah_place_b = multiworld.get_location("Bedroom - Wastepaper by Dinahs Place B", player)
+    self.set_rule(bedroom_wastepaper_by_dinah_place_b, has_copter_stair_access)
+
+    bedroom_cookie_crumb_on_toybox = multiworld.get_location("Bedroom - Cookie Crumbs on Toybox", player)
+    self.set_rule(bedroom_cookie_crumb_on_toybox, has_copter_stair_access)
+
+    bedroom_vanity_candy_wrapper_a = multiworld.get_location("Bedroom - Vanity Candy Wrapper A", player)
+    self.set_rule(bedroom_vanity_candy_wrapper_a, has_copter_stair_access)
+
+    bedroom_vanity_candy_wrapper_b = multiworld.get_location("Bedroom - Vanity Candy Wrapper B", player)
+    self.set_rule(bedroom_vanity_candy_wrapper_b, has_copter_stair_access)
+
+    bedroom_vanity_candy_bag = multiworld.get_location("Bedroom - Vanity Candy Bag", player)
+    self.set_rule(bedroom_vanity_candy_bag, has_copter_stair_access)
+
+    can_reach_pajama = HasAll("Foyer Ladder", copter, "Old Clothes", "Toy Receipt") | HasAll("Foyer Teleport", "Old Clothes", "Toy Receipt")
+    if open_upstairs:
+        can_reach_pajama = HasAll("Old Clothes", "Toy Receipt")
+
+    bedroom_pajama_suit = multiworld.get_location("Bedroom - Pajama Suit", player)
+    self.set_rule(bedroom_pajama_suit, can_reach_pajama)
