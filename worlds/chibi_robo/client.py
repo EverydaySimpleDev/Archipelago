@@ -27,9 +27,6 @@ from .locations import LOCATION_TABLE, ChibiRoboLocation, ChibiRoboLocationData
 
 DEBUG = True
 
-CONNECTION_REFUSED_GAME_STATUS = (
-    "Dolphin failed to connect. Please load a randomized ROM for Chibi Robo. Trying again in 5 seconds..."
-)
 CONNECTION_REFUSED_SAVE_STATUS = (
     "Dolphin failed to connect. Please load into the save file. Trying again in 5 seconds..."
 )
@@ -38,6 +35,21 @@ CONNECTION_LOST_STATUS = (
 )
 CONNECTION_CONNECTED_STATUS = "Dolphin connected successfully."
 CONNECTION_INITIAL_STATUS = "Dolphin connection has not been initiated."
+CONNECTION_NO_DOLPHIN_STATUS = (
+    "Could not find Dolphin. Make sure Dolphin is running, and that Dolphin and the Archipelago Launcher are either both run as administrator or both not."
+)
+CONNECTION_NO_GAME_MEMORY_STATUS = (
+    "Found Dolphin, but not the game's memory. Start Chibi Robo in Dolphin, and turn off Options > Configuration > Advanced > Enable Emulated Memory Size Override (the game has to be closed to change it)."
+)
+CONNECTION_NO_GAME_STATUS = (
+    "Dolphin is running, but no game is loaded yet. Start your randomized Chibi Robo ISO. Trying again in 5 seconds..."
+)
+
+# dolphin_memory_engine.get_status() values
+DOLPHIN_STATUS_NOT_RUNNING = 1
+DOLPHIN_STATUS_NO_EMULATION = 2
+
+EXPECTED_GAME_ID = b"GGTE01"
 
 # The expected index for the following item that should be received.
 # Saves over total times player has recharged that is no longer increased via patcher
@@ -45,7 +57,9 @@ EXPECTED_INDEX_ADDR = 0x803686a6
 
 GIVE_ITEM_ARRAY_ADDR = 0x8038f778
 
-# Max battery (float at 0x8038f74c): a save with more than 999 comes up as corrupted
+# Max battery (float): a save with more than 999 comes up as corrupted
+MAX_BATTERY_ADDR = 0x8038f74c
+MAX_BATTERY_STEP = 10.0
 MAX_BATTERY_LIMIT = 999.0
 
 CURRENT_INDEX_ADDR = 0
@@ -76,6 +90,15 @@ KEY_DOOR_VARS = {
     "Foyer - Bedroom Key":        (1864, 1868),  # Foyer -> Bedroom, Bedroom -> Foyer
     "Living Room - Backyard Key": (1871, 1873),  # Living Room -> Backyard, Backyard -> Living Room
     "Foyer - Basement Key":       (1872,),       # Foyer -> Basement
+}
+
+# UFO color codes (ufo_color_codes option): var = 1 once that code is received. The randomizer's
+# stage16.us lights that color on the UFO puzzle and starts the time machine once all four are 1.
+UFO_COLOR_CODE_VARS = {
+    "UFO Color Code 1": 1885,  # puzzle color 0 = flag(166)
+    "UFO Color Code 2": 1886,  # puzzle color 1 = flag(167)
+    "UFO Color Code 3": 1887,  # puzzle color 2 = flag(168)
+    "UFO Color Code 4": 1888,  # puzzle color 3 = flag(169)
 }
 
 # Utilibot vars:
@@ -382,6 +405,33 @@ class ChibiRoboCommandProcessor(SuperCommandProcessor):
             remove_sticker(sticker)
             return
 
+    def _cmd_deathlink(self, mode: str = "") -> bool:
+        """Turn DeathLink on or off for this slot: /deathlink on, /deathlink
+        off, or /deathlink to see it. The choice is kept on the server, so it
+        lasts through reconnects. /deathlink default goes back to the seed's
+        setting."""
+        if not isinstance(self.ctx, ChibiRoboContext) or self.ctx.slot is None:
+            logger.info("Connect to the server first.")
+            return False
+        ctx = self.ctx
+        mode = mode.lower()
+        if mode not in ("", "on", "off", "default"):
+            logger.info("Use /deathlink on, /deathlink off or /deathlink default.")
+            return False
+        if mode:
+            on = ctx.death_link_seed if mode == "default" else mode == "on"
+            value = None if mode == "default" else on
+            Utils.async_start(ctx.update_death_link(on))
+            Utils.async_start(ctx.send_msgs([{"cmd": "Set", "key": _deathlink_key(ctx), "default": None,
+                                              "operations": [{"operation": "replace", "value": value}]}]))
+        else:
+            on = ctx.death_link_on
+        group = f" for group {ctx.death_link_group}" if ctx.death_link_group else ""
+        logger.info(f"DeathLink is {'on' if on else 'off'}{group}"
+                    + (" (the seed's setting)." if mode in ("", "default") and on == ctx.death_link_seed
+                       else "."))
+        return True
+
 
 class ChibiRoboContext(SuperContext):
     command_processor = ChibiRoboCommandProcessor
@@ -401,6 +451,8 @@ class ChibiRoboContext(SuperContext):
         self.awaiting_rom: bool = False
         self.slot_seed: Optional[int] = None
         self.has_send_death: bool = False
+        self.death_link_seed: bool = False
+        self.death_link_group: str = ""
 
         self.proxy = None
         self.proxy_task = None
@@ -498,6 +550,16 @@ class ChibiRoboContext(SuperContext):
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
         ctx = self
+        if cmd == "Bounced" and self.death_link_group:
+            # group deaths use DeathLink_<group>, which the base client doesn't pass to on_deathlink
+            data = args.get("data", {})
+            if self.death_link_tag in args.get("tags", []) and data.get("time") != self.last_death_link:
+                self.on_deathlink(data)
+        if cmd in ("Retrieved", "SetReply") and self.slot is not None:
+            values = args.get("keys", {}) if cmd == "Retrieved" else {args.get("key"): args.get("value")}
+            choice = values.get(_deathlink_key(self))
+            if isinstance(choice, bool):
+                Utils.async_start(self.update_death_link(choice))
         if cmd == "Connected":
             if ctx.slot_seed is not None and ctx.seed_name and seed_number(ctx.seed_name) != ctx.slot_seed:
                 logger.warning("This ISO was built for a different seed than this room - re-run the randomizer with this room's .apcr file.")
@@ -510,10 +572,14 @@ class ChibiRoboContext(SuperContext):
                 self.set_notify(_chibi_rank_key(self))
 
             if "slot_info" in json.keys():
-                ctx.victory = slot_data.get("victory")
+                ctx.victory = slot_data.get("victory_goal")
                 ctx.required_stickers = slot_data.get("_chibi_stickers") or slot_data.get("required_stickers", [])
-            if "death_link" + "group_death_link" in slot_data:
-                Utils.async_start(self.update_death_link(bool(args["slot_data"]["death_link"]['group_death_link'])))
+
+            # the seed's DeathLink setting - a /deathlink choice stored on the server arrives after this and wins
+            self.death_link_seed = bool(slot_data.get("death_link"))
+            self.death_link_group = str(slot_data.get("group_death_link") or "").strip()
+            Utils.async_start(self.update_death_link(self.death_link_seed))
+
             if "players" in json.keys():
                 me: NetworkPlayer
                 for n in json["players"]:
@@ -522,6 +588,8 @@ class ChibiRoboContext(SuperContext):
                         break
 
                 json["players"] = [me]
+                self.set_notify(_deathlink_key(self))
+
             if DEBUG:
                 print(json)
             self.connected_msg = encode([json])
@@ -543,6 +611,37 @@ class ChibiRoboContext(SuperContext):
         else:
             if cmd != "PrintJSON":
                 self.server_msgs.append(encode([args]))
+
+    @property
+    def death_link_tag(self) -> str:
+        """The tag deaths are shared on: DeathLink, or DeathLink_<group> with a group name."""
+        return f"DeathLink_{self.death_link_group}" if self.death_link_group else "DeathLink"
+
+    @property
+    def death_link_on(self) -> bool:
+        return self.death_link_tag in self.tags
+
+    async def update_death_link(self, death_link: bool):
+        """Like the base version, but uses the group tag when there is a group name."""
+        old_tags = self.tags.copy()
+        self.tags = {tag for tag in self.tags if tag != "DeathLink" and not tag.startswith("DeathLink_")}
+        if death_link:
+            self.tags.add(self.death_link_tag)
+        if old_tags != self.tags and self.server and not self.server.socket.closed:
+            await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+
+    async def send_death(self, death_text: str = ""):
+        """Like the base version, but sends to the group's tag when there is a group name."""
+        if not self.death_link_group:
+            await super().send_death(death_text)
+            return
+        if self.server and self.server.socket:
+            logger.info(f"DeathLink: Sending death to group {self.death_link_group}...")
+            self.last_death_link = time.time()
+            await self.send_msgs([{
+                "cmd": "Bounce", "tags": [self.death_link_tag],
+                "data": {"time": self.last_death_link, "source": self.player_names[self.slot], "cause": death_text},
+            }])
 
     def on_deathlink(self, data: dict[str, Any]) -> None:
         """
@@ -708,7 +807,10 @@ def sync_key_doors(ctx: ChibiRoboContext) -> None:
     for item_name in UTILIBOT_VARS:
         if item_name in received:
             build_utilibot(item_name)
-    
+    for item_name in UFO_COLOR_CODE_VARS:
+        if item_name in received:
+            give_ufo_color_code(item_name)
+
     # give the player the utilibot sticker if they have all the bots
     if all(item_name in received for item_name in UTILIBOT_VARS) and not is_sticker_complete("Utilibot Sticker"):
         give_sticker("Utilibot Sticker")
@@ -723,6 +825,13 @@ def build_utilibot(item_name: str) -> None:
     """
     addr = script_var_addr(UTILIBOT_VARS[item_name])
     if read_4byte_short(addr) & 0xFFFF == 0:
+        write_4byte_short(addr, 1)
+
+
+def give_ufo_color_code(item_name: str) -> None:
+    """Set the var for the UFO color code `item_name` (one of UFO_COLOR_CODE_VARS) to 1."""
+    addr = script_var_addr(UFO_COLOR_CODE_VARS[item_name])
+    if read_4byte_short(addr) != 1:
         write_4byte_short(addr, 1)
 
 
@@ -763,13 +872,12 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
 
         elif item_name == "Max Battery Increase":
 
-            cur_max = read_short(0x8038f74c)
-            write_short(0x8038f74c, cur_max + 20)
-
+            # Max battery is a float - adding to its top two bytes as a short grew the step with the
+            # value (+10 under 128, +20 under 256, +40 under 512). +10 matches the patcher's self-found grant.
             # The save file can't hold a max battery above 999 (the save comes up as corrupted due to an overflow?)
-            max_battery = struct.unpack(">f", dolphin_memory_engine.read_bytes(0x8038f74c, 4))[0]
-            if max_battery > MAX_BATTERY_LIMIT:
-                dolphin_memory_engine.write_bytes(0x8038f74c, struct.pack(">f", MAX_BATTERY_LIMIT))
+            max_battery = struct.unpack(">f", dolphin_memory_engine.read_bytes(MAX_BATTERY_ADDR, 4))[0]
+            max_battery = min(max_battery + MAX_BATTERY_STEP, MAX_BATTERY_LIMIT)
+            dolphin_memory_engine.write_bytes(MAX_BATTERY_ADDR, struct.pack(">f", max_battery))
 
             return True
 
@@ -784,6 +892,13 @@ def _give_item(ctx: ChibiRoboContext, item_name: str, player: int) -> bool:
 
             # sync_key_doors() keeps re-applying this afterwards, like the keys.
             build_utilibot(item_name)
+
+            return True
+
+        elif item_name in UFO_COLOR_CODE_VARS:
+
+            # sync_key_doors() keeps re-applying this afterwards, like the keys.
+            give_ufo_color_code(item_name)
 
             return True
 
@@ -1196,7 +1311,7 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                     sleep_time = 0.1
                     continue
                 if ctx.slot is not None:
-                    if "DeathLink" + "group_death_link" in ctx.tags:
+                    if ctx.death_link_on:
                         await check_death(ctx)
 
                     # change_max_items()
@@ -1218,8 +1333,10 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                 dolphin_memory_engine.hook()
                 if dolphin_memory_engine.is_hooked():
 
-                    if dolphin_memory_engine.read_bytes(0x80000000, 6) != b"GGTE01":
-                        ctx.dolphin_status = CONNECTION_REFUSED_GAME_STATUS
+                    game_id = dolphin_memory_engine.read_bytes(GC_GAME_ID_ADDRESS, 6)
+                    if game_id != EXPECTED_GAME_ID:
+                        ctx.dolphin_status = wrong_game_status(game_id)
+                        logger.info(ctx.dolphin_status)
                         dolphin_memory_engine.un_hook()
                         sleep_time = 5
                     else:
@@ -1228,9 +1345,9 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
                         ctx.locations_checked = set()
 
                 else:
+                    ctx.dolphin_status = hook_failed_status()
                     logger.info(ctx.dolphin_status)
                     logger.info("Connection to Dolphin failed, attempting again in 5 seconds...")
-                    ctx.dolphin_status = CONNECTION_LOST_STATUS
                     # reset_item_flag()
                     await ctx.disconnect()
                     sleep_time = 5
@@ -1244,6 +1361,24 @@ async def dolphin_sync_task(ctx: ChibiRoboContext) -> None:
             await ctx.disconnect()
             sleep_time = 5
             continue
+
+def hook_failed_status() -> str:
+    """Why dolphin_memory_engine.hook() didn't hook"""
+    status = dolphin_memory_engine.get_status()
+    if status == DOLPHIN_STATUS_NOT_RUNNING:
+        return CONNECTION_NO_DOLPHIN_STATUS
+    if status == DOLPHIN_STATUS_NO_EMULATION:
+        return CONNECTION_NO_GAME_MEMORY_STATUS
+    return CONNECTION_LOST_STATUS
+
+def wrong_game_status(game_id: bytes) -> str:
+    """Status for a hooked Dolphin whose game ID isn't Chibi Robo's NTSC-U GGTE01."""
+    if not game_id.strip(b"\x00"):
+        return CONNECTION_NO_GAME_STATUS
+    shown = game_id.decode("ascii", errors="replace")
+    return (f"Dolphin is running game ID {shown}, not {EXPECTED_GAME_ID.decode()}. Only the NTSC-U version of "
+            f"Chibi Robo is supported - randomize a {EXPECTED_GAME_ID.decode()} ISO and load that. "
+            f"Trying again in 5 seconds...")
 
 def _chibi_rank_key(ctx: "ChibiRoboContext") -> str:
     return f"apcr_hints_{ctx.team}_{ctx.slot}"
@@ -1339,6 +1474,8 @@ async def proxy(websocket, path: str = "/", ctx: ChibiRoboContext = None):
     finally:
         await ctx.disconnect_proxy()
 
+def _deathlink_key(ctx: "ChibiRoboContext") -> str:
+    return f"apcr_deathlink_{ctx.team}_{ctx.slot}"
 
 async def on_client_connected(ctx: ChibiRoboContext):
     if ctx.room_info and ctx.is_connected():
@@ -1371,7 +1508,7 @@ def launch(*launch_args: str):
         if args.apcr_file and not server_address:
             server_address = read_apcr_server(args.apcr_file)
 
-        ctx = ChibiRoboContext(args.connect, args.password)
+        ctx = ChibiRoboContext(server_address, args.password)
         logger.info("Starting Chibi Robo proxy server")
         ctx.proxy = websockets.serve(functools.partial(proxy, ctx=ctx),
                                      host="localhost", port=11311, ping_timeout=999999, ping_interval=999999)

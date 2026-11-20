@@ -29,7 +29,7 @@ from worlds.Files import APPlayerContainer
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type, icon_paths, SuffixIdentifier
 from .rules import set_rules, set_location_rules
 
-VERSION: tuple[int, int, int] = (1, 3, 3)
+VERSION: tuple[int, int, int] = (1, 4, 0)
 
 def launch_client(*args: str):
     from . import client
@@ -106,6 +106,7 @@ def _chibi_robo_map_index(stage_id) -> int:
         7:  2,  # Living Room
         8:  0,  # Backyard
         10: 7,  # Sink Drain
+        13: 8,  # Bedroom (Past) - its location is pinned on the Bedroom map
     }.get(int(stage_id) if stage_id not in (None, "") else -1, 2)
 
 class ChibiRoboWorld(World):
@@ -232,7 +233,7 @@ class ChibiRoboWorld(World):
     def fill_slot_data(self) -> Dict[str, Any]:
         slot_data = self.options.as_dict(""
                                          "victory_goal", "pj_suit_style", "open_upstairs",
-                                         "password_rando", "chibi_vision_off", "favorite_character_voice",
+                                         "password_rando", "ufo_color_codes", "chibi_vision_off", "favorite_character_voice",
                                          "death_link","group_death_link", "battery_drain_idle", "battery_drain_walk",
                                          "battery_drain_jog", "battery_drain_run", "battery_drain_slide",
                                          "battery_drain_equip", "battery_drain_lift", "battery_drain_drop",
@@ -287,7 +288,7 @@ class ChibiRoboWorld(World):
 
         output_data.update(self.options.as_dict(
             "victory_goal","required_stickers", "pj_suit_style",
-            "open_upstairs","password_rando", "chibi_vision_off",
+            "open_upstairs","password_rando", "ufo_color_codes", "chibi_vision_off",
             "favorite_character_voice", "battery_drain_idle", "battery_drain_walk",
             "battery_drain_jog", "battery_drain_run", "battery_drain_slide",
             "battery_drain_equip", "battery_drain_lift", "battery_drain_drop",
@@ -338,6 +339,10 @@ class ChibiRoboWorld(World):
                 password_rando = passthrough.get("password_rando", None)
                 if password_rando is not None:
                     self.options.password_rando.value = password_rando
+
+                ufo_color_codes = passthrough.get("ufo_color_codes", None)
+                if ufo_color_codes is not None:
+                    self.options.ufo_color_codes.value = ufo_color_codes
 
                 return  # skip sticker randomization — use actual seed values
 
@@ -408,11 +413,14 @@ def create_itempool(world: "ChibiRoboWorld") -> List[Item]:
 
     frog_ring_goal_active = (
         world.options.victory_goal.value == VictoryGoal.option_stickers
-        and "Frog Ring" in world.options.required_stickers.value
+        and "Frog Ring Sticker" in world.options.required_stickers.value
     )
 
     for name in ITEM_TABLE.keys():
         if name == "Pan Drop Trap" or name in world.plando_locations.values():
+            continue
+        # Without the option the UFO keeps its vanilla color puzzle, so the codes aren't needed
+        if name in item_name_groups["UFO Color Codes"] and not world.options.ufo_color_codes:
             continue
         item_type: ItemClassification = ITEM_TABLE.get(name).classification
         if frog_ring_goal_active and name in item_name_groups["Frog Rings"]:

@@ -39,6 +39,14 @@ class PasswordRando(Toggle):
     display_name = "Randomizes Passwords For Left Foot And Case"
     default = 0
 
+class UfoColorCodes(Toggle):
+    """
+    Replaces the UFO's color-matching puzzle with four "UFO Color Code" items. Once all four are
+    found, stand in the middle of the UFO to start the time machine to the Bedroom (Past).
+    """
+    display_name = "UFO Color Codes"
+    default = 0
+
 
 class BatteryDrainIdle(Range):
     """
@@ -489,6 +497,7 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
     open_upstairs: OpenUpstairs
     chibi_vision_off: ChibiVisionOff
     password_rando: PasswordRando
+    ufo_color_codes: UfoColorCodes
     pan_drop_traps: PanDropTraps
     pan_drop_trap_weight: PanDropTrapWeight
     death_link: DeathLink
@@ -535,7 +544,8 @@ class ChibiRoboGameOptions(PerGameCommonOptions):
 chibi_robo_option_groups = [
     OptionGroup("Stage Locks", [
         OpenUpstairs,
-        PasswordRando
+        PasswordRando,
+        UfoColorCodes,
     ]),
     OptionGroup("Victory Options", [
         VictoryGoal,

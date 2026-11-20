@@ -106,6 +106,14 @@ ITEM_TABLE: dict[str, ChibiRoboItemData] = {
     "Blue Brick": ChibiRoboItemData("Item", IC.useful, 49, 0x75, "item_t_block_1", 1),
     "Space Scrambler": ChibiRoboItemData("Item", IC.useful, 50, 0x6b, "item_nwing_item", 1),
     "Dog Bone": ChibiRoboItemData("Item", IC.progression, 73, 0x0e, "item_snack_bone", 1),
+    "Circuit Schematic": ChibiRoboItemData("Item", IC.progression, 114, 0x6e, "item_kairozu", 1),
+
+    # UFO color-code puzzle pieces (only in the pool with the ufo_color_codes option). The client
+    # keeps var(1885-1888) = 1 for each one received, see UFO_COLOR_CODE_VARS in client.py.
+    "UFO Color Code 1": ChibiRoboItemData("Item", IC.progression, 115, None, "archipelago_item", 1, True),
+    "UFO Color Code 2": ChibiRoboItemData("Item", IC.progression, 116, None, "archipelago_item", 1, True),
+    "UFO Color Code 3": ChibiRoboItemData("Item", IC.progression, 117, None, "archipelago_item", 1, True),
+    "UFO Color Code 4": ChibiRoboItemData("Item", IC.progression, 118, None, "archipelago_item", 1, True),
 
     "Candy Wrapper": ChibiRoboItemData("Item", IC.filler, 51, 0x88, "item_candy_gomi", 1),
     "Candy Bag": ChibiRoboItemData("Item", IC.filler, 52, 0x89, "item_okasi_gomi_1", 1),
@@ -192,6 +200,11 @@ ITEM_TABLE_DESC: dict[str, str] = {
     "Giga-Battery": "Although you'll have to charge it, this is Giga Robo's power source.",
     "Giga-Charger": "Place in the Chibi-House with the Giga-Battery to start filling it up.",
     "Toy Receipt": "After you visit Mom in the Bedroom at night, she'll mention a missing receipt. Give this to her.",
+    "Circuit Schematic": "Dad's old Spydor design. Hand it to Dad so the Mother Spider can be dealt with.",
+    "UFO Color Code 1": "One of the four color codes that start the UFO's time machine.",
+    "UFO Color Code 2": "One of the four color codes that start the UFO's time machine.",
+    "UFO Color Code 3": "One of the four color codes that start the UFO's time machine.",
+    "UFO Color Code 4": "One of the four color codes that start the UFO's time machine.",
     "Wedding Band": "The number on it is the code for the bottom of Giga-Robo's foot. After reactivating Giga-Robo, give it to Dad for Happy Points.",
     "C Battery": "Used to operate the castle in Jenny's Room.",
     "AA Battery": "Used to operate the castle in Jenny's Room.",
@@ -228,7 +241,7 @@ ITEM_TABLE_DESC: dict[str, str] = {
     "Free Rangers Photo": "Give it to the Sarge for some Happy Points.",
     "Passed-out Frog": "Carry him to Freida in the Backyard.",
     "Yellow Crayon": "A crayon left by Jenny. Put it back in its box.",
-    "Snorkel": "Give it to The Great Peekoe when he's in the fishbowl at night after reviving Giga-Robo.",
+    "Snorkel": "Give it to The Great Peekoe when he's in the Kitchen fishbowl: during the day before reviving Giga-Robo, some nights after.",
     "Space Scrambler": "Ride against the Scrambler Free Rangers and get an S ranking.",
     "Drake Redcrest Suit": "Pose with this suit to take a heroic stance with fireworks behind you!",
     "Tao Suit": "Pose with this suit to Crouch and Bark like Tao. You can now understand Tao",
@@ -283,6 +296,13 @@ item_name_groups = {
         "Alien Ear Chip",
         "Range Chip",
         "Wedding Band",
+        "Circuit Schematic",
+    },
+    "UFO Color Codes": {
+        "UFO Color Code 1",
+        "UFO Color Code 2",
+        "UFO Color Code 3",
+        "UFO Color Code 4",
     },
     "Suits": {
         "Drake Redcrest Suit",

@@ -226,6 +226,9 @@ def create_regions(multiworld: MultiWorld, player: int, options):
 
     chibi_robo_regions["Bedroom"].locations.append("Bedroom - Pajama Suit")
 
+    # Bedroom (Past) - 1 Location (only reachable through the UFO's time machine)
+    chibi_robo_regions["Bedroom - Past"].locations.append("Bedroom (Past) - Circuit Schematic")
+
     # Mother Spider - 2 Locations
     chibi_robo_regions["Mother Spider"].locations.append("Mother Spider - Frog Ring")
     chibi_robo_regions["Mother Spider"].locations.append("Mother Spider - Left Leg")

@@ -1,4 +1,12 @@
 # Chibi Robo - Changelog
+## v1.4.0
+- Bedroom Past schematic item / location included
+- Foyer checks now require you to have the basement key so you don't have to deal with getting shot
+- New UFO Puzzle setting
+- New Deathlink command to toggle it on / off
+- Victory Goal / Bug Fixes
+- Rules / Gen Updates
+
 ## v1.3.3
 - Hint Support! Chibi ranks now should give players hints for items
 - Sent traps will trigger when a player picks up a item instead of not at all

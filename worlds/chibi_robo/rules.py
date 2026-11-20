@@ -31,6 +31,8 @@ def set_rules(self) -> None:
     bedroom_to_foyer   = multiworld.get_entrance("Bedroom - Foyer", player)
     jenny_to_foyer     = multiworld.get_entrance("Jenny's Room - Foyer", player)
     living_to_spider   = multiworld.get_entrance("Living Room - Mother Spider", player)
+    backyard_to_ufo    = multiworld.get_entrance("Backyard - UFO", player)
+    ufo_to_past        = multiworld.get_entrance("UFO - Bedroom - Past", player)
 
     open_upstairs = bool(self.options.open_upstairs.value)
 
@@ -47,8 +49,12 @@ def set_rules(self) -> None:
     self.set_rule(living_to_kitchen,  Has("Living Room - Kitchen Key"))
     self.set_rule(kitchen_to_living,  Has("Living Room - Kitchen Key"))
 
+    # Every Foyer check also needs the Basement Key (and the mug, from can_enter_basement), so the
+    # player isn't expected to work the Foyer before the Free Rangers encounter is dealt with
+    foyer_entry = can_enter_basement & Has("Foyer - Basement Key")
+
     # Living Room <-> Foyer
-    self.set_rule(living_to_foyer,    can_enter_basement & Has("Living Room - Foyer Key"))
+    self.set_rule(living_to_foyer,    foyer_entry & Has("Living Room - Foyer Key"))
     self.set_rule(foyer_to_living,    Has("Living Room - Foyer Key"))
 
     # Living Room <-> Backyard
@@ -56,7 +62,7 @@ def set_rules(self) -> None:
     self.set_rule(backyard_to_living, Has("Living Room - Backyard Key") )
 
     # Kitchen <-> Foyer
-    self.set_rule(kitchen_to_foyer,   can_enter_basement & Has("Kitchen - Foyer Key"))
+    self.set_rule(kitchen_to_foyer,   foyer_entry & Has("Kitchen - Foyer Key"))
     self.set_rule(foyer_to_kitchen,   Has("Kitchen - Foyer Key"))
 
     # Foyer <-> Basement
@@ -71,16 +77,29 @@ def set_rules(self) -> None:
     self.set_rule(foyer_to_bedroom,   reach_second_floor & Has("Foyer - Bedroom Key"))
     self.set_rule(bedroom_to_foyer,   Has("Foyer - Bedroom Key"))
 
+    # Backyard <-> UFO: the aliens only take you aboard once you can understand them and have
+    # found them with the Chibi-Radar, and their beds / the UFO's power are unlocked by blasting
+    # the energy seals
+    self.set_rule(backyard_to_ufo,    HasAll("Alien Ear Chip", "Chibi-Radar Chibi-Gear", blaster))
+
+    # UFO -> Bedroom (Past): the time machine's barrier only breaks with a
+    # charged shot. With ufo_color_codes, the color puzzle needs all four code items instead.
+    ufo_time_machine = HasAll(blaster, charge_chip)
+    if self.options.ufo_color_codes:
+        ufo_time_machine = ufo_time_machine & HasAll(*sorted(item_name_groups["UFO Color Codes"]))
+    self.set_rule(ufo_to_past,        ufo_time_machine)
+
     has_all_items = HasAll(tooth_brush, blaster, charge_chip, squirter, mug, spoon, "Alien Ear Chip", "Giga-Battery",
                            "Wedding Band", "Chibi-Radar Chibi-Gear", copter, "Dog Bone", "Foyer Ladder",
                            "Foyer Teleport", "Drake Redcrest Suit", "Frog Suit", "Trauma Suit", "Old Clothes",
                            "Foyer - Basement Key", "Living Room - Backyard Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
-                           "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key", "Dinahs Teeth", "Passed-out Frog", "Toy Receipt")
+                           "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key", "Dinahs Teeth", "Passed-out Frog", "Toy Receipt",
+                           "Circuit Schematic")
 
     mother_spider_rule = has_all_items
 
     if (self.options.victory_goal.value == VictoryGoal.option_stickers
-            and "Frog Ring" in self.options.required_stickers.value):
+            and "Frog Ring Sticker" in self.options.required_stickers.value):
         mother_spider_rule = mother_spider_rule & HasAll(*item_name_groups["Frog Rings"])
 
     if self.options.victory_goal.value == VictoryGoal.option_divorce:
@@ -225,7 +244,7 @@ def set_location_rules(self) -> None:
     self.set_rule(foyer_upstairs_candy_wrapper_bedroom, upstairs_foyer_rule)
 
     foyer_upstairs_candy_wrapper_stairs= multiworld.get_location("Foyer - Candy Wrapper on Stairs",player)
-    self.set_rule(foyer_upstairs_candy_wrapper_stairs, has_copter_f_ladder)
+    self.set_rule(foyer_upstairs_candy_wrapper_stairs, upstairs_foyer_rule)
 
     foyer_candy_on_sofa_a = multiworld.get_location("Foyer - Candy Wrapper on Sofa A", player)
     self.set_rule(foyer_candy_on_sofa_a, upstairs_copter_rule)
@@ -237,7 +256,7 @@ def set_location_rules(self) -> None:
     self.set_rule(foyer_candy_on_sofa_c, upstairs_copter_rule)
 
     foyer_wastepaper_on_stairs = multiworld.get_location("Foyer - Wastepaper On Stairs", player)
-    self.set_rule(foyer_wastepaper_on_stairs, has_copter_f_ladder)
+    self.set_rule(foyer_wastepaper_on_stairs, upstairs_foyer_rule)
 
     foyer_candy_jenny_photo_a = multiworld.get_location("Foyer - Candy Wrapper by Jenny Photo A", player)
     self.set_rule(foyer_candy_jenny_photo_a, has_copter_f_ladder)
@@ -246,7 +265,7 @@ def set_location_rules(self) -> None:
     self.set_rule(foyer_candy_jenny_photo_b, has_copter_f_ladder)
 
     foyer_soda_on_shelf= multiworld.get_location("Foyer - Soda Can on Shelf", player)
-    self.set_rule(foyer_soda_on_shelf, upstairs_foyer_rule)
+    self.set_rule(foyer_soda_on_shelf, upstairs_copter_rule)
 
     foyer_spaceship_shelf_a = multiworld.get_location("Foyer - Candy Wrapper by Spaceship Shelf A", player)
     self.set_rule(foyer_spaceship_shelf_a, upstairs_copter_rule)
@@ -260,8 +279,12 @@ def set_location_rules(self) -> None:
     foyer_upstairs_wastepaper_pdoor = multiworld.get_location("Foyer - Upstairs Wastepaper by Parents' Door", player)
     self.set_rule(foyer_upstairs_wastepaper_pdoor, upstairs_foyer_rule)
 
+    foyer_upstairs_soda_can = multiworld.get_location("Foyer - Upstairs Soda Can", player)
+    self.set_rule(foyer_upstairs_soda_can, upstairs_foyer_rule)
+
     foyer_candy_wrapper_on_lower_shelf = multiworld.get_location("Foyer - Candy Wrapper on Lower Shelf by Entrance", player)
-    self.set_rule(foyer_candy_wrapper_on_lower_shelf, has_copter_f_ladder)
+    # Reached from the Foyer floor
+    self.set_rule(foyer_candy_wrapper_on_lower_shelf, HasAll(mug, "Foyer - Basement Key"))
 
     can_get_toa_suit = HasAll("Dog Tags", mug, tooth_brush, "Foyer Ladder", blaster)
 

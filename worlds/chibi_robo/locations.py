@@ -235,6 +235,9 @@ LOCATION_TABLE: dict[str, ChibiRoboLocationData] = {
     "Mother Spider - Frog Ring": ChibiRoboLocationData(246, "Mother Spider", 14, 9, 0x8037df30, 40),
     "Mother Spider - Left Leg": ChibiRoboLocationData(247, "Mother Spider", 14, 10, 0x8037df30, 41),
 
+    # stage18 obj 117 (item_kairozu, spawnFlag 1): bit 18*136 + 1 of the item flag array at 0x8037DDBC
+    "Bedroom (Past) - Circuit Schematic": ChibiRoboLocationData(256, "Bedroom - Past", 13, 9, 0x8037deec, 117),
+
     "Living Room - Drake Redcrest Suit": ChibiRoboLocationData(215, "Living Room", 0x07, 8, 0x803684b2, None),
     "Backyard - Frog Suit": ChibiRoboLocationData(216, "Backyard", 0x08, 8, 0x803684b6, None),
     "Chibi House - Trauma Suit": ChibiRoboLocationData(217, "Chibi House", 0x05, 8, 0x803684be, None),
@@ -253,4 +256,5 @@ location_groups = {
     "Jenny's Room": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Jenny's Room"],
     "Bedroom": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Bedroom"],
     "Mother Spider": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Mother Spider"],
+    "Bedroom - Past": [name for (name, data) in LOCATION_TABLE.items() if data[1] == "Bedroom - Past"],
 }

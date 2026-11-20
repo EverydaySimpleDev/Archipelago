@@ -8,11 +8,12 @@ squirter = "Squirter Chibi-Gear"
 charge_chip = "Charge Chip"
 copter = "Chibi-Copter Chibi-Gear"
 drake_suit = "Drake Redcrest Suit"
+radar = "Chibi-Radar Chibi-Gear"
 
 
 class FoyerAccessTest(ChibiRoboTestBase):
-    """Foyer is only reachable once the "basement key" gear (toothbrush, mug, Drake Redcrest Suit) is held,
-    in addition to the key for whichever door is used to get there."""
+    """Foyer is only reachable once the "basement key" gear (toothbrush, mug, Drake Redcrest Suit) and the
+    Foyer - Basement Key are held, in addition to the key for whichever door is used to get there."""
 
     def _can_reach_foyer(self, items) -> bool:
         state = CollectionState(self.multiworld)
@@ -20,20 +21,19 @@ class FoyerAccessTest(ChibiRoboTestBase):
             state.collect(self.world.create_item(name))
         return state.can_reach("Foyer", "Region", self.player)
 
+    core_gear = [tooth_brush, mug, drake_suit, "Foyer - Basement Key"]
+
     def test_missing_core_gear_blocks_foyer(self) -> None:
-        core_gear = [tooth_brush, mug, drake_suit]
-        for missing in core_gear:
+        for missing in self.core_gear:
             with self.subTest(missing=missing):
-                held = [item for item in core_gear if item != missing] + ["Living Room - Foyer Key"]
+                held = [item for item in self.core_gear if item != missing] + ["Living Room - Foyer Key"]
                 self.assertFalse(self._can_reach_foyer(held))
 
     def test_missing_key_blocks_foyer(self) -> None:
-        core_gear = [tooth_brush, mug, drake_suit]
-        self.assertFalse(self._can_reach_foyer(core_gear))
+        self.assertFalse(self._can_reach_foyer(self.core_gear))
 
     def test_core_gear_and_key_reaches_foyer(self) -> None:
-        core_gear = [tooth_brush, mug, drake_suit]
-        self.assertTrue(self._can_reach_foyer(core_gear + ["Living Room - Foyer Key"]))
+        self.assertTrue(self._can_reach_foyer(self.core_gear + ["Living Room - Foyer Key"]))
 
 
 class SecondFloorAccessTest(ChibiRoboTestBase):
@@ -124,7 +124,7 @@ class GoalAccessTest(ChibiRoboTestBase):
         "Foyer Teleport", drake_suit, "Frog Suit", "Trauma Suit", "Old Clothes",
         "Foyer - Basement Key", "Living Room - Backyard Key", "Living Room - Kitchen Key", "Living Room - Foyer Key",
         "Kitchen - Foyer Key", "Foyer - Jenny's Room Key", "Foyer - Bedroom Key", "Dinahs Teeth", "Passed-out Frog",
-        "Toy Receipt",
+        "Toy Receipt", "Circuit Schematic",
     ]
 
     def _can_reach_credits(self, items) -> bool:
@@ -150,7 +150,7 @@ class FrogRingStickerGoalAccessTest(ChibiRoboTestBase):
 
     options = {
         "victory_goal": "stickers",
-        "required_stickers": ["Frog Ring"],
+        "required_stickers": ["Frog Ring Sticker"],
     }
 
     frog_rings = [
@@ -216,3 +216,64 @@ class FoyerUpstairsCopterTest(ChibiRoboTestBase):
             with self.subTest(location=location):
                 held = [item for item in self.base_gear if item != "Foyer - Basement Key"] + [copter]
                 self.assertFalse(self._can_reach(location, held))
+
+
+ufo_color_codes = [f"UFO Color Code {n}" for n in range(1, 5)]
+schematic_location = "Bedroom (Past) - Circuit Schematic"
+
+
+class UfoAccessTest(ChibiRoboTestBase):
+    """Without the ufo_color_codes option: the UFO needs the Alien Ear Chip, Chibi-Radar and Chibi-Blaster, and the time
+    machine to the Bedroom (Past) also needs the Charge Chip. The color codes aren't in the pool."""
+
+    base_gear = ["Living Room - Backyard Key"]
+
+    def _state(self, items) -> CollectionState:
+        state = CollectionState(self.multiworld)
+        for name in self.base_gear + items:
+            state.collect(self.world.create_item(name))
+        return state
+
+    def test_ufo_needs_ear_chip_radar_and_blaster(self) -> None:
+        ufo_gear = ["Alien Ear Chip", radar, blaster]
+        self.assertTrue(self._state(ufo_gear).can_reach("UFO", "Region", self.player))
+        for missing in ufo_gear:
+            with self.subTest(missing=missing):
+                held = [item for item in ufo_gear if item != missing]
+                self.assertFalse(self._state(held).can_reach("UFO", "Region", self.player))
+
+    def test_schematic_needs_charge_chip(self) -> None:
+        location = self.multiworld.get_location(schematic_location, self.player)
+        self.assertTrue(location.can_reach(self._state(["Alien Ear Chip", radar, blaster, charge_chip])))
+        self.assertFalse(location.can_reach(self._state(["Alien Ear Chip", radar, blaster])))
+
+    def test_color_code_pool(self) -> None:
+        pool = {item.name for item in self.multiworld.itempool if item.player == self.player}
+        for name in ufo_color_codes:
+            with self.subTest(name=name):
+                self.assertNotIn(name, pool)
+        self.assertIn("Circuit Schematic", pool)
+
+
+class UfoColorCodesAccessTest(UfoAccessTest):
+    """With ufo_color_codes, all four codes are in the pool and each one is needed for the Bedroom (Past)."""
+
+    options = {"ufo_color_codes": 1}
+
+    def test_schematic_needs_charge_chip(self) -> None:
+        location = self.multiworld.get_location(schematic_location, self.player)
+        self.assertTrue(location.can_reach(self._state(["Alien Ear Chip", radar, blaster, charge_chip] + ufo_color_codes)))
+        self.assertFalse(location.can_reach(self._state(["Alien Ear Chip", radar, blaster] + ufo_color_codes)))
+
+    def test_every_color_code_is_required(self) -> None:
+        location = self.multiworld.get_location(schematic_location, self.player)
+        for missing in ufo_color_codes:
+            with self.subTest(missing=missing):
+                held = ["Alien Ear Chip", radar, blaster, charge_chip] + [code for code in ufo_color_codes if code != missing]
+                self.assertFalse(location.can_reach(self._state(held)))
+
+    def test_color_code_pool(self) -> None:
+        pool = [item.name for item in self.multiworld.itempool if item.player == self.player]
+        for name in ufo_color_codes:
+            with self.subTest(name=name):
+                self.assertEqual(pool.count(name), 1)
